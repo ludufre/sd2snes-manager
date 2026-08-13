@@ -1,0 +1,106 @@
+<div class="app">
+  <app-topbar
+    [settingsOn]="settingsOpen()"
+    (toggleSettings)="settingsOpen.set(!settingsOpen())"
+    (openFirmware)="firmwareOpen.set(true)"
+    (openThemes)="themesOpen.set(true)"
+    (openBios)="biosOpen.set(true)"
+    (openMigrate)="migrateOpen.set(true)"
+    (openChangelog)="openChangelog()" />
+
+  @if (!lib.connected()) {
+    @let scan = lib.scan();
+    <div class="empty">
+      <div
+        class="connect-card" [class.drag]="drag()"
+        (dragover)="$event.preventDefault(); drag.set(true)"
+        (dragleave)="drag.set(false)"
+        (drop)="onDrop($event)">
+        <div class="glyph"><app-icon name="sd" [size]="30" /></div>
+        <h1>{{ 'library.connectTitle' | transloco }}</h1>
+        <p>{{ 'library.connectDesc' | transloco }}</p>
+
+        @if (scan) {
+          <div class="scan-line">
+            <div class="label">{{ scan.label }}</div>
+            <div class="bar"><i [style.width.%]="scan.pct"></i></div>
+          </div>
+        } @else {
+          @if (lib.reconnectName(); as rc) {
+            <button class="btn primary reconnect" type="button" (click)="lib.reconnectLast()">
+              <app-icon name="folder" [size]="16" />{{ 'library.reconnect' | transloco: { name: rc } }}
+            </button>
+          }
+          <div class="cbtns">
+            <button class="btn" [class.primary]="!lib.reconnectName()" type="button" (click)="lib.connect()"><app-icon name="folder" [size]="16" />{{ 'library.selectFolder' | transloco }}</button>
+            <button class="btn" type="button" (click)="lib.demo()">{{ 'library.tryDemo' | transloco }}</button>
+          </div>
+        }
+
+        <div class="hint">
+          <span><app-icon name="check" [size]="12" />File System Access API</span>
+          <span><app-icon name="check" [size]="12" />{{ 'library.noServer' | transloco }}</span>
+          <span><app-icon name="check" [size]="12" />.sfc .smc .bs .gb .gbc .sgb</span>
+        </div>
+      </div>
+    </div>
+  } @else {
+    <app-statbar />
+    <app-toolbar />
+    <app-bulkbar />
+
+    <div class="content">
+      @if (lib.sidebarOpen()) { <app-sidebar /> }
+
+      <div
+        class="main" [class.import-hot]="importHot()"
+        (dragover)="onImportOver($event)"
+        (dragleave)="onImportLeave($event)"
+        (drop)="onImportDrop($event)">
+        <app-breadcrumb />
+        <div class="viewscroll scroll">
+          @if (isEmpty()) {
+            <div class="noresults">{{ (lib.flat() ? 'library.noMatch' : 'library.emptyFolder') | transloco }}</div>
+          } @else if (prefs.view() === 'gallery') {
+            <app-gallery-view />
+          } @else {
+            <app-list-view />
+          }
+        </div>
+        @if (importHot()) {
+          <div class="import-overlay">
+            <app-icon name="folderPlus" [size]="30" />
+            <span [innerHTML]="'library.dropToAdd' | transloco: { folder: lib.cwd() || lib.rootName() }"></span>
+          </div>
+        }
+      </div>
+
+      @if (splitLive()) { <app-detail-panel /> }
+    </div>
+  }
+
+  @if (showDrawer()) { <app-detail-panel [drawer]="true" /> }
+  @if (settingsOpen()) { <app-settings-pop (close)="settingsOpen.set(false)" (openChangelog)="openChangelog()" /> }
+  @if (changelogOpen()) { <app-changelog-dialog (close)="changelogOpen.set(false)" /> }
+  @if (firmwareOpen()) { <app-firmware-dialog (close)="firmwareOpen.set(false)" /> }
+  @if (themesOpen()) { <app-themes-dialog (close)="themesOpen.set(false)" /> }
+  @if (biosOpen()) { <app-bios-dialog (close)="biosOpen.set(false)" /> }
+  @if (migrateOpen()) { <app-migrate-dialog (close)="closeMigrate()" /> }
+  @if (lib.cheatEdit(); as g) { <app-cheat-editor [entry]="g" (close)="lib.closeCheatEditor()" /> }
+  @if (lib.infoEdit(); as g) { <app-info-editor [entry]="g" (close)="lib.closeInfoEditor()" /> }
+  @if (lib.guidesEdit(); as g) { <app-guides-editor [entry]="g" (close)="lib.closeGuidesEditor()" /> }
+  @if (lib.identifyEntry(); as g) { <app-identify-dialog [entry]="g" (close)="lib.closeIdentify()" /> }
+  @if (lib.picker(); as p) {
+    <app-move-picker [ids]="p.ids" [mode]="p.mode" (close)="lib.closePicker()" />
+  }
+  @if (lib.autoFill()) { <app-autofill-dialog /> }
+  <!-- Detailed progress for the running bulk op. Dismissible: the bulk bar keeps reporting and
+       reopens it. `progressOpen` is already "latched AND a phase is up", so it never hangs around
+       after the run. -->
+  @if (lib.progressOpen()) { <app-bulk-progress /> }
+  @if (lib.fillReport(); as errs) { <app-autofill-report [errors]="errs" (close)="lib.closeFillReport()" /> }
+  <app-context-menu />
+  <app-dialog />
+  <app-update-banner />
+  <app-toasts />
+</div>

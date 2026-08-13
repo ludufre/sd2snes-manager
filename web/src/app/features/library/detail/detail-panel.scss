@@ -1,0 +1,212 @@
+:host { display: contents; }
+
+.detail {
+  width: 480px; flex: 0 0 480px; border-left: 1px solid var(--line); background: var(--panel);
+  display: flex; flex-direction: column; min-height: 0; position: relative;
+}
+.detail.drawer {
+  position: fixed; top: 0; right: 0; height: 100vh; z-index: 40;
+  box-shadow: -24px 0 60px rgba(0, 0, 0, 0.5); animation: slidein 0.18s ease;
+}
+/* Split mode's hard floor was 224 (sidebar) + 480 (this) = 704px, at which point `.main` hit zero
+   and the list disappeared. Let the panel give first; below 860px `library.ts` switches to the
+   drawer entirely, so from there only the overlay width matters. */
+@media (max-width: 1040px) {
+  .detail { width: min(480px, 40vw); flex: 0 1 min(480px, 40vw); }
+  /* The drawer floats over the content, so it keeps its full width, it never squeezes the list. */
+  .detail.drawer { width: min(480px, 92vw); flex: 0 0 auto; }
+}
+@keyframes slidein { from { transform: translateX(40px); opacity: 0; } }
+.detail-scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); z-index: 39; animation: fade 0.18s ease; }
+@keyframes fade { from { opacity: 0; } }
+
+.close { position: absolute; top: 14px; right: 14px; z-index: 1; }
+
+.dhead { padding: 18px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 11px; }
+.dhead .ht { min-width: 0; }
+.dhead .ht h2 { margin: 0 0 4px; font-size: 17px; letter-spacing: -0.3px; line-height: 1.2; overflow-wrap: anywhere; }
+.dhead .ht .sys { font-size: 12px; color: var(--tx-mid); }
+.hbadges { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* friendly status badges (replace the technical cover/cheat/fmv badges) */
+.fbadge {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600;
+  padding: 3px 8px; border-radius: var(--radius-pill);
+  border: 1px dashed var(--line); color: var(--tx-low); background: transparent;
+}
+.fbadge.ok {
+  color: #7fe0a3; background: var(--ok-soft); border-style: solid;
+  border-color: color-mix(in oklab, var(--ok) 35%, transparent);
+}
+.fbadge.neutral { color: var(--tx-mid); background: var(--panel-2); border-style: solid; border-color: var(--line); }
+
+/* one-click "fill everything automatically" banner */
+.autobar {
+  display: flex; gap: 12px; align-items: center; width: 100%; text-align: left;
+  margin: 12px 0 4px; padding: 13px 14px; border-radius: 12px;
+  background: var(--accent-soft); border: 1px solid var(--accent-line); color: var(--tx); cursor: pointer; transition: 0.12s;
+}
+.autobar:hover { background: color-mix(in oklab, var(--accent) 22%, transparent); }
+.autobar:active { transform: translateY(1px); }
+.autobar:disabled { opacity: 0.55; cursor: default; }
+.autobar:disabled:active { transform: none; }
+.autobar .ic { width: 34px; height: 34px; border-radius: 9px; flex: none; display: grid; place-items: center; background: var(--accent); color: #0d0a1f; }
+.autobar .txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.autobar .txt b { font-size: 14px; font-weight: 600; }
+.autobar .txt > span { font-size: 12px; color: var(--tx-mid); }
+
+/* media showcase: cover (left) + snapshot & animated preview (right).
+   The cover is a FIXED 3:4 box (the US/NA cover ratio) so the snapshot & preview tiles keep a
+   constant size whatever the cover is: US covers fill it; narrower (JP) covers get black bars on
+   the sides (object-fit: contain). The fixed media height reserves every slot (no layout jump). */
+.showcase { --mh: 300px; display: flex; gap: 12px; padding: 16px 0 4px; align-items: flex-start; }
+.showcase .sc-side { flex: 1 1 auto; min-width: 0; height: var(--mh); display: flex; flex-direction: column; gap: 10px; }
+.showcase .sc-side .media-tile { flex: 1 1 0; min-height: 0; }
+.media-tile.cover { flex: 0 0 auto; height: var(--mh); aspect-ratio: 3 / 4; }
+.media-tile.cover .cover-img,
+.media-tile.cover > app-cover-art {
+  width: 100%; height: 100%; object-fit: contain;
+  image-rendering: pixelated; display: block;
+}
+.media-tile.cover .tile-empty { width: 100%; height: 100%; aspect-ratio: auto; }
+
+.media-tile {
+  position: relative; border-radius: 10px; overflow: hidden;
+  background: #0c0e10; display: flex; flex-direction: column;
+}
+/* filled tiles get a subtle frame (cover included); empty tiles keep the dashed add-hint instead */
+.media-tile:not(:has(.tile-empty)) { border: 1px solid var(--line-soft); }
+/* any tile image: fill the reserved box, centered, never cropped */
+.media-tile .tile-img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: contain; object-position: center; image-rendering: pixelated; background: #0c0e10;
+}
+.media-tile app-cover-art { display: block; }
+.media-tile app-fmv-player { position: absolute; inset: 0; }
+
+/* "Buscando…" overlay shown while this tile's asset is being generated */
+.tile-busy {
+  position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 9px;
+  background: rgba(10, 12, 14, 0.72); backdrop-filter: blur(1px);
+  font-size: 12px; color: var(--tx); letter-spacing: 0.3px;
+}
+.tile-busy .spin {
+  width: 18px; height: 18px; border: 2px solid var(--line); border-top-color: var(--accent);
+  border-radius: 50%; animation: tilespin 0.7s linear infinite;
+}
+@keyframes tilespin { to { transform: rotate(360deg); } }
+
+/* small caption chip on filled tiles */
+.tile-cap {
+  position: absolute; top: 6px; left: 6px; z-index: 2;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.4px; color: #fff;
+  background: rgba(0, 0, 0, 0.55); padding: 2px 7px; border-radius: 5px; pointer-events: none;
+}
+
+/* replace/delete controls, only on hover over an existing media */
+.tile-actions {
+  position: absolute; top: 6px; right: 6px; z-index: 3; display: flex; gap: 5px;
+  opacity: 0; transform: translateY(-2px); transition: 0.12s; pointer-events: none;
+}
+.media-tile:hover .tile-actions, .media-tile:focus-within .tile-actions { opacity: 1; transform: none; pointer-events: auto; }
+.ta {
+  width: 28px; height: 28px; display: grid; place-items: center; border-radius: 7px;
+  background: rgba(12, 14, 16, 0.78); border: 1px solid rgba(255, 255, 255, 0.14); color: #fff; backdrop-filter: blur(3px);
+}
+.ta:hover { background: rgba(12, 14, 16, 0.95); border-color: var(--tx-low); }
+.ta.danger:hover { color: var(--danger); border-color: color-mix(in oklab, var(--danger) 50%, transparent); }
+.ta:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* empty media tile: visible add affordance (replace is hover-only, adding is not) */
+.tile-empty {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px;
+  padding: 16px 10px; text-align: center; color: var(--tx-low);
+  border: 1px dashed var(--line); border-radius: 10px; background: var(--panel);
+}
+/* empty cover fills the fixed-aspect tile (flex:1), same footprint as the filled cover */
+.cover .tile-empty { aspect-ratio: auto; }
+.tile-empty > span { font-size: 12px; }
+.tile-add { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-top: 2px; }
+
+/* collapsible "remove" + "technical details" zones */
+.zone { padding: 14px 0; border-bottom: 1px solid var(--line-soft); }
+.zone:last-child { border-bottom: none; }
+.zone > summary {
+  display: flex; align-items: center; gap: 9px; cursor: pointer; list-style: none;
+  font-size: 13px; font-weight: 500; color: var(--tx-mid); user-select: none;
+}
+.zone > summary::-webkit-details-marker { display: none; }
+.zone > summary:hover { color: var(--tx); }
+.zone > summary .chev { margin-left: auto; color: var(--tx-low); transition: transform 0.15s; }
+.zone[open] > summary .chev { transform: rotate(90deg); }
+.zone.danger > summary { color: var(--danger); }
+.zone.danger > summary:hover { color: var(--danger); filter: brightness(1.12); }
+.zbody { margin-top: 12px; }
+.zbody .kv .k { color: var(--tx-mid); }
+
+.dbody { padding: 4px 18px 24px; overflow: auto; flex: 1; min-height: 0; }
+.dsection { padding: 18px 0; border-bottom: 1px solid var(--line-soft); }
+.dsection:last-child { border-bottom: none; }
+.sh { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 10px; min-width: 0; }
+.sh h3 { margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: 1.4px; color: var(--tx-low); font-weight: 600; white-space: nowrap; }
+.sh-actions { display: flex; align-items: center; gap: 12px; }
+.sh-actions .gdblink {
+  display: inline-flex; align-items: center; gap: 4px; color: var(--accent); text-decoration: none;
+  font-size: 12px; white-space: nowrap;
+}
+.sh-actions .gdblink:hover { text-decoration: underline; }
+.sh-actions .gdblink .ext { opacity: 0.8; }
+.path-note { font-family: var(--mono); font-size: 11px; color: var(--tx-low); }
+
+.kv { display: flex; justify-content: space-between; gap: 14px; padding: 5px 0; font-size: 13px; }
+.kv .k { color: var(--tx-mid); white-space: nowrap; }
+.kv .v { font-family: var(--mono); color: var(--tx); white-space: nowrap; text-align: right; }
+.kv .v.ok { color: var(--ok); }
+.kv .v .gdblink { color: var(--accent); text-decoration: none; display: inline-flex; align-items: center; gap: 3px; }
+.kv .v .gdblink:hover { text-decoration: underline; }
+.kv .v .gdblink .ext { color: var(--accent); }
+.kv .v.ell { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+
+.dactions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+
+.btn.xs { font-size: 11px; padding: 4px 7px; gap: 4px; }
+.sh .btn.xs { margin: -2px 0; }
+
+/* metadata read-only summary (editing happens in the InfoEditor modal) */
+.info-sum .kv { align-items: baseline; }
+.info-sum .kv .v { font-family: var(--sans); white-space: normal; text-align: right; }
+.desc { margin: 10px 0 0; font-size: 13px; color: var(--tx-mid); line-height: 1.5; }
+
+/* cheats list with inline toggles (editing the codes happens in the CheatEditor modal) */
+.cheatrow {
+  display: flex; align-items: center; gap: 10px; padding: 9px 0;
+  border-bottom: 1px solid var(--line-soft); font-size: 13px;
+}
+.cheatrow:last-of-type { border-bottom: none; }
+.cheatrow .nm { flex: 1; min-width: 0; }
+.cheatrow.off .nm { color: var(--tx-low); }
+
+.muted-p { color: var(--tx-mid); margin: 0 0 4px; font-size: 13px; }
+.low-p { color: var(--tx-low); margin: 0; font-size: 13px; }
+.mono { font-family: var(--mono); }
+
+.noresults { color: var(--tx-low); font-family: var(--mono); font-size: 13px; }
+.noresults.pad { flex: 1; display: grid; place-items: center; padding: 30px; text-align: center; }
+
+/* report-on-GameDB disclosure */
+.report { margin-top: 12px; }
+.report > summary {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer; list-style: none;
+  font-size: 12.5px; color: var(--tx-mid); padding: 6px 0; user-select: none;
+}
+.report > summary::-webkit-details-marker { display: none; }
+.report > summary:hover { color: var(--accent); }
+.report > summary .ext { color: var(--tx-low); margin-left: 1px; }
+.report[open] > summary { color: var(--accent); }
+.report .rmenu { display: flex; flex-direction: column; gap: 2px; margin: 4px 0 2px 4px; }
+.report .rmenu a {
+  display: flex; align-items: center; gap: 9px; padding: 7px 10px; border-radius: 7px;
+  font-size: 13px; color: var(--tx-mid); text-decoration: none;
+}
+.report .rmenu a:hover { background: var(--elevated); color: var(--accent); }

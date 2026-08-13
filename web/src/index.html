@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>sd2snes+ Manager</title>
+  <base href="/">
+
+  <!-- Google Analytics (GA4) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-L5ZMHGVN3E"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+    // Skip localhost so dev traffic doesn't pollute analytics.
+    if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+      // Disable Google Signals so GA4 doesn't POST to www.google.com/g/collect, that host isn't in
+      // our CSP connect-src and was throwing CSP-violation errors in the console.
+      gtag('config', 'G-L5ZMHGVN3E', { allow_google_signals: false, allow_ad_personalization_signals: false });
+    }
+  </script>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Manage SD2SNES / FXPak Pro box-art, game-info and cheats in the browser. No uploads, files stay on your machine.">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#131619">
+  <!-- ?v=2 busts the stale Cloudflare/browser cache that still serves the old Angular favicon.ico
+       (cached Jun 19 with max-age=30d before the brand "+" icon replaced it). Bump on icon changes. -->
+  <link rel="icon" href="favicon.ico?v=2" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png?v=2">
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png?v=2">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <app-root></app-root>
+</body>
+</html>

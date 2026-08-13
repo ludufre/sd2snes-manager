@@ -1,0 +1,171 @@
+:host { display: block; }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0 20px;
+  height: 60px;
+  flex: 0 0 60px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--panel) 0%, var(--bg) 100%);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.brand .logo {
+  height: 26px;
+  width: auto;
+  display: block;
+}
+.brand .name {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.3px;
+  color: var(--tx);
+  white-space: nowrap;
+}
+.brand .ver {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--tx-low);
+  white-space: nowrap;
+  padding: 2px 7px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  cursor: default;
+  align-self: center;
+}
+/* Sits right after the version, reading as its caption. Same pill shape, but accent-tinted so it
+   reads as a control and not as a second badge. */
+.brand .chlog {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--mono);
+  font-size: 10px;
+  white-space: nowrap;
+  padding: 2px 8px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  align-self: center;
+  transition: filter 0.12s;
+}
+.brand .chlog:hover { filter: brightness(1.25); }
+
+.spacer { flex: 1; }
+
+.bios.warn { color: var(--amber, #e2b341); }
+.bios .biosdot {
+  display: inline-grid; place-items: center; min-width: 16px; height: 16px; padding: 0 4px;
+  border-radius: 99px; background: var(--amber, #e2b341); color: #1a1205;
+  font-family: var(--mono); font-size: 10px; font-weight: 700; margin-left: 2px;
+}
+
+.lang {
+  display: inline-flex;
+  align-items: stretch;
+  /* Must not shrink: this box is `overflow: hidden`, so flex-shrink doesn't compress it, it
+     silently amputates the last languages (FR was disappearing at 860px). */
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+  background: var(--panel);
+}
+.lang button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 5px 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--tx-low);
+  transition: color 0.12s, background 0.12s;
+}
+.lang button + button { border-left: 1px solid var(--line); }
+.lang button:hover { color: var(--tx-mid); }
+.lang button.is-active {
+  color: #fff;
+  background: var(--accent);
+}
+
+.conn {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  white-space: nowrap;
+  /* The one item in the bar allowed to absorb the slack. Everything else is a control. Its own
+     children are nowrap, so without overflow:hidden the text escapes the box's border and lands on
+     top of the next button instead of being clipped. */
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--tx-mid);
+  padding: 6px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--panel);
+}
+/* Firmware on the card. Amber only when it is ABSENT. That card will not boot the console at
+   all, which is a different kind of fact from "this is version X". */
+.conn .fw {
+  cursor: default;
+}
+.conn .fw.warn {
+  color: var(--warn, #e2b341);
+}
+.conn .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 8px var(--ok);
+}
+.conn .path { color: var(--tx); overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.conn .sep { color: var(--tx-low); }
+.conn .dot { flex: 0 0 auto; }
+/* Hidden by default, shown only where there is genuinely room (see the media query below). Both
+   facts are duplicated in plain sight, the game count in the statbar, the firmware in its dialog.
+   so this is the cheapest thing in the bar to give up, and giving it up monotonically (rather than
+   flickering back at some middle width) keeps resizing predictable. */
+.conn .extra { display: none; align-items: center; gap: 9px; flex: 0 0 auto; }
+.conn.off .dot { background: var(--tx-low); box-shadow: none; }
+
+/* ---------- responsive ----------
+   One flex row where nothing but `.spacer` could ever give: every `.btn` is `white-space: nowrap`
+   (see _buttons.scss) so its automatic minimum size is its full label, and `body { overflow: hidden }`
+   means the overflow is CLIPPED, not scrollable, the language picker and the settings button used to
+   become physically unreachable. Shedding the labels takes the bar's floor from ~1370px to ~600px,
+   with `title` carrying the meaning. */
+@media (max-width: 1280px) {
+  .topbar { gap: 10px; padding: 0 14px; }
+  .topbar .btn .lbl { display: none; }
+  .topbar .btn.sm { padding: 7px 9px; }
+}
+/* Shedding order, cheapest first: the card's game count and firmware, then the build hash, then the
+   wordmark. The language picker and the settings button are last. They have nowhere else to live.
+   1520px is where the full-label buttons stop leaving room for the extras. */
+@media (min-width: 1520px) {
+  .conn .extra { display: inline-flex; }
+}
+@media (max-width: 1100px) {
+  .brand .ver { display: none; }
+}
+@media (max-width: 900px) {
+  .topbar { gap: 10px; padding: 0 12px; }
+  .brand .name { display: none; }
+}

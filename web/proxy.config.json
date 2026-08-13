@@ -1,0 +1,17 @@
+{
+  "/api": {
+    "target": "https://sd2snes.ludufre.com",
+    "secure": true,
+    "changeOrigin": true
+  },
+  "/cheats": {
+    "target": "https://sd2snes.ludufre.com",
+    "secure": true,
+    "changeOrigin": true
+  },
+  "/gallery": {
+    "target": "https://sd2snes.ludufre.com",
+    "secure": true,
+    "changeOrigin": true
+  }
+}

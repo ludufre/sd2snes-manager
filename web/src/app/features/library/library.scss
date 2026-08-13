@@ -1,0 +1,51 @@
+:host { display: block; height: 100vh; }
+
+.app { display: flex; flex-direction: column; height: 100vh; }
+
+/* ---------- content area ---------- */
+/* position: relative anchors the sidebar when it becomes an overlay under 860px (see sidebar.ts). */
+.content { flex: 1; min-height: 0; display: flex; position: relative; }
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; position: relative; }
+.main.import-hot { outline: 2px dashed var(--accent); outline-offset: -6px; }
+.import-overlay {
+  position: absolute; inset: 0; z-index: 30; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+  color: var(--accent); font-size: 14px; font-weight: 600; backdrop-filter: blur(1px);
+}
+.import-overlay b { color: var(--tx); }
+.viewscroll { overflow: auto; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.noresults { flex: 1; display: grid; place-items: center; color: var(--tx-low); font-family: var(--mono); font-size: 13px; }
+
+/* ---------- connect / empty state ---------- */
+.empty { flex: 1; display: grid; place-items: center; padding: 40px; }
+.connect-card {
+  width: min(560px, 92vw); text-align: center;
+  border: 1.5px dashed var(--line); border-radius: 16px;
+  padding: 54px 40px;
+  background:
+    radial-gradient(120% 120% at 50% 0%, color-mix(in oklab, var(--accent) 7%, transparent), transparent 60%),
+    var(--panel);
+}
+.connect-card.drag { border-color: var(--accent); background: var(--accent-soft); }
+.connect-card .glyph {
+  width: 64px; height: 64px; margin: 0 auto 22px; border-radius: 16px;
+  display: grid; place-items: center; background: var(--accent-soft); color: var(--accent);
+  border: 1px solid var(--accent-line);
+}
+.connect-card h1 { font-size: 23px; margin: 0 0 10px; letter-spacing: -0.4px; }
+.connect-card p { color: var(--tx-mid); margin: 0 auto 26px; max-width: 40ch; }
+.cbtns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.cbtns .btn { font-size: 14px; padding: 11px 18px; }
+.btn.reconnect { font-size: 14px; padding: 11px 18px; margin: 0 auto 12px; display: inline-flex; align-items: center; gap: 8px; }
+.connect-card .hint {
+  margin-top: 24px; font-family: var(--mono); font-size: 11px; color: var(--tx-low);
+  display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;
+}
+.connect-card .hint span { display: inline-flex; align-items: center; gap: 5px; }
+
+/* scanning */
+.scan-line { margin-top: 26px; }
+.scan-line .label { font-family: var(--mono); font-size: 12px; color: var(--tx-mid); margin-bottom: 10px; }
+.bar { height: 6px; background: var(--elevated); border-radius: 99px; overflow: hidden; }
+.bar > i { display: block; height: 100%; background: var(--accent); border-radius: 99px; transition: width 0.25s; }

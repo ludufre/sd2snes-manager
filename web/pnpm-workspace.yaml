@@ -1,0 +1,11 @@
+# pnpm 11 refuses to install until every dependency with a build script is declared here. An
+# undeclared one exits non-zero, which under build.sh's `set -e` aborts the whole build/deploy.
+#
+# All four ship prebuilt binaries as optional platform packages, so they are approved rather than
+# suppressed: suppressing them makes the Angular CLI fall back to its slower paths (lmdb backs the
+# persistent disk cache, @parcel/watcher backs `ng serve` watching).
+allowBuilds:
+  '@parcel/watcher': true
+  esbuild: true
+  lmdb: true
+  msgpackr-extract: true

@@ -1,0 +1,773 @@
+# sd2snes+ Manager changelog
+
+Every released version, newest first.
+
+Some releases were published together and reach the repository as a single commit. When that
+happens, the entry says which versions it covers.
+
+## 1.22.4 - 2026-08-13
+
+### Changed
+
+- Internal plumbing optimisations. Nothing changes on screen or on the card.
+
+## 1.22.3 - 2026-08-12
+
+### Fixed
+
+- **The "Organizar o cartão" dialog could show the previous card's files.** It draws the plan that
+  was already computed instead of walking the card again, and nothing ever discarded that plan, not
+  even ejecting. Swap cards (or folders) and open the dialog before the new scan finishes, which
+  takes around 20 s on a full card, and you got the old list. For the same reason the last
+  organise's result could reopen the dialog by itself on the next card. Everything the card scans
+  produce (firmware version, layout, counts, plan, result, BIOS and space used) is now cleared both
+  on eject and when the Manager is pointed at another folder.
+
+## 1.22.2 - 2026-08-12
+
+### Fixed
+
+- **Completar/Atualizar installed ONE manual per game; only Substituir brought the rest.** To
+  auto-fill, "has a manual" meant the slot 0 file, and slot 0 is one document out of as many as five
+  (Super Mario World has four, Zelda ALTTP five). Slot 0 is written by the worker; the extras come
+  from a second pass, which asks again which games still need a manual, after the worker has already
+  marked the category as present. The answer was "none", the second pass got an empty list, and the
+  card ended up with a single manual while the dialog promised (and estimated) the whole 33 MB set.
+  Substituir never went through that question, which is why it was the only mode that worked. The
+  category is now only complete when the entire served set is on the card, and who auto-fill will
+  serve is decided once, before anything is written.
+- **The card claimed four manuals were up to date while holding one.** The `sync_man` receipt covers
+  the whole set, and it was stamped as soon as slot 0 landed. Besides lying, that left the problem
+  unrepairable: the receipt then matched the server's, so Atualizar read the category as current and
+  never offered the missing ones again. The stamp now comes from the pass that installs the extras,
+  and a card already left in that state is detected and completed on the next Completar/Atualizar,
+  without downgrading the large manual that is already there.
+
+## 1.22.1 - 2026-08-10
+
+### Fixed
+
+- **Parts of the screen stayed in Portuguese when you switched language.** Eight pieces of text were
+  built with a translate() call inside a cached computation. That call is not reactive, so the
+  computation had nothing to depend on and never ran again. The text froze in whichever language was
+  active the first time it was read, while everything around it switched correctly. That is what made
+  it look random. Affected the firmware badge and its tooltip, the card name, the auto-fill plan
+  summary, the detail panel's info rows, the empty-cover label, the preview player tooltip, and the
+  app's own version chip. All eight now follow the active language, from one shared signal instead of
+  a patch repeated per file.
+
+### Changed
+
+- **"Which firmware does this card use?" now says what was actually detected, in two sentences.** When
+  the official firmware is found it is named with its version, and the question explains itself in one
+  line. You may be about to flash ours over USB, which is why we still ask. When the version really
+  cannot be read, it says so. Both were three paragraphs; the title already asks the question and the
+  buttons already give the options.
+
+## 1.22.0 - 2026-08-10
+
+### Added
+
+- **A card running the official firmware is now named, with its version.** It used to read "fw ?".
+  The stock sd2snes/FXPak firmware stamps the very same version marker this fork does, just without
+  the fork part, `fw ver.: 1.11.2` against `1.11.2-br-2.15b7`, and only the second form was
+  recognised, so a version sitting in plain text inside the image was thrown away. The top bar now
+  reads "official firmware 1.11.2", and says in the tooltip that this build has none of the fork's
+  features, so the console will ignore covers, previews and manuals.
+- The version is also read from `firmware.img` and `firmware.stm`, not only `firmware.im3`. A card
+  with a stock install carries no `.im3` at all and used to report "no firmware", worse than "fw ?".
+  The fork's own image is still preferred when both are present, since that is the one that runs.
+
+### Changed
+
+- Recognising the official firmware deliberately does NOT decide the folder layout. It proves what is
+  ON the card, not what the console will RUN. This fork is routinely flashed over USB with the stock
+  image left in place, so your answer to "which firmware does this card use?" still wins, and a card
+  already organized keeps being organized.
+
+## 1.21.9 - 2026-08-10
+
+### Fixed
+
+- **A new cover now reaches every copy of the game, not just the one that wrote it.** The cover is the
+  only asset that lives beside the ROM rather than in the shared folder, so each copy has its own and
+  the console reads the one in the folder you are browsing. Since only one copy writes, the fresh art
+  was landing in that copy's folder alone, and it could easily be the spare inside `bkup/`, leaving
+  the game you actually play showing the old art. A cover that lands is now mirrored to every copy of
+  that filename. Best-effort: a read-only folder is skipped, never failing the run.
+- **The copy that speaks for a shared info file is now the one you play.** The tie-break was the
+  internal id, which is arbitrary. That is how a backup buried in `bkup/` came to own the info file,
+  and with it the title and description the console shows for every copy. Preference now goes to the
+  shallowest folder, so the game wins over its spare and over regional builds tucked into subfolders.
+  What the info file itself records still outranks this.
+- One-time effect on first run after updating: changing that preference re-elects the owner, so a few
+  games record themselves once more. It settles immediately and does not come back.
+
+## 1.21.8 - 2026-08-10
+
+### Changed
+
+- The rule that decides which copy speaks for a shared info file is now a pure function with tests,
+  like the rest of the slot policy. It was the fix for the endless re-offering and it had no test at
+  all. A later change could have quietly brought the problem back. Nine cases pinned, including the
+  one that matters most: the same library must elect the same owner whatever order it is read in, or
+  the card never settles.
+
+## 1.21.7 - 2026-08-10
+
+### Fixed
+
+- **The same fix, for copies that share a filename inside one collection.** 1.21.6 let the info file
+  name its owner, but it records only the FILENAME, which is exactly what those copies have in common,
+  so `Contra SNES/Contra SNES.sfc` and the USA and JPN builds beside it in `sfc choice/` all claimed to
+  be the owner and went right on taking turns. The name is now a tie-break, not the answer: a copy the
+  info file does not name yields to one it does, and among equals the lowest id wins, the same every
+  run, so the card settles instead of oscillating. Verified end to end on a 6449-game card: the pending
+  work went 33 · 33 · 26 · 37 · 15 · 11 → 1 · 1 · 0 · 2 · 1 · 0, one fill of 88 KB cleared what was
+  genuinely outdated, and after a page reload the dialog reports nothing to do, the check that had
+  failed every time until now.
+- Known limit: the cover is the one asset that lives beside the ROM rather than in the shared folder,
+  so only the elected copy's cover is refreshed by "Atualizar". A copy with no cover at all still gets
+  one from "Completar".
+
+## 1.21.6 - 2026-08-10
+
+### Fixed
+
+- **Auto-fill kept re-offering the same games after every run, forever.** Everything on the card is
+  addressed by the ROM's FILENAME, and only Game Boy gets a namespace of its own, the console builds
+  the same path. So a SNES release and its Satellaview counterpart that happen to share a filename
+  (`C/Chou Aniki (Japan).sfc` and `_BSX/Chou Aniki (Japan).bs`) are two different games sharing ONE
+  info file and ONE set of covers, snapshots and previews. Judged one game at a time, each read the
+  version the other had recorded as "outdated": a run stamped one, the other went stale, the next run
+  stamped it back. On a card that was already correct. The info file names its owner, and only that
+  copy can now be out of date, for the others those files simply are not theirs to judge. On a real
+  6449-game card this took the pending work from 33 covers, 33 snapshots, 26 previews, 37 info files,
+  15 cheats and 11 guides (84 MB every run) down to 1 · 1 · 0 · 4 · 1 · 0 (59 KB).
+- This does not un-share the files: the console shows one of them too. Holding both would need the
+  firmware to give those ROMs a namespace of their own, the way `sgb/` works for Game Boy.
+
+## 1.21.5 - 2026-08-10
+
+### Fixed
+
+- **A game whose guides were already all on the card never recorded them, so it was offered again on
+  every run.** Auto-fill only stamped the "these are the documents I installed" token when it actually
+  wrote bytes. A game that needed nothing, everything already in the right slot, which is the normal
+  outcome once a run has succeeded, and constant when several copies of one filename share the same
+  files, wrote nothing, recorded nothing, and came back as "outdated" forever. Finishing with no
+  failure now records the set, whether or not anything had to be downloaded.
+- A retry that found the main guide already in place was reported as a failed download and had its
+  record cleared. Only a real failure is reported now.
+
+## 1.21.4 - 2026-08-10
+
+### Fixed
+
+- **Copies of the same game no longer fight over one set of guide slots.** A `.man` is addressed by the
+  ROM's filename, not by its folder, so the same game under a control folder, its letter folder and five
+  patch folders all share ONE set of eight slots and one info file. Auto-fill still planned per copy:
+  what a sibling had installed seconds earlier was not among the documents THAT copy was serving, so it
+  read as an unexplained leftover, its own extras spilled into the next free slots, and enough copies
+  filled the card and reported "no free guide slot" for a library with no duplicate documents at all.
+  Manuals are now installed once per set of files, by the copy offering the most documents. The console
+  resolves the manual by filename too, so those copies could only ever show the same documents anyway.
+- A card already damaged this way repairs itself on the next run: the surplus copies are byte-identical
+  to documents being served, which is the strongest proof there is, so one of each is kept and the rest
+  are removed, no free slot required, nothing left for you to judge.
+
+## 1.21.3 - 2026-08-10
+
+### Fixed
+
+- **Card repair no longer depends on a receipt the app itself could erase.** Since 1.21.2 a guide slot
+  is only reclaimed when the game's info file proves those bytes came from auto-fill, but three paths
+  rewrote that file without carrying the proof forward: saving a game's info in the editor, and a run
+  cancelled (or stopped by a read-only card) before it could restore them. The manuals stayed on the
+  card with nothing left to vouch for them, so the next re-encode had no identity to anchor to and the
+  game reported "no free guide slot" for good. Every rewrite now carries the receipts through.
+- **A guide you added by hand is no longer adopted when its bytes happen to match the official one.**
+  The `.man` encoder here is a byte-exact port of the server's, so the same PDF can produce the same
+  file. Matching bytes used to hand your slot over to that document, and the next re-encode would then
+  write straight over it. Your slot is skipped now, whatever its contents.
+- **"No free guide slot" finally explains itself.** It was the only outcome in the report with no
+  guidance attached; it now says why nothing was overwritten and how to free a slot from the Guides
+  dialog.
+
+## 1.21.2 - 2026-08-10
+
+### Fixed
+
+- **A guide you added by hand could be written over while repairing a card.** 1.21.1 learned to
+  recognise a guide slot by the document type in its `.man` header, but "Manual/Guide/Map/Insert/
+  Other" are exactly the types the app offers when **you** add a guide, so on a card that predates the
+  slot map (every card until now) your own scanned map looked just like the official one. Adoption now
+  demands the same proof a deletion does: the game's own info file must record those exact bytes as
+  something auto-fill installed. Your files carry no such receipt, so they are never rewritten, they
+  are listed as leftovers for you to judge. The card repair is unaffected: every card auto-fill has
+  filled carries the receipt, and it survived the server-side re-encode.
+
+## 1.21.1 - 2026-08-10
+
+### Fixed
+
+- **The card repair now works on cards that never had the slot map**, which is every card until this
+  release. 1.21.0 recorded which document sits in which guide slot, but a card only gets that record
+  after a fill runs, so the very first fill still fell back to matching raw bytes, still failed to
+  recognise the documents it had installed itself before the GameDB re-encoded them, and still filled
+  the free slots with second copies. The fill now reads the document type straight from each `.man`
+  header, the same information the guides dialog shows, so an updated map is written **over the old
+  map**, a guide over the old guide, and so on: no duplicates, no "no free guide slot". A guide **you**
+  added is marked as yours from now on and is never a candidate. Leftovers from the earlier bug are
+  listed in the report and left untouched (they can be removed one click at a time in the guides
+  dialog), nothing is deleted without proof.
+
+## 1.21.0 - 2026-08-10
+
+### Fixed
+
+- **"Sem slot de guia livre" on games that have no duplicate guides at all.** Official manuals had no
+  identity on the card: the primary lives at a fixed slot, but the extras were parked in "the first
+  free slot" and recognised only by an exact byte match. When the GameDB re-encoded every `.man` on
+  2026-08-08, those bytes all changed, so each extra looked brand new, got a fresh slot, and the
+  card filled up with older copies of documents it already had until no slot was left. (Zelda: A Link
+  to the Past and Super Metroid, for instance, ship five distinct documents each, manual, guide,
+  map, insert, other.)
+  The fill now records which document sits in which slot (in the game's info file, under a key the
+  console ignores), so a new version of the map is written **over the map**, not into a new slot. The
+  leftovers the bug already wrote are cleaned up in the same pass, and the card is repaired in one
+  run.
+  Deleting or overwriting a `.man` now demands proof that the exact bytes are the fill's own, one of
+  the documents the GameDB serves right now, or recorded in the game's own sync token, plus a
+  surviving copy of that document. Without proof, the file is left alone: a guide **you** added is
+  never touched, not even a byte-identical duplicate of one. Everything removed is named in the
+  post-run report and its CSV.
+
+## 1.20.1 - 2026-08-09
+
+### Fixed
+
+- **Auto-fill no longer re-checks the whole card to write a handful of files.** Picking
+  "Atualizar"/"Substituir" made the run re-ask the GameDB about **every** game in scope, on a
+  6,392-game card asked for 3 cheats, that meant thousands of card reads and lookups before the
+  first byte was written. It now only re-checks the games the chosen categories can actually touch
+  (the ones with the asset on the card or a source for it), and reuses the checksums the analysis
+  just computed instead of re-reading every ROM. Same card, same request: 6,392 games → 1,220, and
+  zero re-reads. The phase is also labelled for what it is ("Verificando atualizações no GameDB")
+  instead of "Identificando".
+
+## 1.20.0 - 2026-08-09
+
+### Added
+
+- **A progress window for bulk runs.** Confirming an auto-fill now opens a window with the phase,
+  the bar, the counter, the throughput and the ETA, all in one place. **Closing it does not stop
+  anything**. The run keeps going and the progress bar keeps reporting it, and clicking that bar
+  brings the window back. It closes itself when the run ends.
+
+## 1.19.1 - 2026-08-09
+
+### Changed
+
+- **Auto-fill never converts video anymore.** Previews come exclusively from the GameDB's ready-made
+  clip: when a game's clip isn't published yet, the game is skipped and listed in the post-run
+  report ("Preview not ready on GameDB yet") instead of spending minutes re-encoding the raw video
+  in the browser. The report now also tells a failed download ("try again") apart from a clip the
+  GameDB simply doesn't have yet. Converting a video **you** provide, or pressing "Generate .fmv"
+  on a specific game. Still works exactly as before; it's only the bulk fill that never does it
+  on its own. (Server side, every published video now ships a ready package, so in practice the
+  skip list should stay empty.)
+
+### Fixed
+
+- A snapshot could silently vanish from the console's game screen: three different writers of the
+  game's info file disagreed about the `fmv` flag (which unlocks BOTH the preview clip and the
+  static snapshot on the console), and a fill that wrote a snapshot could immediately erase the
+  very flag it needed. All three now share one rule, verified against the firmware source.
+- Removed a dead bulk-download path (~140 lines) and 22 unused translation keys across all six
+  languages, the initial bundle got ~4 KB lighter.
+
+## 1.19.0 - 2026-08-09
+
+### Changed
+
+- **Bulk fills keep the SD card busy instead of the network.** Downloading and writing are now two
+  decoupled stages inside the fill worker: a bounded prefetcher stays up to 4 games (~96 MB) ahead,
+  so when the card finishes writing one file the next package is already downloaded and unpacked.
+  Write concurrency is untouched. It was already at the card's measured limit.
+- **Analysis keeps full speed in a background tab.** Checksums moved to their own worker thread
+  (which browsers don't throttle) and stream the ROM instead of loading it whole, flat memory, no
+  UI stutter, and the identification lookups now overlap the checksumming with up to two requests
+  in flight. Cancelling stops immediately instead of waiting out the request in progress.
+- **Fewer card operations per fill.** The ficha's video flag no longer re-reads the file it just
+  wrote; manual deduplication skips all probing when the card has no manuals (and hashes only the
+  slots it actually compares); the "space used" counter updates from the run's own byte count, with
+  the full re-walk deferred to idle time; theme previews render only for the folder on screen.
+
+### Fixed
+
+- A download that stops making progress is now cut off after 30 seconds of silence and surfaces as
+  an error, instead of hanging the run forever, while a slow-but-alive connection is never cut:
+  the timer resets on every received chunk. Transient network errors retry once; a missing package
+  (404) fails fast so the local-generation fallback starts immediately.
+- Cancelling a run now also aborts the downloads in flight, and a cancel is always reported as a
+  cancel (not as the previous attempt's network error).
+
+## 1.18.0 - 2026-08-09
+
+### Changed
+
+- **Re-analyzing a card you've seen before now takes seconds, not minutes.** The GameDB answers are
+  cached on your machine (for a week; "not in the GameDB" answers for 60 hours), so a reload +
+  re-analysis costs zero network and zero ROM re-reads, measured on a real 6,392-game card: from
+  ~2.5 minutes down to seconds. The **Atualizar/Substituir** fill modes still ask the server (that
+  is their point), the per-game **Identificar** button always asks, and a new **"Atualizar dados do
+  GameDB"** action in the settings popover refreshes everything on demand.
+- **Reading the card's status got ~15× cheaper.** The status probe now lists each `/sd2snes/info`
+  bucket once and matches by name instead of asking the SD card about every possible file of every
+  game (~57,000 operations became ~3,600 on a 6,392-game card), and covers are collected during the
+  scan itself. Reconnecting a card is visibly snappier.
+- **The UI stays fluid during analysis and bulk fills.** Status updates are batched into a few
+  signal transitions per second instead of thousands of full-list rebuilds.
+
+### Added
+
+- **The card cleans up after itself.** Auto-fill now sweeps the folders it touched at the end of
+  each run, removing the `._*` AppleDouble twins macOS creates for every written file (plus
+  `.DS_Store`, `Thumbs.db`, `desktop.ini` and Chromium's `*.crswap` leftovers). "Organize the card"
+  now sweeps the **entire** card, junk next to your ROMs finally gets collected, not just under
+  `/sd2snes`, and offers an optional (off by default) removal of system folders like
+  `System Volume Information` and `$RECYCLE.BIN`. A `desktop.ini` at the card root is spared: it may
+  be the volume's own icon/label.
+
+### Fixed
+
+- A refused deletion (read-only folder) can no longer trip the "card unwritable" latch or abort a
+  run. It is skipped, counted, and reported.
+- System folders no longer show up in scans or the folder tree, and junk files can no longer be
+  mistaken for game sidecars by the organizer.
+
+## 1.17.1 - 2026-08-08
+
+### Fixed
+
+- **Auto-fill no longer gives up on a game whose "no-audio" package variant is gone from the CDN.**
+  The GameDB retired that variant (new packages are audio-less by construction, with the audio as a
+  separate download), and a data incident briefly left every legacy variant URL answering 404, which
+  silently pushed those games onto the much slower re-encode-locally path. The worker now retries the
+  base package before falling back, so even a stale link costs one extra request, not minutes of ffmpeg.
+
+## 1.17.0 - 2026-08-08
+
+### Added
+
+- **Organizing now rescues IPS/BPS patches the console stopped offering.** Firmware 2.15+ deliberately
+  ignores a patch named exactly like its ROM. That is what "Create patched ROM" leaves behind, and
+  re-applying it would corrupt the copy it just made. The casualty was the honest `Zelda.sfc` +
+  `Zelda.ips` pairing, which silently vanished from the patch list. "Organize the card" now renames
+  those to `Zelda - Patch 1.ips`, which the console shows as "Patch 1".
+  It is careful about which ones it touches: a patch that is still reachable from another ROM in the
+  same folder, exactly the `Zelda.sfc` + `Zelda - PT-BR.ips` + `Zelda - PT-BR.sfc` shape an export
+  leaves. Is left alone, because renaming it is what would make the double-apply possible. Nothing
+  is ever overwritten, and a name the firmware would refuse for length is not written at all.
+
+## 1.16.1 - 2026-08-08
+
+### Fixed
+
+- **"Organize the card" no longer claims your card is on the old layout when it isn't.** The dialog
+  can be opened at any time, sweeping the macOS `._` leftovers is reason enough, but it greeted
+  every visit with the alarming "this card still uses the old organization, the console is not
+  looking where your saves are", based on a pending-file counter rather than on the layout the card
+  is actually in. It now reads the layout from the scan it just did: an already-organized card gets
+  the plain explanation, a card with a handful of files still filed in the wrong place (typically
+  Game Boy saves and covers from before the `sgb` folder existed) gets a message that says exactly
+  that with the count, and the original warning is kept for the card it was written for.
+
+## 1.16.0 - 2026-08-07
+
+### Added
+
+- **Two-page spread detection for guides.** Scanned guidebooks with two book pages per sheet are now
+  split down the middle automatically, so each page gets the console's full resolution instead of
+  being squeezed into half the screen. The guide dialog gains a "Two-page spreads" selector
+  (Auto-detect / Always split / Never split) for scans the detector can't classify.
+
+### Changed
+
+- Guides are encoded with a sharpening pass before quantization, small print (dense manuals,
+  Japanese text) comes out noticeably crisper in the in-game viewer.
+
+## 1.15.0 - 2026-08-03
+
+### Changed
+
+- **Analyzing a card is now near-instant after the first time.** Identifying a game needs its CRC32,
+  and a CRC32 needs every byte, so the analyze pass read the *entire* card, every session. On a 32 GB
+  card that is around twelve minutes of pure reading, repeated each time you opened Auto-fill.
+  Checksums are now remembered between sessions, keyed by path and validated against the file's size
+  and modification time, so only ROMs that are new or genuinely changed are read again. Replacing,
+  patching or renaming a ROM still changes at least one of those, so a stale checksum can't be used.
+  Worst case a file is re-read needlessly, never the reverse. Entries for ROMs no longer on the card
+  are dropped automatically.
+- The dev server's API proxy pointed at a retired hostname, so a local `ng serve` identified nothing.
+
+## 1.14.1 - 2026-08-02
+
+### Fixed
+
+- **The analyze pass froze forever when the connection dropped mid-request.** A request whose
+  connection dies without a reply (a VPN going down, a laptop waking from sleep, a proxy hanging up)
+  leaves a fetch that never settles, so the pass stopped dead with the progress bar stuck and no error,
+  and reconnecting didn't help because nothing was retrying. Every request is now bounded by a timeout
+  and retried, so a connection that comes back is picked up automatically.
+- **Server hiccups no longer discard 50 games at a time.** Transient failures (500/502/504 alongside
+  the 429/503 already handled) are retried, and a batch that still fails is split in half so one bad
+  entry can't take the other 49 down with it.
+- Games left unidentified by a failed lookup are now reported, instead of quietly showing up as "no
+  match in the GameDB", which looks like the game is missing from the database rather than a network
+  failure you can just run again.
+
+## 1.14.0 - 2026-08-02
+
+### Fixed
+
+- **Covers and snapshots that stayed "to complete" no matter how many times you ran Auto-fill.** When a
+  game's `.s2pkg` downloads fine but simply doesn't carry that member, nothing was written and nothing
+  was reported, the fallback that builds the artwork from the raw sources only ran when the package
+  failed to download *entirely*. The ficha half of the cover (`.gcv`) wasn't even tracked as pending.
+  Both are fixed: anything the bundle can't supply now falls back to local generation, and a cover
+  whose `.cov` is already on the card has its `.gcv` derived locally, no download at all.
+- **Covers and screenshots failing to download from the CDN.** The CDN sits behind hotlink protection
+  that rejects image requests coming from another origin, so artwork silently failed to load outside
+  the app's own domain. Every fetch now sends no referrer, the same fix the theme gallery already used.
+- **A cover or snapshot that genuinely can't be built is now listed** in the post-run report with the
+  reason ("Download failed" / "No source in the GameDB") instead of vanishing. Snapshots had no failure
+  counter at all, so a row could sit at "N to complete" forever with no way to tell which games or why.
+
+## 1.13.1 - 2026-08-02
+
+### Fixed
+
+- **"Update" was selectable on rows with nothing outdated.** Since 1.13.0 the mode is cumulative, so
+  with no ⟳ on the row it would write exactly the same games as "Complete", two buttons, identical
+  effect, and no hint of why the second one was there. It is now offered only when something on the
+  card really is out of date.
+
+## 1.13.0 - 2026-08-02
+
+### Changed
+
+- **Auto-fill: "Update" now also fills what's missing.** The four modes were separate sets, "Complete"
+  ignored the outdated items and "Update" ignored the missing ones, so keeping a category in sync took
+  two runs, or "Replace", which also rewrites everything already up to date (double the download and
+  double the slow card writes). They now form a ladder, each covering the one before it: Complete
+  (missing) ⊂ Update (missing + outdated) ⊂ Replace (all). Each mode's button explains itself on hover.
+
+### Fixed
+
+- **A manual that stayed "1 outdated" no matter how many times you ran Update.** Several things kept it
+  stuck. Installing a manual only ever wrote to a *free* slot, so an outdated official manual was never
+  replaced, the new file spilled into one of your guide slots (2..8), or nowhere at all when they were
+  taken. A failed manual download was swallowed silently: nothing was written, nothing was reported and
+  the game came back as pending on the next run. And a manual the GameDB listed but had no ready-made
+  file for made the category permanently unsatisfiable. Now the official manual is written in place
+  (slot 0), a failed download is retried and then listed in the post-run report with the reason, and a
+  manual with no published file no longer counts as available.
+- The version stamp for manuals (`sync_man` in `<rom>.yml`) is only advanced when the card actually ends
+  up with the whole set, so a partial install can't report itself as up to date.
+
+## 1.12.1 - 2026-08-02
+
+### Added
+
+- **Guides indicator in the ROM list and gallery.** The status row showed cover, snapshot, preview and
+  cheats but never guides, so a game with a manual on card looked the same as one without. The book
+  icon now sits next to the others. Lit when the card has any `.man` (the official manual and your
+  own guides alike), dimmed when the GameDB has one to download, and its tooltip says how many are on
+  the card. The details panel got the matching badge in its header.
+
+## 1.12.0 - 2026-08-02
+
+### Added
+
+- **Game descriptions in the console's own language.** Every translation the GameDB has is now written
+  to `<rom>.yml` (`description_pt`, `description_es`, `description_de`, `description_fr`,
+  `description_it`) next to the English one, and the console picks the one matching **its** menu
+  language, falling back to English when that language has no text. One card serves every language,
+  and changing the console's language needs no re-sync. Requires firmware **2.15** or newer; older
+  firmware simply reads the English description as before.
+- **Language tabs in the game-info editor** (EN · PT · ES · DE · FR · IT): edit any language's
+  description, with a dot marking the ones that already have text. The panel shows the description in
+  the app's language, exactly what a console set to that language will display.
+- **Italian** interface.
+
+### Changed
+
+- The `.yml`'s `description` field is now always the **canonical English** text (it is what the
+  console falls back to). It used to be written in whatever language the app was in, which pinned the
+  card to that language.
+- Fichas written before this are reported as **out of date** so "Update" fills in the translations.
+
+## 1.11.0 - 2026-07-27
+
+### Added
+
+- **This changelog screen**: opens from the **Changelog** button in the top bar, next to the version,
+  or from the **Settings** footer. The side list has every released version; the content comes from
+  the `CHANGELOG.md` in the repository.
+
+### Removed
+
+- The **"Identify all"** button in the top bar. It was redundant: **"Auto-fill"** at the root folder
+  with no filter identifies exactly the same set as the first phase of its analysis, and **"Generate
+  covers"** also identifies what is missing before it runs. Identifying a single game (context menu
+  and details panel) is unchanged.
+
+## 1.10.0 - 2026-07-27
+
+### Changed
+
+- Every scoreboard cell now shows **both sides**: how many games already have the item on the card,
+  and how many could still receive it. Clicking filters by the side you clicked.
+- **Guides** column in the scoreboard.
+- **Auto-fill** follows the active filter: with a filter on it acts on exactly what you see; with no
+  filter, on the current folder and its subfolders.
+
+## 1.9.0 - 2026-07-27
+
+### Added
+
+- **Per-system asset scoreboard**: a clickable matrix of system (SNES · GB · GBC · BSX · NES · SMS)
+  against category (cover · info screen · preview · game info · cheats), where each cell doubles as a
+  filter.
+
+### Changed
+
+- App responsiveness: the toolbar wraps to at most two rows, the status chips fall back to short
+  labels in a narrow window, and the top bar's counters only show where there is genuinely room (they
+  also live in the scoreboard and in the firmware dialog).
+
+## 1.8.7 - 2026-07-27
+
+_Covers versions 1.8.1 through 1.8.7._
+
+### Added
+
+- **Confirmation before using a folder with no firmware** at its root. It may not be the console's
+  card, and writing the sd2snes structure into some other folder is hard to undo.
+- When `firmware.im3` exists but **cannot be read**, the app asks which version it is instead of
+  guessing. The answer is remembered per card.
+
+### Changed
+
+- **Two-letter folders** (buckets) are only used with firmware **2.15 or newer**, below that the
+  console would not find the files.
+
+## 1.8.0 - 2026-07-24
+
+### Added
+
+- **"Update"** mode in auto-fill: `sync_*` tokens written to `<rom>.yml` detect what has gone stale
+  against the GamesDB and re-flag **only what changed**, rather than everything.
+
+### Changed
+
+- The auto-fill dialog is wider, with a compact segmented control, all four modes fit without
+  wrapping.
+- A legacy card with no tokens at all counts as **out of date**. It used to adopt its current state as
+  the baseline, which hid updates that were already available on the GamesDB.
+
+## 1.7.5 - 2026-07-22
+
+### Fixed
+
+- Stripping the iNES header now requires the **`.nes` extension** as well as the magic, a ROM from
+  another system that happened to start with `NES\x1A` lost 16 bytes and matched nothing by CRC.
+
+## 1.7.4 - 2026-07-22
+
+### Fixed
+
+- The **ROM size in the details panel** comes from the file's metadata as soon as the folder is read;
+  it no longer reads "0 KB" until the game is identified.
+
+## 1.7.3 - 2026-07-22
+
+_Covers versions 1.7.1 through 1.7.3._
+
+### Added
+
+- **NES and Master System** as first-class platforms: scan, filters, scoreboard and CRC identification.
+- **Auto-fill error report**: read-only folders (or locked files) are now **skipped** instead of
+  stopping the run, with the list of what was left out on screen and a CSV export.
+- **Several manuals per game**, deduplicated by `sha256`.
+- **Document type** (manual · guide · map · insert · other) and **author**, both from the GamesDB. The
+  type's slug is read from the `.man` header, so the label shows up translated.
+
+### Changed
+
+- `.man` files download compressed (`.man.zst`) and the `.pcm.zst` audio is fetched separately from
+  the package, with a size warning; the download and write estimate uses each file's real byte count.
+- The `.man` encoder does scrollable 4bpp output, **byte-compatible** with the GamesDB one, and the
+  viewer reads the `SCL1` section.
+- Artwork always follows the ROM's **region**. The region-to-generic fallback is gone.
+- API calls are **same-origin**, so the same build works in production and in staging.
+- The **Guides/Manuals** section moved to right after the media in the details panel, before game info
+  and cheats.
+
+### Fixed
+
+- **`.nes` matched by headerless CRC** (the iNES header was part of the checksum, so nothing was found).
+- Extra manuals are now installed for games that came from a package too.
+- The guides editor's **"Save"** button (it was labelled "Guides"), and the pdf.js worker is served as
+  `.js`, for servers with no MIME type for `.mjs`.
+
+## 1.7.0 - 2026-07-19
+
+### Added
+
+- **Card organizer** and **migration dialog** for the two-letter folder layout (`saves`, `states`,
+  `cheats`, `info`): moves in stages, one file at a time, showing progress.
+  - Files that already exist at the destination stay where they are.
+  - **Ambiguous** games (the same name existing as both GB and SNES) are set aside in `_ambiguous`
+    rather than guessed at. Swapping them would hand one game's save to the other.
+  - Empty folders left over from the old layout are removed.
+  - macOS leftovers (`._*`, `.DS_Store`) are cleaned up.
+- A card whose firmware **cannot read** the new layout yet is blocked from migrating, with the reason
+  on screen: the console would stop finding its saves.
+
+## 1.5.1 - 2026-07-16
+
+### Added
+
+- **Guides and manuals editor**: imports a PDF (via pdf.js) or images, encodes the `.man` and writes it
+  to each game's slots.
+- **Manuals** category in auto-fill, downloads the official GamesDB manual straight into slot 0.
+
+## 1.5.0 - 2026-07-09
+
+### Added
+
+- **GBC** as its own system in the scan and in the filters (it used to be lumped in with GB).
+
+## 1.4.0 - 2026-07-07
+
+_Covers the 1.3.x releases._
+
+### Added
+
+- **Card themes from the browser**: lists the `.thm` files on the card, sets one as the menu theme,
+  deletes and counts them, with a **rendered preview** of the `.thm`.
+
+## 1.2.0 - 2026-07-07
+
+### Added
+
+- **Theme gallery**: downloads a `.thm` from the gallery, installs it on the card and applies it by
+  writing `SkinName` into `config.yml`. When the path is too long to apply automatically, the theme is
+  copied and the app says to select it on the console.
+
+## 1.1.1 - 2026-07-07
+
+### Fixed
+
+- **Eject** cancels a copy in progress before forgetting the card, the write used to carry on
+  ownerless after the app had returned to the connect screen.
+
+## 1.1.0 - 2026-07-03
+
+### Added
+
+- **French** interface.
+- The **game description** comes from the GamesDB in the interface language (English stays the
+  server's default).
+
+## 1.0.38 - 2026-06-28
+
+_Covers versions 1.0.37 and 1.0.38._
+
+### Added
+
+- **Per-item deletion**: deleting a game (one or many) lets you choose what goes with it, ROM, cover,
+  game info, preview, cheats, save and save states, instead of all or nothing. The same items appear
+  on their own in the context menu, to delete just the cover or just the preview.
+
+## 1.0.36 - 2026-06-25
+
+_Covers versions 1.0.16 through 1.0.36, the auto-fill performance and robustness block._
+
+### Added
+
+- **`.s2pkg` package**: one download per game brings cover, info screen, preview and audio together,
+  with the cache reused across phases.
+- **Prefetch**: the next game's package downloads while the current one is still being written to the
+  card, which is the slow part.
+- **Card reconnect**: the folder handle is kept in IndexedDB, so the card comes back in one click
+  after a page reload.
+- **Wake lock** while a long run is going, so the system doesn't sleep midway.
+- **Audio-free previews by default**, with audio available as an opt-in and a warning that it makes
+  the download and the write much slower.
+- **Estimates** of how much will be downloaded, how much will be written and how long it should take,
+  plus **games/s** and remaining time during the run.
+- **BSX / Satellaview** as a platform.
+
+### Changed
+
+- Generation moved into a **worker**, with the writing split into two phases (the fast things first,
+  previews after).
+- Card writes are **serialized**, with automatic retries on transient filesystem failures.
+- The package cache is **bounded** and drops the oldest entries. A large card could otherwise hold
+  several GB in memory.
+
+### Fixed
+
+- A card that stops accepting writes (full, write-protected, or remounted read-only) now **stops the
+  run with a clear message** instead of piling up silent errors.
+
+## 1.0.15 - 2026-06-25
+
+_Covers versions 1.0.9 through 1.0.15._
+
+### Changed
+
+- The **info screen** stopped using DirectColor `.gd`: the cover becomes a `.gcv` and the
+  screenshot/preview become paletted files generated in the browser, sharing one banded palette (the
+  cover gets its own colours, the screenshot/preview theirs). The 3-3-2 wash, the seams between blocks
+  and the crawl between frames all go away.
+- The `.gd` reader stays in the app for older cards.
+- Preview player embedded in the details panel.
+
+## 1.0.8 - 2026-06-25
+
+### Changed
+
+- Fixes to the info-screen (`.gd`) generator.
+
+## 1.0.6 - 2026-06-24
+
+_Covers versions 1.0.1 through 1.0.6._
+
+### Added
+
+- **Interface in four languages**, Portuguese, English, Spanish and German.
+- **covgen** (Go compiled to WebAssembly, which produces `.cov` files byte-identical to the
+  firmware's) is now versioned in this repository, with tests.
+
+## 1.0.0 - 2026-06-24
+
+### Added
+
+- First release of the Manager: full card management **straight in the browser**, no uploads, the
+  files never leave your machine (File System Access API).
+- Connect through a folder picker, by dragging the folder in, or in demo mode; list, gallery and split
+  views; folder navigation with a tree, breadcrumb and search.
+- **Headerless CRC32 identification** against the GamesDB, bringing back title, cover, screenshot,
+  video and metadata for the ROM's region.
+- Generation of **covers (`.cov`)**, **info screens (`.gd`)** and **animated previews (`.fmv` +
+  `.pcm`)**, plus the **game info (`.yml`)** and **cheats**.
+- **Auto-fill** with a per-category choice (leave alone · complete · replace).
+- **sd2snes+ firmware** (release list and installation) and **chip BIOS** with automatic slot
+  identification.
+- Import, move, copy, delete and rename to No-Intro, taking every one of the game's sibling files
+  along.

@@ -1,0 +1,243 @@
+@let g = lib.sel();
+
+@if (g) {
+  @if (drawer()) {
+    <div class="detail-scrim" (click)="close()"></div>
+  }
+
+  <div class="detail" [class.drawer]="drawer()">
+    @if (drawer()) {
+      <button class="btn ghost sm close" type="button" (click)="close()"><app-icon name="x" [size]="16" /></button>
+    }
+
+    <div class="dhead">
+      <div class="ht">
+        <h2>{{ g.title }}</h2>
+        <div class="sys">{{ systemName() }} · {{ fmtSize(g.size) }}</div>
+      </div>
+      <div class="hbadges">
+        <span class="fbadge" [class.ok]="g.cover === 'has' || g.cover === 'custom'">
+          @if (g.cover === 'has' || g.cover === 'custom') { <app-icon name="check" [size]="11" /> } {{ 'detail.cover' | transloco }}
+        </span>
+        <span class="fbadge" [class.ok]="g.fmv === 'has'">
+          @if (g.fmv === 'has') { <app-icon name="check" [size]="11" /> } {{ 'detail.preview' | transloco }}
+        </span>
+        <span class="fbadge" [class.ok]="g.cheats === 'has'">
+          @if (g.cheats === 'has') { <app-icon name="check" [size]="11" /> } {{ 'detail.cheats' | transloco }}
+        </span>
+        <span class="fbadge" [class.ok]="!!g.guides">
+          @if (g.guides) { <app-icon name="check" [size]="11" /> } {{ 'detail.guidesTitle' | transloco }}
+        </span>
+        @if (g.save) { <span class="fbadge neutral"><app-icon name="save" [size]="11" />{{ 'detail.save' | transloco }}</span> }
+      </div>
+    </div>
+
+    <div class="dbody scroll">
+      <!-- Mídia: capa grande + snapshot + vídeo (tocando mudo) -->
+      <div class="showcase">
+        <!-- Capa (grande) -->
+        <div class="media-tile cover">
+          @if (g.busy === 'cover') { <div class="tile-busy"><span class="spin"></span>{{ 'detail.searching' | transloco }}</div> }
+          @if (g.cover === 'has' || g.cover === 'custom') {
+            @if (coverSrc()) {
+              <img class="cover-img" [src]="coverSrc()" [alt]="'detail.altCover' | transloco" />
+            } @else {
+              <app-cover-art [entry]="g" [aspect]="'3 / 4'" />
+            }
+            <div class="tile-cap">{{ 'detail.cover' | transloco }}</div>
+            <div class="tile-actions">
+              <button class="ta" type="button" [disabled]="!!g.busy" [title]="'detail.replaceFromPc' | transloco" (click)="lib.replaceCover(g)"><app-icon name="upload" [size]="14" /></button>
+              <button class="ta danger" type="button" [disabled]="!!g.busy" [title]="'detail.removeCover' | transloco" (click)="lib.delCover(g)"><app-icon name="trash" [size]="14" /></button>
+            </div>
+          } @else {
+            <div class="tile-empty">
+              <app-icon name="image" [size]="22" />
+              <span>{{ 'detail.noCover' | transloco }}</span>
+              <div class="tile-add">
+                <button class="btn xs" type="button" [disabled]="!!g.busy" (click)="lib.replaceCover(g)"><app-icon name="upload" [size]="11" />{{ 'detail.fromPc' | transloco }}</button>
+              </div>
+            </div>
+          }
+        </div>
+
+        <div class="sc-side">
+          <!-- Tela do jogo (snapshot) -->
+          <div class="media-tile">
+            @if (g.busy === 'cover' || g.busy === 'snapshot') { <div class="tile-busy"><span class="spin"></span>{{ 'detail.searching' | transloco }}</div> }
+            @if (cardSnapshot()) {
+              <img class="tile-img" [src]="cardSnapshot()" [alt]="'detail.altSnapshot' | transloco" />
+              <div class="tile-cap">{{ 'detail.snapshot' | transloco }}</div>
+              <div class="tile-actions">
+                <button class="ta" type="button" [disabled]="!!g.busy" [title]="'detail.replaceFromPc' | transloco" (click)="lib.replaceSnapshot(g)"><app-icon name="upload" [size]="14" /></button>
+              </div>
+            } @else {
+              <div class="tile-empty">
+                <app-icon name="monitor" [size]="20" />
+                <span>{{ 'detail.noSnapshot' | transloco }}</span>
+                <div class="tile-add">
+                  <button class="btn xs" type="button" [disabled]="!!g.busy" (click)="lib.replaceSnapshot(g)"><app-icon name="upload" [size]="11" />{{ 'detail.fromPc' | transloco }}</button>
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- Prévia (vídeo, tocando mudo) -->
+          <div class="media-tile">
+            @if (g.busy === 'fmv') { <div class="tile-busy"><span class="spin"></span>{{ 'detail.searching' | transloco }}</div> }
+            @if (g.fmv === 'has' && fmvBytes(); as fb) {
+              <app-fmv-player [fmv]="fb" [pcm]="pcmBytes()" [autoplay]="true" [compact]="true" />
+              <div class="tile-cap">{{ 'detail.preview' | transloco }}</div>
+              <div class="tile-actions">
+                <button class="ta" type="button" [disabled]="g.busy === 'fmv'" [title]="'detail.replaceVideoFromPc' | transloco" (click)="lib.genFmv(g)"><app-icon name="upload" [size]="14" /></button>
+                <button class="ta danger" type="button" [disabled]="g.busy === 'fmv'" [title]="'detail.removePreview' | transloco" (click)="lib.delFmv(g)"><app-icon name="trash" [size]="14" /></button>
+              </div>
+            } @else {
+              <div class="tile-empty">
+                <app-icon name="film" [size]="20" />
+                <span>{{ 'detail.noPreview' | transloco }}</span>
+                <div class="tile-add">
+                  <button class="btn xs" type="button" [disabled]="g.busy === 'fmv'" (click)="lib.genFmv(g)"><app-icon name="upload" [size]="11" />{{ 'detail.fromPc' | transloco }}</button>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Preencher tudo automaticamente -->
+      @if (g.fileHandle) {
+        <button class="autobar" type="button" [disabled]="!!g.busy" (click)="lib.startAutoFillOne(g.id)">
+          <span class="ic"><app-icon name="spark" [size]="18" /></span>
+          <span class="txt">
+            <b>{{ (g.busy ? 'detail.filling' : 'detail.autoFillAll') | transloco }}</b>
+            <span>{{ (g.identified ? 'detail.autoFillDescIdentified' : 'detail.autoFillDesc') | transloco }}</span>
+          </span>
+        </button>
+      }
+
+      <!-- Guias / manual in-game (.man, lista + editor em modal), logo após a mídia (capa/tela/prévia) -->
+      <div class="dsection">
+        <div class="sh"><h3>{{ 'detail.guidesTitle' | transloco }}</h3></div>
+        @if (g.guides) {
+          <p class="muted-p">{{ 'detail.guidesCount' | transloco: { count: g.guides } }}</p>
+        } @else {
+          <p class="low-p">{{ 'detail.noGuidesYet' | transloco }}</p>
+        }
+        <div class="dactions">
+          <button class="btn sm" type="button" (click)="lib.openGuidesEditor(g)"><app-icon name="book" [size]="13" />{{ 'detail.manageGuides' | transloco }}</button>
+        </div>
+      </div>
+
+      <!-- Informações do jogo (resumo · edição em modal) -->
+      <div class="dsection">
+        <div class="sh">
+          <h3>{{ 'detail.gameInfo' | transloco }}</h3>
+          <div class="sh-actions">
+            @if (linkGamedbId(); as gid) {
+              <a class="gdblink" [href]="gamedbUrl(gid)" target="_blank" rel="noopener"><app-icon name="spark" [size]="11" />{{ 'detail.viewOnGameDB' | transloco }}<span class="ext">↗</span></a>
+            }
+            <button class="btn xs" type="button" (click)="lib.openInfoEditor(g)"><app-icon name="edit" [size]="11" />{{ 'detail.edit' | transloco }}</button>
+          </div>
+        </div>
+        @if (hasInfo()) {
+          <div class="info-sum">
+            @for (r of infoRows(); track r.k) {
+              <div class="kv"><span class="k">{{ r.k }}</span><span class="v">{{ r.v }}</span></div>
+            }
+          </div>
+          @if (descText()) { <p class="desc">{{ descText() }}</p> }
+        } @else {
+          <p class="low-p">{{ 'detail.noInfoYet' | transloco }}</p>
+        }
+      </div>
+
+      <!-- Cheats (lista com toggle · edição em modal) -->
+      <div class="dsection">
+        <div class="sh"><h3>{{ 'detail.cheatsTitle' | transloco }}</h3></div>
+        @if (g.cheats === 'has' && g.cheatList) {
+          @for (c of g.cheatList; track $index) {
+            <div class="cheatrow" [class.off]="!c.on">
+              <span class="nm">{{ c.name }}</span>
+              <app-toggle [on]="c.on" (toggled)="lib.toggleCheat(g, $index)" />
+            </div>
+          }
+          <div class="dactions">
+            <button class="btn sm" type="button" (click)="lib.openCheatEditor(g)"><app-icon name="edit" [size]="13" />{{ 'detail.editCheats' | transloco }}</button>
+          </div>
+        } @else if (g.cheats === 'available') {
+          <p class="muted-p">{{ 'detail.cheatsAvailable' | transloco }}</p>
+          <div class="dactions">
+            <button class="btn sm primary" type="button" [disabled]="!!g.busy" (click)="lib.dlCheats(g)"><app-icon name="download" [size]="13" />{{ 'detail.addReadyCheats' | transloco }}</button>
+            <button class="btn sm" type="button" (click)="lib.openCheatEditor(g)"><app-icon name="edit" [size]="13" />{{ 'detail.create' | transloco }}</button>
+          </div>
+        } @else {
+          <p class="low-p">{{ 'detail.noCheatsYet' | transloco }}</p>
+          <div class="dactions">
+            <button class="btn sm" type="button" (click)="lib.openCheatEditor(g)"><app-icon name="plus" [size]="13" />{{ 'detail.addCheats' | transloco }}</button>
+          </div>
+        }
+      </div>
+
+      <!-- Remover (recolhido) -->
+      <details class="zone danger">
+        <summary><app-icon name="trash" [size]="13" />{{ 'detail.removeFromCard' | transloco }}<app-icon class="chev" name="chevron" [size]="14" /></summary>
+        <div class="zbody">
+          <p class="low-p">{{ 'detail.removeWarning' | transloco }}</p>
+          <div class="dactions">
+            @if (g.save) {
+              <button class="btn sm danger" type="button" [disabled]="!!g.busy" (click)="lib.delSave(g)"><app-icon name="save" [size]="13" />{{ 'detail.deleteSave' | transloco }}</button>
+            }
+            <button class="btn sm danger" type="button" [disabled]="!!g.busy" (click)="lib.delRom(g)"><app-icon name="trash" [size]="13" />{{ 'detail.deleteGame' | transloco }}</button>
+          </div>
+        </div>
+      </details>
+
+      <!-- Detalhes técnicos (recolhido) -->
+      <details class="zone">
+        <summary><app-icon name="info" [size]="13" />{{ 'detail.techDetails' | transloco }}<app-icon class="chev" name="chevron" [size]="14" /></summary>
+        <div class="zbody">
+          <div class="kv"><span class="k">{{ 'detail.file' | transloco }}</span><span class="v ell">{{ g.file }}</span></div>
+          <div class="kv"><span class="k">{{ 'detail.crcHeaderless' | transloco }}</span><span class="v">{{ g.crc || '—' }}</span></div>
+          <div class="kv">
+            <span class="k">{{ 'detail.noIntroMatch' | transloco }}</span>
+            <span class="v" [style.color]="g.identified ? (g.matched ? 'var(--ok)' : 'var(--warn)') : 'var(--tx-low)'">{{ (g.identified ? (g.matched ? 'detail.recognized' : 'detail.noMatch') : 'detail.notIdentified') | transloco }}</span>
+          </div>
+          @if (linkGamedbId(); as gid) {
+            <div class="kv">
+              <span class="k">GameDB</span>
+              <span class="v"><a class="gdblink" [href]="gamedbUrl(gid)" target="_blank" rel="noopener">{{ 'detail.viewOnGameDB' | transloco }}<span class="ext">↗</span></a></span>
+            </div>
+          }
+          @if ((g.fileHandle && !g.identified) || canRename()) {
+            <div class="dactions">
+              @if (g.fileHandle && !g.identified) {
+                <!-- refresh: this button IS the "ask the GameDB" action, answering it from a cached
+                     lookup would make an out-of-date result look like the server's current one. -->
+                <button class="btn sm" type="button" (click)="lib.identify(g, { refresh: true })"><app-icon name="spark" [size]="13" />{{ 'detail.identifyCrcGameDB' | transloco }}</button>
+              }
+              @if (canRename()) {
+                <button class="btn sm" type="button" [disabled]="!!g.busy" (click)="lib.rename(g)"><app-icon name="edit" [size]="13" />{{ 'detail.renameToNoIntro' | transloco }}</button>
+              }
+            </div>
+          }
+          <details class="report">
+            <summary><app-icon name="edit" [size]="12" />{{ 'detail.reportProblem' | transloco }}<span class="ext">↗</span></summary>
+            <div class="rmenu">
+              @if (linkGamedbId(); as gid) {
+                <a [href]="reportUrl(gid, 'cover_update')" target="_blank" rel="noopener"><app-icon name="image" [size]="12" />{{ 'detail.cover' | transloco }}</a>
+                <a [href]="reportUrl(gid, 'screenshot_update')" target="_blank" rel="noopener"><app-icon name="spark" [size]="12" />{{ 'detail.snapshotVideo' | transloco }}</a>
+                <a [href]="reportUrl(gid, 'metadata_update')" target="_blank" rel="noopener"><app-icon name="download" [size]="12" />{{ 'detail.cheatsData' | transloco }}</a>
+              } @else {
+                <a [href]="newGameUrl()" target="_blank" rel="noopener"><app-icon name="plus" [size]="12" />{{ 'detail.reportMissingGame' | transloco }}</a>
+              }
+            </div>
+          </details>
+        </div>
+      </details>
+    </div>
+  </div>
+} @else if (!drawer()) {
+  <div class="detail">
+    <div class="noresults pad">{{ 'detail.emptyState' | transloco }}</div>
+  </div>
+}

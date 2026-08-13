@@ -1,0 +1,7 @@
+.DS_Store
+System Volume Information/
+Thumbs.db
+._*
+
+# deploy target: real values stay local, .env.example is the template
+.env

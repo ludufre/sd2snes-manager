@@ -1,0 +1,47 @@
+// Design tokens, single source of truth for the visual language.
+// Matches prototype/styles.css. Runtime theming (accent + density) is applied
+// by PrefsStore, which sets `--accent` and `data-density` on <html>.
+
+:root {
+  // surfaces
+  --bg: #131619;
+  --panel: #1b2025;
+  --panel-2: #20262c;
+  --elevated: #272e35;
+  --line: #323a42;
+  --line-soft: #242b31;
+
+  // text
+  --tx: #eef1f4;
+  --tx-mid: #a7b0ba;
+  --tx-low: #6b757e;
+
+  // accent (overridable at runtime by PrefsStore)
+  --accent: #7c6cff;
+  --accent-soft: color-mix(in oklab, var(--accent) 16%, transparent);
+  --accent-line: color-mix(in oklab, var(--accent) 42%, transparent);
+
+  // status
+  --ok: oklch(0.76 0.15 152);
+  --info: oklch(0.72 0.13 240);
+  --warn: oklch(0.82 0.14 78);
+  --danger: oklch(0.66 0.20 25);
+  --ok-soft: color-mix(in oklab, var(--ok) 16%, transparent);
+  --info-soft: color-mix(in oklab, var(--info) 16%, transparent);
+  --warn-soft: color-mix(in oklab, var(--warn) 16%, transparent);
+  --danger-soft: color-mix(in oklab, var(--danger) 16%, transparent);
+
+  // type
+  --sans: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  // geometry
+  --radius: 10px; // cards
+  --radius-control: 8px; // buttons/inputs
+  --radius-pill: 6px; // chips/pills
+  --row-h: 56px; // density: regular (default)
+}
+
+// density, toggled via [data-density] on <html> by PrefsStore
+[data-density='compact'] { --row-h: 46px; }
+[data-density='comfy'] { --row-h: 66px; }

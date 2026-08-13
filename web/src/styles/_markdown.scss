@@ -1,0 +1,55 @@
+// Rendered Markdown (`<div class="md" [innerHTML]="…">`), firmware release notes and the changelog.
+//
+// GLOBAL on purpose. `[innerHTML]` builds its nodes at runtime, so they never get the component's
+// `_ngcontent` attribute and emulated encapsulation cannot reach them: the same rules written inside
+// the component match the `.md` box itself and nothing under it. Both dialogs render the same kind
+// of document, so one shared sheet is also one less thing to keep in sync.
+.md {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--tx-mid);
+}
+.md :first-child { margin-top: 0; }
+.md h1,
+.md h2 { color: var(--tx); line-height: 1.3; margin: 18px 0 8px; }
+.md h1 { font-size: 17px; }
+.md h2 { font-size: 15px; }
+/* h3 is the category line ("Adicionado", "Corrigido"), a label, not a title. */
+.md h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.1px;
+  color: var(--tx-low);
+  margin: 20px 0 8px;
+}
+.md ul,
+.md ol { padding-left: 20px; margin: 8px 0; }
+.md li { margin: 5px 0; }
+.md li > ul { margin: 5px 0; }
+.md p { margin: 8px 0; }
+.md strong { color: var(--tx); font-weight: 600; }
+.md em { color: var(--tx-low); }
+.md a { color: var(--accent); }
+.md code {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--elevated);
+  padding: 1px 5px;
+  border-radius: 5px;
+}
+.md pre {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  overflow: auto;
+}
+.md pre code { background: none; padding: 0; }
+.md hr { border: none; border-top: 1px solid var(--line); margin: 16px 0; }
+.md img { max-width: 100%; border-radius: 8px; }
+.md blockquote {
+  border-left: 3px solid var(--line);
+  margin: 8px 0;
+  padding: 2px 0 2px 12px;
+  color: var(--tx-low);
+}

@@ -1,0 +1,28 @@
+// Shared button system, used inline as `.btn` across many components, so it
+// lives globally rather than being duplicated per component.
+
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 13px; font-weight: 500; color: var(--tx);
+  background: var(--elevated); border: 1px solid var(--line);
+  padding: 8px 13px; border-radius: var(--radius-control); transition: 0.12s;
+  white-space: nowrap; font-family: var(--sans); cursor: pointer;
+}
+.btn:hover { border-color: var(--tx-low); background: #2d343b; }
+.btn:active { transform: translateY(1px); }
+.btn .ico { width: 15px; height: 15px; display: block; }
+
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #0d0a1f; font-weight: 600; }
+.btn.primary:hover { filter: brightness(1.08); background: var(--accent); }
+
+.btn.ghost { background: transparent; border-color: transparent; color: var(--tx-mid); }
+.btn.ghost:hover { background: var(--elevated); color: var(--tx); }
+.btn.ghost.on { background: var(--accent-soft); color: var(--accent); }
+.btn.ghost.icon { padding: 7px; }
+
+.btn.danger { color: var(--danger); border-color: color-mix(in oklab, var(--danger) 40%, transparent); background: transparent; }
+.btn.danger:hover { background: var(--danger-soft); }
+
+.btn.sm { padding: 5px 9px; font-size: 12px; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn:disabled:active { transform: none; }

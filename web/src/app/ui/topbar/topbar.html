@@ -1,0 +1,76 @@
+<header class="topbar">
+  <div class="brand">
+    <img class="logo" src="logo.png" alt="sd2snes+" />
+    <span class="name">Manager</span>
+    <span class="ver" [title]="ver.detail()">{{ ver.label() }}</span>
+    <!-- "Changelog" is deliberately NOT translated: it is the word people look for, it reads the same
+         in every language we ship, and a version history is where a user in the wrong locale still has
+         to be able to land. Its label survives the 1280px label-shedding (it is not a `.lbl`), the
+         button IS the entry point, and an unlabelled sparkle icon would be a riddle. -->
+    <button class="chlog" type="button" [title]="'changelog.open' | transloco" (click)="openChangelog.emit()">
+      <app-icon name="spark" [size]="13" />Changelog
+    </button>
+  </div>
+  <div class="spacer"></div>
+
+  @if (lib.connected()) {
+    <div class="conn">
+      <span class="dot"></span>
+      <span class="path">{{ lib.rootName() }}</span>
+      <!-- Both counts also live in the statbar / firmware dialog, so a narrow window drops them
+           here rather than pushing the whole bar past the edge. -->
+      <span class="extra"><span class="sep">·</span> {{ 'topbar.gamesCount' | transloco: { count: lib.stats().total } }}</span>
+      <span class="extra"><span class="sep">·</span>
+        <span class="fw" [class.warn]="lib.cardFwMissing()" [title]="lib.cardFwDetail()">{{ lib.cardFwLabel() }}</span>
+      </span>
+    </div>
+    <button class="btn ghost sm" type="button" [title]="'topbar.firmwareTitle' | transloco" (click)="openFirmware.emit()">
+      <app-icon name="download" [size]="14" /><span class="lbl">{{ 'topbar.firmware' | transloco }}</span>
+    </button>
+    <button class="btn ghost sm" type="button" [title]="'topbar.themesTitle' | transloco" (click)="openThemes.emit()">
+      <app-icon name="palette" [size]="14" /><span class="lbl">{{ 'topbar.themes' | transloco }}</span>
+    </button>
+    <button
+      class="btn ghost sm bios" type="button" [title]="'topbar.biosTitle' | transloco"
+      [class.warn]="lib.biosMissing() > 0" (click)="openBios.emit()">
+      <app-icon name="sd" [size]="14" /><span class="lbl">{{ 'topbar.bios' | transloco }}</span>
+      @if (lib.biosMissing() > 0) { <span class="biosdot">{{ lib.biosMissing() }}</span> }
+    </button>
+    <!-- Shown for every firmware that READS the new layout, even when there is nothing to move: on
+         an already-organized card there was otherwise no way to ask "is it, though?", the only
+         answer was an absent button, indistinguishable from a bug. Hidden below 2.15 (and while the
+         firmware is unknown), where organizing is exactly what must not happen. The badge still
+         only appears when files actually need moving. -->
+    @if (lib.readsBuckets()) {
+      <button
+        class="btn ghost sm bios" type="button" [title]="'topbar.migrateTitle' | transloco"
+        [class.warn]="lib.migrationRequired()" (click)="openMigrate.emit()">
+        <app-icon name="folder" [size]="14" /><span class="lbl">{{ 'topbar.migrate' | transloco }}</span>
+        @if (lib.migrationRequired()) { <span class="biosdot">{{ lib.migrateCount() }}</span> }
+      </button>
+    }
+    <button class="btn ghost sm" type="button" [title]="'topbar.ejectTitle' | transloco" (click)="lib.eject()">
+      <app-icon name="eject" [size]="14" /><span class="lbl">{{ 'topbar.eject' | transloco }}</span>
+    </button>
+  }
+
+  <div class="lang" role="group" [attr.aria-label]="'lang.aria' | transloco">
+    @for (l of langs.available; track l) {
+      <button
+        type="button"
+        [class.is-active]="langs.lang() === l"
+        (click)="setLang(l)">
+        {{ l }}
+      </button>
+    }
+  </div>
+
+  <button
+    class="btn ghost sm"
+    type="button"
+    [title]="'topbar.displaySettings' | transloco"
+    [class.on]="settingsOn()"
+    (click)="toggleSettings.emit()">
+    <app-icon name="settings" [size]="16" />
+  </button>
+</header>
