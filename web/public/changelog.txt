@@ -5,6 +5,29 @@ Every released version, newest first.
 Some releases were published together and reach the repository as a single commit. When that
 happens, the entry says which versions it covers.
 
+## 1.24.0 - 2026-08-14
+
+### Added
+
+- **The game info file now carries the publisher, next to the developer.** The GameDB has always
+  stored both companies and only the developer ever reached the card. `<rom>.yml` now writes a
+  `publisher:` line right after `developer:`, the game panel lists both and the editor lets you
+  change either.
+  The console's Game Info screen does not read the key yet, and its YAML reader only looks up the
+  keys it knows, so a card written today is simply ready for the day it does. Games whose GameDB
+  entry has a publisher will report Info as outdated once, on the next Atualizar, and the file is
+  rewritten with the field. Nothing extra is downloaded for that: the metadata already travels in
+  the same lookup that identifies each ROM.
+
+### Fixed
+
+- **The field labelled "Publisher" was showing the developer.** The `.yml` key the firmware reads is
+  `developer`, and the console labels that row Developer (Produtora in Portuguese), while the Manager
+  called the same value Publisher, Éditeur, Editore or Distribuidora, depending on the language. The
+  value written to the card was always the right one, the label was not, and only Portuguese happened
+  to agree with the console by accident. Both screens now use the console's wording in all six
+  languages, and Publisher is a field of its own.
+
 ## 1.23.0 - 2026-08-14
 
 ### Added
