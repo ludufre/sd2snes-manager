@@ -107,7 +107,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-/** N jobs that each write exactly one small file (the ficha .gcv). One write per job keeps the
+/** N jobs that each write exactly one small file (the game info .gcv). One write per job keeps the
  *  concurrency arithmetic below honest. */
 function jobsOf(n: number): unknown[] {
   return Array.from({ length: n }, (_, i) => ({

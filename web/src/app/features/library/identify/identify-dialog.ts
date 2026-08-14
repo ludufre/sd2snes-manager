@@ -7,7 +7,7 @@ import { Icon } from '../../../ui/icon/icon';
 
 /**
  * "Available in the GameDB", opened after Identify. Previews the gamedb cover / screenshot / video
- * and lets you generate them onto the card (or download the raw asset). The list and the ficha keep
+ * and lets you generate them onto the card (or download the raw asset). The list and the game info file keep
  * showing only what's actually on the SD card; this dialog is the separate "what's available" view.
  */
 @Component({

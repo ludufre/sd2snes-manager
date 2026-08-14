@@ -72,5 +72,5 @@ export async function encodeCovWasm(bytes, opts = {}) {
 }
 
 // NOTE: the `.gd` DirectColor encoder (encodeGdWasm/gdEncode) was removed, the Manager retired the
-// `.gd` info-screen path (ficha cover/snapshot/preview now come from the JS bandpal/ffmpeg encoder),
+// `.gd` info-screen path (game info cover/snapshot/preview now come from the JS bandpal/ffmpeg encoder),
 // so the covgen WASM no longer carries it.

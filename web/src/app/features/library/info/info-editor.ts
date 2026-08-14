@@ -8,7 +8,7 @@ import { TranslocoModule } from '@jsverse/transloco';
 /** Editable game-info fields (mirrors the `.yml` keys buildYml writes). `description` is the
  *  canonical english text; `description_<lang>` carries each translation. The console reads the key
  *  for its menu language and falls back to English when that one is missing or empty. */
-interface Ficha {
+interface GameInfo {
   title: string;
   developer: string;
   publisher: string;
@@ -23,7 +23,7 @@ interface Ficha {
   description_fr: string;
   description_it: string;
 }
-const EMPTY: Ficha = {
+const EMPTY: GameInfo = {
   title: '', developer: '', publisher: '', release_year: '', players: '', genre: '', special_chip: '',
   description: '', description_pt: '', description_es: '', description_de: '', description_fr: '', description_it: '',
 };
@@ -33,12 +33,12 @@ const EMPTY: Ficha = {
 type DescTab = 'en' | DescLang;
 const DESC_TABS: readonly DescTab[] = ['en', 'pt', 'es', 'de', 'fr', 'it'];
 
-/** Which Ficha field a tab edits. */
-function descField(tab: DescTab): keyof Ficha {
-  return tab === 'en' ? 'description' : (`description_${tab}` as keyof Ficha);
+/** Which GameInfo field a tab edits. */
+function descField(tab: DescTab): keyof GameInfo {
+  return tab === 'en' ? 'description' : (`description_${tab}` as keyof GameInfo);
 }
 
-/** Edit the game metadata (the on-card `/sd2snes/info/<C>/<stem>.yml` ficha) in a modal. */
+/** Edit the game metadata (the on-card `/sd2snes/info/<C>/<stem>.yml` game info) in a modal. */
 @Component({
   selector: 'app-info-editor',
   imports: [Icon, TranslocoModule],
@@ -129,7 +129,7 @@ export class InfoEditor {
   private readonly lib = inject(LibraryStore);
   private readonly langs = inject(LangService);
 
-  protected readonly form = signal<Ficha>(EMPTY);
+  protected readonly form = signal<GameInfo>(EMPTY);
   protected readonly saving = signal(false);
   protected readonly tabs = DESC_TABS;
   /** Opens on the app's own language (that is the description the user can judge); English otherwise. */
@@ -144,14 +144,14 @@ export class InfoEditor {
       if (this.seeded || !g) return;
       this.seeded = true;
       // immediate from the gamedb match, then refine with the on-card .yml if present.
-      this.form.set(this.fichaFrom(g, null));
+      this.form.set(this.gameInfoFrom(g, null));
       void this.lib.readInfoYml(g).then((yml) => {
-        if (yml && this.entry()?.id === g.id) this.form.set(this.fichaFrom(g, yml));
+        if (yml && this.entry()?.id === g.id) this.form.set(this.gameInfoFrom(g, yml));
       });
     });
   }
 
-  private fichaFrom(g: Entry, yml: Record<string, string> | null): Ficha {
+  private gameInfoFrom(g: Entry, yml: Record<string, string> | null): GameInfo {
     return {
       title: yml?.['title'] ?? g.title ?? '',
       developer: yml?.['developer'] ?? g.developer ?? '',
@@ -169,15 +169,15 @@ export class InfoEditor {
     };
   }
 
-  /** The Ficha field a description tab edits, and its current text. */
-  protected field(tab: DescTab): keyof Ficha {
+  /** The GameInfo field a description tab edits, and its current text. */
+  protected field(tab: DescTab): keyof GameInfo {
     return descField(tab);
   }
   protected value(tab: DescTab): string {
     return this.form()[descField(tab)];
   }
 
-  protected set(key: keyof Ficha, e: Event): void {
+  protected set(key: keyof GameInfo, e: Event): void {
     const v = (e.target as HTMLInputElement | HTMLTextAreaElement).value;
     this.form.update((f) => ({ ...f, [key]: v }));
   }

@@ -131,7 +131,7 @@ export interface Entry {
   /** GameDB game id (from the match), powers the "report on GameDB" deep link. */
   gamedbId?: string;
   cover: CoverStatus;
-  /** Ficha paletted cover (.gcv in /sd2snes/info) present on card. The browser thumbnail uses the
+  /** GameInfo paletted cover (.gcv in /sd2snes/info) present on card. The browser thumbnail uses the
    *  `.cov` next to the ROM (-> `cover`); the game-info screen wants the paletted `.gcv` so it can
    *  coexist with the screenshot. A game with a `.cov` but no `.gcv` still needs its capa filled. */
   gcv?: 'has' | 'none';
@@ -144,7 +144,7 @@ export interface Entry {
   fmv?: 'has' | 'none';
   /** Snapshot (the screenshot region inside the .gd) present and non-blank. */
   snapshot?: 'has' | 'none';
-  /** Game-info ficha (.yml in /sd2snes/info) present on card. */
+  /** Game-info game info (.yml in /sd2snes/info) present on card. */
   info?: 'has' | 'none';
   /** Number of in-game manual/guide `.man` files on card for this stem (0..8; see lib/man.js
    *  GUIDE_SLOTS/MAX_GUIDES, <stem>.man + <stem>.0N.man, N=2..8). Includes slot 0 (the official
@@ -190,15 +190,15 @@ export interface Entry {
    *  analysis so staleness can be computed synchronously and token-only rewrites can preserve metadata.
    *  null = no `.yml` on card; undefined = not loaded yet. */
   onCardYml?: Record<string, string> | null;
-  /** Which GameDB document sits in each `.man` slot, read from the ficha's `man_slots` (see yml.js).
+  /** Which GameDB document sits in each `.man` slot, read from the game info file's `man_slots` (see yml.js).
    *  The card cannot answer this on its own (`<stem>.NN.man` carries no document identity) so without
    *  it an extra manual is only recognizable by its exact bytes, and a GameDB re-encode makes every
    *  extra look brand new and take yet another slot. IN-MEMORY source of truth during a run: the worker
-   *  rewrites the ficha from metadata (stripping the key), so re-reading the card mid-run would lose it.
-   *  null = the ficha has no map (legacy card → sha-only dedup); undefined = not loaded yet (same
+   *  rewrites the game info file from metadata (stripping the key), so re-reading the card mid-run would lose it.
+   *  null = the game info file has no map (legacy card → sha-only dedup); undefined = not loaded yet (same
    *  convention as `onCardYml`). Only autofill writes entries here; a user-added guide is never in it. */
   manSlots?: ManSlotMap | null;
-  /** Match metadata from the gamedb (for the ficha editor + the game-info .yml). */
+  /** Match metadata from the gamedb (for the game info editor + the game-info .yml). */
   developer?: string | null;
   publisher?: string | null;
   releaseYear?: number | null;

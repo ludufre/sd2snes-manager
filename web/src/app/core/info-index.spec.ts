@@ -149,7 +149,7 @@ describe('indexInfoRoot — every shape /sd2snes/info can be in', () => {
 });
 
 describe('infoSidecarsFor — the legacy layout has no sgb/ segment', () => {
-  // Pre-2.15 a Game Boy game's ficha sits in the same un-namespaced bucket as a SNES one, because
+  // Pre-2.15 a Game Boy game's game info sits in the same un-namespaced bucket as a SNES one, because
   // bucketDirFor('legacy') never emits `sgb/`. Keyed strictly, `Tetris.gb` would never find it.
   const legacyCard = card({ T: new FakeDir('T', { 'Tetris.yml': file(), 'Tetris.gcv': file() }) });
 

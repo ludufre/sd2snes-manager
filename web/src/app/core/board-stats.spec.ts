@@ -105,7 +105,7 @@ describe('assetPresent(manual) — the served SET, not just slot 0', () => {
 /**
  * `officialGuideCount` takes the lower of the two things known about the card, because each is blind
  * in the opposite direction: the file count cannot tell our documents from the user's own guides, and
- * the ficha's map can name a slot the card no longer holds. Erring low costs one skipped write, which
+ * the game info file's map can name a slot the card no longer holds. Erring low costs one skipped write, which
  * the next run offers again; erring high is a document never installed at all.
  */
 describe('officialGuideCount', () => {
@@ -116,14 +116,14 @@ describe('officialGuideCount', () => {
   });
 
   it("does not let the user's own guides pass as installed documents", () => {
-    // 4 `.man` on the card, but the ficha says three of them are the user's → one document of ours.
+    // 4 `.man` on the card, but the game info file says three of them are the user's → one document of ours.
     const manSlots = new Map([[0, 'h5y4tn5i'], [2, 'u'], [3, 'u'], [4, 'u']]);
     expect(officialGuideCount({ guides: 4, manSlots })).toBe(1);
     expect(assetPresent(game('SNES', { manual: 'has', guides: 4, manSlots, manuals: FOUR_DOCS }), 'manual')).toBe(false);
   });
 
   it('does not let a map naming vanished slots pass either', () => {
-    // The ficha claims four documents; the card only holds two files (one was deleted behind our back).
+    // The game info file claims four documents; the card only holds two files (one was deleted behind our back).
     const manSlots = new Map([[0, 'a1'], [2, 'b2'], [3, 'c3'], [4, 'd4']]);
     expect(officialGuideCount({ guides: 2, manSlots })).toBe(2);
   });

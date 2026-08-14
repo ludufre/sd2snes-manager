@@ -34,7 +34,7 @@ export function fillModeActs(mode: FillMode, state: { available: boolean; presen
  * the same 20 games.
  *
  * Two subtleties worth keeping straight:
- * - `capa` needs both the browser `.cov` and the ficha `.gcv`. A `.cov` alone still needs filling
+ * - `capa` needs both the browser `.cov` and the game info `.gcv`. A `.cov` alone still needs filling
  *   (the game-info screen wants the paletted cover, else the firmware falls back to a
  *   tile-quantised OBJ render).
  * - `manual` is the whole served set, not just slot 0, see `servedManualCount`. `guias` is the
@@ -73,7 +73,7 @@ export function servedManualCount(g: Pick<Entry, 'manuals' | 'manualUrl'>): numb
  * things we know, because each is blind in the opposite direction:
  *   · `guides` counts `.man` files for the stem, it cannot tell auto-fill's documents from the
  *     user's own guides in slots 2..8, so on its own it overstates a card whose slots are the user's;
- *   · the ficha's `man_slots` names which document is in each slot (`u` = the user's), but it only
+ *   · the game info file's `man_slots` names which document is in each slot (`u` = the user's), but it only
  *     exists once a run has written it, and it can name a slot the card no longer holds.
  * Taking the minimum means an unproven document reads as missing, never as installed: the cost of
  * being wrong is one skipped write (offered again next run), against a document silently never
@@ -97,7 +97,7 @@ export function officialGuideCount(g: Pick<Entry, 'guides' | 'manSlots'>): numbe
  *   the `.gcv` is derived from it (buildGcvFromCov). So "absent" = neither `.cov` nor `.gcv`.
  * - `tela` is its own paletted `.gss` now. It just needs a screenshot source (no cover compositing).
  * - `previa` needs a ready `.fmv` inside the game's `.s2pkg`: auto-fill never encodes video (no
- *   ffmpeg, no mp4 download, that belongs to the explicit per-game actions on the ficha). A game the
+ *   ffmpeg, no mp4 download, that belongs to the explicit per-game actions on the game info file). A game the
  *   GameDB has a video for but no package built yet is therefore not available. Whether an existing
  *   package actually carries the `fmv` member can only be known once it is downloaded. Those few are
  *   skipped and named in the post-run report.

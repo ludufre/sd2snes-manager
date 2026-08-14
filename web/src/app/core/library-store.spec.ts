@@ -1,21 +1,21 @@
 /**
  * The `fmv: 1` flag the firmware gates its `.fmv`/`.gss` probe on.
  *
- * Placing a preview has to guarantee the sibling ficha carries that flag, and the store no longer
- * Reads the ficha back to find out: when the same flow just wrote it (auto-fill writes the `.yml`
+ * Placing a preview has to guarantee the sibling game info file carries that flag, and the store no longer
+ * Reads the game info file back to find out: when the same flow just wrote it (auto-fill writes the `.yml`
  * and then the preview), the text is already in memory and gets patched from there. That only holds
  * if the patch is decided purely from "what the file holds now", which is what these tests pin,
- * including the two ways it must not be written: never a second flag, never a rewritten ficha.
+ * including the two ways it must not be written: never a second flag, never a rewritten game info file.
  *
  * Get this wrong and nothing throws: the clip lands on the card and the console never plays it.
  */
 import { describe, expect, it } from 'vitest';
-import { clampYamlLine, electFichaOwners, fichaKeyOf, fmvFlagFor, groupManualBuckets, manSlotsField, manSlotsFor, planManualSlots, savestateInputsValue, ymlWithFmvFlag, ymlWithoutFmvFlag } from './library-store';
+import { clampYamlLine, electGameInfoOwners, gameInfoKeyOf, fmvFlagFor, groupManualBuckets, manSlotsField, manSlotsFor, planManualSlots, savestateInputsValue, ymlWithFmvFlag, ymlWithoutFmvFlag } from './library-store';
 import { buildYml, parseInfoYml, MAN_USER_TAG } from '../lib/yml.js';
 import { slugIdOfType } from '../lib/man.js';
 
-describe('ymlWithFmvFlag — the ficha patch that turns the preview on', () => {
-  it('creates the flag-only ficha when there is no `.yml` at all', () => {
+describe('ymlWithFmvFlag — the gameInfo patch that turns the preview on', () => {
+  it('creates the flag-only gameInfo when there is no `.yml` at all', () => {
     expect(ymlWithFmvFlag(null)).toBe('fmv: 1\n');
   });
 
@@ -27,24 +27,24 @@ describe('ymlWithFmvFlag — the ficha patch that turns the preview on', () => {
     expect(ymlWithFmvFlag('FMV: 1\n')).toBeNull();                              // FAT-ish casing
   });
 
-  it('appends the flag and leaves every existing byte of the ficha alone', () => {
+  it('appends the flag and leaves every existing byte of the gameInfo alone', () => {
     const before = '---\n# comment the user wrote\ntitle: "Chrono Trigger"\ndescription: "hi"\n';
     const after = ymlWithFmvFlag(before);
     expect(after).toBe(before + 'fmv: 1\n');
     expect(after?.startsWith(before)).toBe(true); // nothing reordered, nothing normalized, nothing dropped
   });
 
-  it('does not glue the flag onto the last line when the ficha has no trailing newline', () => {
+  it('does not glue the flag onto the last line when the gameInfo has no trailing newline', () => {
     expect(ymlWithFmvFlag('title: "Tetris"')).toBe('title: "Tetris"\nfmv: 1\n');
   });
 
-  it('leaves a ficha buildYml already flagged untouched, and flags one it did not', () => {
+  it('leaves a gameInfo buildYml already flagged untouched, and flags one it did not', () => {
     expect(ymlWithFmvFlag(buildYml({ title: 'Super Metroid', fmv: 1 }))).toBeNull();
 
     const plain = buildYml({ title: 'Super Metroid', description: 'English text', sync_meta: 'r7' });
     const patched = ymlWithFmvFlag(plain);
     expect(patched).not.toBeNull();
-    // The ficha still reads back exactly as before, plus the flag, the firmware's own reader parses
+    // The game info file still reads back exactly as before, plus the flag, the firmware's own reader parses
     // `key: value` lines in any order, so appending is safe, but nothing else may have moved.
     const back = parseInfoYml(patched as string) as Record<string, string>;
     expect(back['fmv']).toBe('1');
@@ -60,12 +60,12 @@ describe('ymlWithFmvFlag — the ficha patch that turns the preview on', () => {
 });
 
 /**
- * The other direction, and the reason it exists: auto-fill hands the write worker a ficha with
+ * The other direction, and the reason it exists: auto-fill hands the write worker a game info file with
  * `fmv: 1` already baked in (the worker writes the `.yml` and the `.fmv` in one pass), and the package
  * may then turn out not to carry the clip. Left alone, that flag points at files nobody wrote.
  */
 describe('ymlWithoutFmvFlag — taking the flag back out when the preview was skipped', () => {
-  it('writes NOTHING when there is no ficha or no flag in it', () => {
+  it('writes NOTHING when there is no gameInfo or no flag in it', () => {
     expect(ymlWithoutFmvFlag(null)).toBeNull();
     expect(ymlWithoutFmvFlag('')).toBeNull();
     expect(ymlWithoutFmvFlag('title: "Tetris"\n')).toBeNull();
@@ -83,11 +83,11 @@ describe('ymlWithoutFmvFlag — taking the flag back out when the preview was sk
     expect(ymlWithoutFmvFlag(keep)).toBeNull();
   });
 
-  it('round-trips with ymlWithFmvFlag — flag, unflag, and the ficha is what it was', () => {
+  it('round-trips with ymlWithFmvFlag — flag, unflag, and the gameInfo is what it was', () => {
     const before = buildYml({ title: 'Super Metroid', description: 'hi', sync_meta: 'r7' });
     const flagged = ymlWithFmvFlag(before) as string;
     expect(ymlWithoutFmvFlag(flagged)).toBe(before);
-    // and the ficha still parses with everything else intact
+    // and the game info file still parses with everything else intact
     const back = parseInfoYml(ymlWithoutFmvFlag(flagged) as string) as Record<string, string>;
     expect(back['fmv']).toBeUndefined();
     expect(back['title']).toBe('Super Metroid');
@@ -103,11 +103,11 @@ describe('ymlWithoutFmvFlag — taking the flag back out when the preview was sk
 /**
  * The flag is named after the `.fmv` but gates both media: the firmware reads `fmv:` into
  * `fmv_eligible` and probes `<rom>.fmv` and `<rom>.gss` inside it (gameinfo.c:522, 563-577). Every
- * ficha rewrite decides the flag from scratch, so getting this wrong silently switches a snapshot off.
+ * game info rewrite decides the flag from scratch, so getting this wrong silently switches a snapshot off.
  */
-describe('fmvFlagFor — the ficha flag that gates the clip AND the snapshot', () => {
+describe('fmvFlagFor — the gameInfo flag that gates the clip AND the snapshot', () => {
   it('keeps the flag for a game that only has the static snapshot', () => {
-    // The bug this pins: `g.fmv === 'has' ? 1 : null` turned the `.gss` off on every ficha rewrite,
+    // The bug this pins: `g.fmv === 'has' ? 1 : null` turned the `.gss` off on every game info rewrite,
     // and nothing ever brought it back (the file is still there, so the category never reads missing).
     expect(fmvFlagFor({ fmv: 'none', snapshot: 'has' })).toBe(1);
   });
@@ -124,11 +124,11 @@ describe('fmvFlagFor — the ficha flag that gates the clip AND the snapshot', (
 });
 
 /**
- * `man_slots` is the fmv flag's twin: three code paths rebuild a game's ficha from scratch, each drops
+ * `man_slots` is the fmv flag's twin: three code paths rebuild a game's game info from scratch, each drops
  * every key it does not name, and the map lives nowhere else. Losing it is not visible on the card, it
  * just silently returns the game to sha-only manual dedup.
  */
-describe('manSlotsFor — the ficha field for the slot→document map', () => {
+describe('manSlotsFor — the gameInfo field for the slot→document map', () => {
   it('serializes the entry map in slot order', () => {
     expect(manSlotsFor({ manSlots: new Map([[2, 'ahtd2trh'], [0, 'h5y4tn5i']]) })).toBe('0:h5y4tn5i,2:ahtd2trh');
   });
@@ -140,7 +140,7 @@ describe('manSlotsFor — the ficha field for the slot→document map', () => {
 });
 
 /**
- * `manSlotsField`, what each of the three ficha writers must put in `man_slots`.
+ * `manSlotsField`, what each of the three game info writers must put in `man_slots`.
  *
  * `undefined` on the entry means nobody looked, not "there is no map", and conflating the two erases a
  * key that lives nowhere else. Nothing visible breaks when it happens, which is exactly why it needs a
@@ -171,7 +171,7 @@ describe('manSlotsField — the three-writer rule', () => {
  * Half of these tests are about the other direction: this function can now delete and overwrite files,
  * so most of what follows pins what it must refuse to touch. The rule it enforces: a file the pass did
  * not just write may only be deleted or written over when its exact bytes are provably auto-fill's own
- * (served now, or recorded in the ficha's own `sync_man`), and a delete additionally needs a surviving
+ * (served now, or recorded in the game info file's own `sync_man`), and a delete additionally needs a surviving
  * copy, already on the card or landing in this same pass.
  *
  * The tags below are groupUuid[:8] (`manGroupTag`); shas stand in for the real 64-hex digests, with
@@ -196,7 +196,7 @@ describe('planManualSlots — slot addressing by DOCUMENT, not by bytes', () => 
 
   it('THE FIX: a re-encoded extra is rewritten IN ITS OWN SLOT — no new slot, no slotsfull', () => {
     const manuals = [doc('manual00', 'A-v2'), doc('other000', 'B-v2'), doc('map00000', 'C-v2'), doc('guide000', 'D-v2'), doc('insert00', 'E-v2')];
-    // `sync_man` carries the v1 shas: the two keys are written by the same passes, so a ficha that has a
+    // `sync_man` carries the v1 shas: the two keys are written by the same passes, so a game info file that has a
     // map has the receipts for what is in it, which is what lets the rewrite happen in place.
     const p = planManualSlots(manuals, card({
       hashes: [[0, 'A-v1'], [2, 'B-v1'], [3, 'C-v1'], [4, 'D-v1'], [5, 'E-v1']],
@@ -242,7 +242,7 @@ describe('planManualSlots — slot addressing by DOCUMENT, not by bytes', () => 
     const p = planManualSlots(ZELDA, card({
       hashes: [[0, 'A-v1'], [2, 'B-v1'], [3, 'C-v1'], [4, 'D-v1'], [5, 'E-v1']],
       heads: [[0, 'manual'], [2, 'other'], [3, 'map'], [4, 'guide'], [5, 'insert']],
-      // the ficha's own receipt for the bytes it installed before the server re-encoded them. Every
+      // the game info file's own receipt for the bytes it installed before the server re-encoded them. Every
       // card auto-fill has ever filled carries one, and it is what separates these files from a guide
       // the user added by hand (which has no receipt and is therefore never adopted).
       synced: ['A-v1', 'B-v1', 'C-v1', 'D-v1', 'E-v1'],
@@ -261,7 +261,7 @@ describe('planManualSlots — slot addressing by DOCUMENT, not by bytes', () => 
   it("NEVER adopts a user's own guide on a LEGACY card — the `u` marker does not exist there yet", () => {
     // The hole a fuzz found in production: `addGuide` stamps the same document types the GameDB uses,
     // so a map the user scanned themselves is type-identical to the official one. On a card with no
-    // `man_slots` (every card until this release) the user-marker cannot protect it, only the ficha's
+    // `man_slots` (every card until this release) the user-marker cannot protect it, only the game info file's
     // receipt can: those bytes were never installed by auto-fill, so they are never adopted.
     const p = planManualSlots(ZELDA, card({
       hashes: [[0, 'A-v1'], [2, 'USER-SCAN'], [3, 'C-v1']],
@@ -303,7 +303,7 @@ describe('planManualSlots — slot addressing by DOCUMENT, not by bytes', () => 
     expect(p.steps.filter((s) => s.action === 'skip').map((s) => s.slot)).toEqual([6, 7, 8]);
     expect(fails(p)).toEqual([]);
     expect(p.adopted).toEqual([{ slot: 5, type: 'insert' }]);
-    // The stragglers are provable here: the ficha's `sync_man` records those exact bytes as auto-fill's
+    // The stragglers are provable here: the game info file's `sync_man` records those exact bytes as auto-fill's
     // own, and each document survives in the slot that skipped, so they go, but only after every write
     // has landed (`after: 'all'`). Nothing is guessed: a card with no receipt keeps them as leftovers.
     expect(p.drops).toEqual([
@@ -394,7 +394,7 @@ describe('planManualSlots — slot addressing by DOCUMENT, not by bytes', () => 
   it('repairs the card the bug already filled: RECLAIM for room, sweep the rest only after the writes', () => {
     /* The card as the bug left it: slots 2..5 hold the pre-re-encode copies, 6..8 the new ones the old
        code spilled into free slots, and the 5th document never fit. `sync_man` still lists the v1 shas.
-       the ficha's own receipt that AUTO-FILL put those bytes there, which is what makes removing them a
+       the game info file's own receipt that AUTO-FILL put those bytes there, which is what makes removing them a
        proof rather than a guess (a user's guide is never in it). */
     const manuals = [doc('manual00', 'A-v2'), doc('other000', 'B-v2'), doc('map00000', 'C-v2'), doc('guide000', 'D-v2'), doc('insert00', 'E-v2')];
     const p = planManualSlots(manuals, card({
@@ -495,7 +495,7 @@ describe('planManualSlots — slot addressing by DOCUMENT, not by bytes', () => 
   });
 
   it('a suspect slot the map names but whose BYTES name nothing served is never a "dup"', () => {
-    // Two ROMs sharing a stem share one ficha, so a `man_slots` written for one describes the other's
+    // Two ROMs sharing a stem share one game info file, so a `man_slots` written for one describes the other's
     // slots. A slot condemned on that say-so alone, with no byte evidence, must not be deleted as a
     // duplicate. At most it is an orphan, and only with a `sync_man` receipt.
     const p = planManualSlots([doc('manual00', 'A-v2')], card({
@@ -539,7 +539,7 @@ describe('planManualSlots — slot addressing by DOCUMENT, not by bytes', () => 
   });
 
   it('a STALE map entry never silently overwrites a file we cannot prove we wrote', () => {
-    // `2:T` in the ficha, but slot 2 holds something with no receipt. The user's. Writing T there is the
+    // `2:T` in the game info file, but slot 2 holds something with no receipt. The user's. Writing T there is the
     // one place the app would destroy a file it did not create, without a word. It takes a free slot.
     const p = planManualSlots([doc('manual00', 'A-v2'), doc('other000', 'T-v2')], card({
       hashes: [[0, 'A-v2'], [2, 'USER-SCAN']], groups: [[2, 'other000']], synced: ['A-v2'],
@@ -559,7 +559,7 @@ describe('planManualSlots — slot addressing by DOCUMENT, not by bytes', () => 
     expect(p.map).toEqual(new Map([[0, 'manual00'], [2, 'other000']]));
   });
 
-  it('drops slots the ficha names that are not addressable guide slots at all', () => {
+  it('drops slots the gameInfo names that are not addressable guide slots at all', () => {
     const p = planManualSlots([doc('manual00', 'A-v2')], card({
       hashes: [[0, 'A-v2']], groups: [[1, 'bogus000'], [42, 'bogus111'], [0, 'manual00']],
     }));
@@ -692,20 +692,20 @@ describe('groupManualBuckets', () => {
  * The ping-pong that kept auto-fill re-offering the same games after every run: two different games
  * sharing one `<stem>.yml`, each reading the version the other had recorded as "outdated".
  */
-describe('electFichaOwners — who speaks for a shared ficha', () => {
+describe('electGameInfoOwners — who speaks for a shared gameInfo', () => {
   const mk = (id: string, file: string, rom?: string) => ({ id, file, rom });
   const elect = (es: ReturnType<typeof mk>[]) =>
-    electFichaOwners(es, () => 'info/CH/chou aniki', (e) => e.id, (e) => e.rom === e.file);
+    electGameInfoOwners(es, () => 'info/CH/chou aniki', (e) => e.id, (e) => e.rom === e.file);
 
-  it('elects the copy the ficha NAMES — the SNES/Satellaview case that started this', () => {
-    // `C/Chou Aniki (Japan).sfc` and `_BSX/Chou Aniki (Japan).bs`: different GameDB games, one ficha.
+  it('elects the copy the gameInfo NAMES — the SNES/Satellaview case that started this', () => {
+    // `C/Chou Aniki (Japan).sfc` and `_BSX/Chou Aniki (Japan).bs`: different GameDB games, one game info file.
     const snes = mk('a', 'Chou Aniki (Japan).sfc', 'Chou Aniki (Japan).sfc');
-    const bsx = mk('b', 'Chou Aniki (Japan).bs', 'Chou Aniki (Japan).sfc'); // ficha names the .sfc
+    const bsx = mk('b', 'Chou Aniki (Japan).bs', 'Chou Aniki (Japan).sfc'); // game info names the .sfc
     expect(elect([snes, bsx]).get('info/CH/chou aniki')).toBe('a');
     expect(elect([bsx, snes]).get('info/CH/chou aniki')).toBe('a'); // and order cannot change it
   });
 
-  it('still elects exactly ONE when the ficha names them all — copies of one filename in subfolders', () => {
+  it('still elects exactly ONE when the gameInfo names them all — copies of one filename in subfolders', () => {
     // `Contra SNES/Contra SNES.sfc` + the USA and jpn builds in `sfc choice/`: `rom:` records only the
     // Filename, so it names every one of them. This is what 1.21.6 got wrong and 1.21.7 fixed.
     const cs = ['b', 'a', 'c'].map((id) => mk(id, 'Contra SNES.sfc', 'Contra SNES.sfc'));
@@ -714,27 +714,27 @@ describe('electFichaOwners — who speaks for a shared ficha', () => {
     expect(owners.get('info/CH/chou aniki')).toBe('a'); // lowest id, deterministic, so the card settles
   });
 
-  it('elects one even when the ficha names NOBODY (legacy, or written by another tool)', () => {
+  it('elects one even when the gameInfo names NOBODY (legacy, or written by another tool)', () => {
     const owners = elect([mk('z', 'X.sfc'), mk('a', 'X.bs')]);
     expect(owners.size).toBe(1);
     expect(owners.get('info/CH/chou aniki')).toBe('a');
   });
 
   it('prefers the copy you actually PLAY over a spare buried in a subfolder', () => {
-    // The ficha carries the owner's title and description, and the console shows them for every copy,
+    // The game info file carries the owner's title and description, and the console shows them for every copy,
     // so `_INFIDELITY/Metroid SNES/Metroid SNES.sfc` must win over the one in `bkup/` beside it, even
     // though the tie-break by id had picked the spare.
     const main = { id: 'z', file: 'Metroid SNES.sfc', rom: undefined, depth: 1 };
     const bkup = { id: 'a', file: 'Metroid SNES.sfc', rom: undefined, depth: 2 };
-    const owners = electFichaOwners([bkup, main], () => 'k', (e) => e.id, () => false, (e) => e.depth);
+    const owners = electGameInfoOwners([bkup, main], () => 'k', (e) => e.id, () => false, (e) => e.depth);
     expect(owners.get('k')).toBe('z');
-    expect(electFichaOwners([main, bkup], () => 'k', (e) => e.id, () => false, (e) => e.depth).get('k')).toBe('z');
+    expect(electGameInfoOwners([main, bkup], () => 'k', (e) => e.id, () => false, (e) => e.depth).get('k')).toBe('z');
   });
 
-  it('lets the ficha OVERRIDE depth — a named copy wins wherever it sits', () => {
+  it('lets the gameInfo OVERRIDE depth — a named copy wins wherever it sits', () => {
     const deep = { id: 'a', file: 'X.sfc', rom: 'X.sfc', depth: 3 };
     const shallow = { id: 'b', file: 'X.bs', rom: 'X.sfc', depth: 0 }; // not named (its file differs)
-    const owners = electFichaOwners([shallow, deep], () => 'k', (e) => e.id, (e) => e.rom === e.file, (e) => e.depth);
+    const owners = electGameInfoOwners([shallow, deep], () => 'k', (e) => e.id, (e) => e.rom === e.file, (e) => e.depth);
     expect(owners.get('k')).toBe('a');
   });
 
@@ -745,8 +745,8 @@ describe('electFichaOwners — who speaks for a shared ficha', () => {
     expect(first).toBe('a');
   });
 
-  it('keeps games with their own ficha independent — every one of them owns it', () => {
-    const owners = electFichaOwners(
+  it('keeps games with their own gameInfo independent — every one of them owns it', () => {
+    const owners = electGameInfoOwners(
       [mk('a', 'Zelda.sfc'), mk('b', 'Metroid.sfc')],
       (e) => 'info/' + e.file, (e) => e.id, () => false);
     expect(owners.size).toBe(2);
@@ -754,12 +754,12 @@ describe('electFichaOwners — who speaks for a shared ficha', () => {
   });
 
   it('is empty for an empty library', () => {
-    expect(electFichaOwners([], () => 'k', () => 'i', () => false).size).toBe(0);
+    expect(electGameInfoOwners([], () => 'k', () => 'i', () => false).size).toBe(0);
   });
 });
 
-describe('fichaKeyOf — two ROMs share a ficha exactly when the card cannot tell them apart', () => {
-  const k = (stem: string, sgb = false) => fichaKeyOf({ stem, sgb, mode: 'buckets' });
+describe('gameInfoKeyOf — two ROMs share a gameInfo exactly when the card cannot tell them apart', () => {
+  const k = (stem: string, sgb = false) => gameInfoKeyOf({ stem, sgb, mode: 'buckets' });
 
   it('is the same for two ROMs with the same filename (this is the sharing itself)', () => {
     expect(k('Chou Aniki (Japan)')).toBe(k('Chou Aniki (Japan)'));

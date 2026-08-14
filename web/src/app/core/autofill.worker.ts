@@ -228,7 +228,7 @@ interface Job {
   folder: string; // relative path of the ROM's dir under the card root ('' = root)
   want: { cov?: boolean; gcv?: boolean; gss?: boolean; fmv?: boolean; pcm?: boolean };
   cheatsText?: string | null; // pre-serialized cheats .yml (fallback when the package has no cheats)
-  infoYml?: string | null;    // pre-built ficha .yml (with the fmv flag already baked by the main thread)
+  infoYml?: string | null;    // pre-built game info .yml (with the fmv flag already baked by the main thread)
 }
 
 /* ---- stage 1/2: the fetcher (download + inflate, ahead of the writers) ---- */
@@ -277,18 +277,18 @@ function bump(): void { const r = tickR; arm(); r(); }
 async function fetchJob(job: Job): Promise<Ready> {
   const r: Ready = { job, pkg: null, pcm: null, man: null, manErr: '', bytes: 0 };
   if (job.packageUrl) {
-    try { const p = await fetchPackage(job.packageUrl); r.pkg = p.members; r.bytes += p.bytes; } catch { /* → reported missing */ }
+    try { const p = await fetchPackage(job.packageUrl); r.pkg = p.members; r.bytes += p.bytes; } catch {  }/* → reported missing */
   }
   // Variant gone (stale row / swept object)? The base package carries the same members (+pcm), far
   // better to download it than to dump the whole game on the slow main-thread ffmpeg fallback.
   if (!r.pkg && job.fallbackPackageUrl && job.fallbackPackageUrl !== job.packageUrl) {
-    try { const p = await fetchPackage(job.fallbackPackageUrl); r.pkg = p.members; r.bytes += p.bytes; } catch { /* → reported missing */ }
+    try { const p = await fetchPackage(job.fallbackPackageUrl); r.pkg = p.members; r.bytes += p.bytes; } catch {  }/* → reported missing */
   }
   // Separated audio: the same predicate the writer uses below, minus the directory checks (resolving the
   // dirs is the writer's job). Worst case we prefetch a `.pcm` for a game whose info dir turns out to be
   // unusable, a mkdir failure, i.e. a card that is about to fail everything anyway.
   if (r.pkg && job.want.fmv && r.pkg['fmv'] && job.want.pcm && !r.pkg['pcm'] && job.pcmUrl) {
-    try { r.pcm = await fetchInflate(job.pcmUrl); r.bytes += r.pcm.byteLength; } catch { /* audio best-effort */ }
+    try { r.pcm = await fetchInflate(job.pcmUrl); r.bytes += r.pcm.byteLength; } catch {  }/* audio best-effort */
   }
   // Official manual: a direct fetch, never a package member, a manual-only job (packageUrl null) is a
   // perfectly valid job and gets here regardless.
@@ -396,7 +396,7 @@ async function writeJob(r: Ready): Promise<void> {
       if (job.want.pcm) {
         if (pkg['pcm']) { await writeFile(infoDir, job.stem + '.pcm', pkg['pcm']); wrote.pcm = true; } // legacy: embedded audio
         else if (r.pcm) { // new: audio-less package → the separated .pcm.zst, fetched + inflated by the fetcher
-          try { await writeFile(infoDir, job.stem + '.pcm', r.pcm); wrote.pcm = true; } catch { /* audio best-effort */ }
+          try { await writeFile(infoDir, job.stem + '.pcm', r.pcm); wrote.pcm = true; } catch {  }/* audio best-effort */
         }
       }
     }
@@ -407,7 +407,7 @@ async function writeJob(r: Ready): Promise<void> {
   }
   // cheats: fall back to the reserved catalog text when the package has none
   if (!wrote.cheats && job.cheatsText) { const d = await getDir(cheatsDirFor(key), true); if (d) { await writeFile(d, job.stem + '.yml', enc.encode(job.cheatsText)); wrote.cheats = true; } }
-  // ficha .yml (fmv flag already baked in by the main thread when a preview is part of the plan)
+  // game info .yml (fmv flag already baked in by the main thread when a preview is part of the plan)
   if (job.infoYml != null && infoDir) { await writeFile(infoDir, job.stem + '.yml', enc.encode(job.infoYml)); wrote.info = true; }
 
   // Official manual (.man, ready w/ zoom): a direct download, never a package member, never converted
@@ -429,7 +429,7 @@ async function writeJob(r: Ready): Promise<void> {
 
   // What the plan wanted but the package couldn't supply → the main thread covgen/ffmpegs these few.
   // `gcv` belongs here too: a package that carries a `cov` but no `gcv` (or no members at all) left the
-  // ficha cover unwritten and unreported, so the game came back as "a completar" on every single run.
+  // game info cover unwritten and unreported, so the game came back as "a completar" on every single run.
   const missing = {
     cov: !!job.want.cov && !wrote.cov,
     gcv: !!job.want.gcv && !wrote.gcv,

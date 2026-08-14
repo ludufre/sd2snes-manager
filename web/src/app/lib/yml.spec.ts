@@ -15,7 +15,7 @@ describe('shaFromAssetUrl', () => {
 });
 
 describe('publisher', () => {
-  it('rides in the ficha right after developer', () => {
+  it('rides in the gameInfo right after developer', () => {
     const yml: string = buildYml({ title: 'Super Mario World', developer: 'Nintendo EAD', publisher: 'Nintendo of America, Inc.', release_year: '1991' });
     expect(yml).toContain('publisher: "Nintendo of America, Inc."');
     expect(yml.indexOf('developer:')).toBeLessThan(yml.indexOf('publisher:'));
@@ -127,7 +127,7 @@ describe('man_slots — the slot→document map', () => {
     expect(manGroupTag('u')).toBeNull();
     expect(manGroupTag('U-')).toBeNull();
     expect(manGroupTag('u1234567')).toBe('u1234567'); // a real (8-char) group is unaffected
-    // ...and it still round-trips through the ficha untouched
+    // ...and it still round-trips through the game info file untouched
     const map = new Map([[0, 'h5y4tn5i'], [3, MAN_USER_TAG]]);
     expect(serializeManSlots(map)).toBe('0:h5y4tn5i,3:u');
     expect(parseManSlots('0:h5y4tn5i,3:u')).toEqual(map);
@@ -145,7 +145,7 @@ describe('man_slots — the slot→document map', () => {
     expect(parseManSlots(serializeManSlots(map))).toEqual(map);
   });
 
-  it('parses tolerantly — a hand-edited ficha must never take a run down', () => {
+  it('parses tolerantly — a hand-edited gameInfo must never take a run down', () => {
     expect(parseManSlots('0:h5y4tn5i,,2:ahtd2trh')).toEqual(new Map([[0, 'h5y4tn5i'], [2, 'ahtd2trh']]));
     expect(parseManSlots(' 0 : H5Y4TN5I ')).toEqual(new Map([[0, 'h5y4tn5i']]));
     expect(parseManSlots('0:h5y4tn5i,garbage,3')).toEqual(new Map([[0, 'h5y4tn5i']]));
@@ -157,7 +157,7 @@ describe('man_slots — the slot→document map', () => {
     expect(parseManSlots('2:ahtd2trh,6:ahtd2trh')).toEqual(new Map([[2, 'ahtd2trh'], [6, 'ahtd2trh']]));
   });
 
-  it('rides in the ficha after the sync tokens and before the localized descriptions', () => {
+  it('rides in the gameInfo after the sync tokens and before the localized descriptions', () => {
     const yml: string = buildYml({
       title: 'The Legend of Zelda', sync_man: 'a'.repeat(16), description_pt: 'Texto',
       [MAN_SLOTS_KEY]: '0:h5y4tn5i,2:ahtd2trh',
@@ -195,7 +195,7 @@ describe('man_slots — the slot→document map', () => {
     expect(parseManSlots((parseInfoYml(yml) as Record<string, string>)[MAN_SLOTS_KEY])).toEqual(new Map(map));
   });
 
-  it('is omitted when there is no map (a card that never had one keeps a clean ficha)', () => {
+  it('is omitted when there is no map (a card that never had one keeps a clean gameInfo)', () => {
     expect(buildYml({ title: 'Tetris', [MAN_SLOTS_KEY]: null })).not.toContain('man_slots');
   });
 });

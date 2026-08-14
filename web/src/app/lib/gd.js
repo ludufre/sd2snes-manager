@@ -1,6 +1,6 @@
 // DirectColor `.gd`, reader only (back-compat).
 //
-// The Manager retired `.gd` generation: the ficha cover/snapshot/preview are now built by the JS
+// The Manager retired `.gd` generation: the game info cover/snapshot/preview are now built by the JS
 // bandpal/ffmpeg encoder (`.gcv`/`.gss`/`.fmv`), and covers (`.cov`) by the covgen WASM. The only
 // `.gd` code left here decodes a `.gd` that's already on the card (older builds wrote one) so the
 // snapshot tile / scan can still read it. `fetchBytes` is a shared helper used by library-store;

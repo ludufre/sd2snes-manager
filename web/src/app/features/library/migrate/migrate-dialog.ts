@@ -135,7 +135,7 @@ import { Icon } from '../../../ui/icon/icon';
             @if (p.ambiguous.length) {
               <div class="note" [innerHTML]="'migrate.ambiguous' | transloco: { count: p.ambiguous.length }"></div>
               <!-- Grouped BY DIRECTORY, and the directory is printed. A bare list of names sent the
-                   user hunting in the wrong root: the ficha .yml were long since fixed, the ones
+                   user hunting in the wrong root: the gameInfo .yml were long since fixed, the ones
                    still stuck were the CHEATS .yml -- same names, same extension, other folder. -->
               @for (g of ambiguousGroups(); track g.path) {
                 <div class="ambg">
@@ -344,9 +344,9 @@ export class MigrateDialog {
   /**
    * The files we refused to attribute, grouped by the directory they sit in.
    *
-   * The path is the whole point. A ficha and a cheat sheet for the same game are both
+   * The path is the whole point. A game info file and a cheat sheet for the same game are both
    * "<stem>.yml", so a flat list of names cannot say which of the two roots is still stuck --
-   * and the natural reading ("it must be the fichas") is the wrong one as often as not.
+   * and the natural reading ("it must be the game info files") is the wrong one as often as not.
    */
   readonly ambiguousGroups = computed(() => {
     const byPath = new Map<string, { root: string; path: string; names: string[] }>();

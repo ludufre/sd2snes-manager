@@ -222,7 +222,7 @@ class CrcWorkerClient {
     this.dead = true;
     for (const [id, w] of this.waiters) w({ id, error: 'crc worker unavailable' });
     this.waiters.clear();
-    try { this.worker.terminate(); } catch { /* already gone */ }
+    try { this.worker.terminate(); } catch {  }/* already gone */
   }
 }
 
@@ -262,7 +262,7 @@ interface AutofillJob {
   folder: string; // ROM dir relative to the card root ('' = root)
   want: { cov: boolean; gcv: boolean; gss: boolean; fmv: boolean; pcm: boolean };
   cheatsText: string | null; // serialized cheats .yml fallback (when the package carries none)
-  infoYml: string | null;    // pre-built ficha .yml (fmv flag already baked in)
+  infoYml: string | null;    // pre-built game info .yml (fmv flag already baked in)
 }
 /** Progress message the worker posts back per game. */
 interface WriterProgress {
@@ -349,14 +349,14 @@ export function ymlWithFmvFlag(existing: string | null): string | null {
 }
 
 /**
- * The same ficha without the `fmv: 1` flag (null = nothing to write: no file, or no flag in it).
+ * The same game info file without the `fmv: 1` flag (null = nothing to write: no file, or no flag in it).
  *
  * The counterpart of ymlWithFmvFlag, and needed for the same reason it exists: auto-fill hands the
- * write worker a ficha with the flag already baked in when a preview is part of the plan (the worker
+ * write worker a game info file with the flag already baked in when a preview is part of the plan (the worker
  * writes the `.yml` and the `.fmv` in one pass, so it cannot ask afterwards). When the package turns
  * out not to carry the clip, that flag is left pointing at files that were never written. The
  * firmware would probe `<rom>.fmv`/`.gss` on every visit and find nothing. Only the flag line is
- * dropped; every other byte of a possibly hand-edited ficha is preserved.
+ * dropped; every other byte of a possibly hand-edited game info file is preserved.
  */
 export function ymlWithoutFmvFlag(existing: string | null): string | null {
   if (existing == null || !/^[ \t]*fmv[ \t]*:/im.test(existing)) return null;
@@ -365,13 +365,13 @@ export function ymlWithoutFmvFlag(existing: string | null): string | null {
 }
 
 /**
- * The `fmv` ficha field for a game, decided from what the card holds: `1` when either the animated
+ * The `fmv` game info field for a game, decided from what the card holds: `1` when either the animated
  * clip (`.fmv`) or the static snapshot (`.gss`) is there, `null` when neither is.
  *
  * The flag is named after the clip but gates both. The firmware reads `fmv:` out of the `.yml` into
  * `fmv_eligible` (sd2snes-next `src/gameinfo.c:522`) and then probes `<rom>.fmv` and, when no clip
  * plays, `<rom>.gss`, both inside the same `if(fmv_eligible)` (gameinfo.c:563-577). So rebuilding a
- * ficha with `fmv: g.fmv === 'has' ? 1 : null`, as every ficha rewrite used to, switches off a
+ * game info file with `fmv: g.fmv === 'has' ? 1 : null`, as every game info rewrite used to, switches off a
  * snapshot sitting right there on the card. Silently, and with nothing to bring it back: the `.gss`
  * file still exists, so the category never reads as "missing" and no run ever revisits it.
  *
@@ -384,10 +384,10 @@ export function fmvFlagFor(g: Pick<Entry, 'fmv' | 'snapshot'>): 1 | null {
 }
 
 /**
- * The `man_slots` ficha field for a game, from the slot→document map the app holds in memory.
+ * The `man_slots` game info field for a game, from the slot→document map the app holds in memory.
  *
  * Same doctrine as `fmvFlagFor`, and for the same reason: three different code paths rebuild a game's
- * `.yml` from scratch (saveInfoYml, persistSyncTokens, and the ficha auto-fill bakes for the write
+ * `.yml` from scratch (saveInfoYml, persistSyncTokens, and the game info file auto-fill bakes for the write
  * worker), and every one of them drops any key it doesn't name. A single source of truth is what stops
  * one of them from quietly wiping the map, which would put the card straight back to sha-only dedup
  * and hand the next GameDB re-encode the same duplicate-slots bug (see yml.js MAN_SLOTS_KEY).
@@ -397,7 +397,7 @@ export function manSlotsFor(g: Pick<Entry, 'manSlots'>): string | null {
 }
 
 /**
- * The `man_slots` value a ficha rewrite must write, given what the entry knows and what the file on the
+ * The `man_slots` value a game info rewrite must write, given what the entry knows and what the file on the
  * card currently says. The whole three-writer rule, in one pure place.
  *
  * `undefined` on the entry means nobody looked, not "there is no map". The distinction is the whole
@@ -458,7 +458,7 @@ export interface ManualSlotPlan {
  *
  * Recognizing a document already on the card, strongest first:
  *   1. exact bytes (sha256): the card holds this very version;
- *   2. the ficha's `man_slots` map (`groupUuid`, stable across re-encodes, written by this app);
+ *   2. the game info file's `man_slots` map (`groupUuid`, stable across re-encodes, written by this app);
  *   3. the `.man` header's type slug, 40 bytes off the front, the same read `listGuides` uses to
  *      label a slot "Mapa"/"Guia"/"Encarte".
  * (3) carries the repair. The map only exists after a run has written it, so on the run that has to
@@ -472,7 +472,7 @@ export interface ManualSlotPlan {
  * or none, and nothing is adopted.
  *
  * Deletion is stricter, deliberately: the slot's bytes must be provably auto-fill's own (`receipt`,
- * either served now or recorded in the ficha's `sync_man`) and a surviving copy must already be on the
+ * either served now or recorded in the game info file's `sync_man`) and a surviving copy must already be on the
  * card or land in this same pass. No hash means no proof means no deletion. An unexplained slot is
  * reported as `leftovers`, never guessed away.
  *
@@ -494,7 +494,7 @@ export function planManualSlots(
      *  identity a card carries without any help from us; see the adoption rule above. */
     headBySlot?: ReadonlyMap<number, { slug: number | null }>;
     groups: ManSlotMap;
-    /** sha256[:16] of every manual the ficha's `sync_man` recorded at the last successful sync. */
+    /** sha256[:16] of every manual the game info file's `sync_man` recorded at the last successful sync. */
     synced: ReadonlySet<string>;
   },
   opts: { force?: boolean } = {},
@@ -587,7 +587,7 @@ export function planManualSlots(
       /* The same proof a delete needs. The `u` marker only protects guides added from this version on,
          and the cards that need adopting are precisely the ones with no map at all, so on every card
          in the field today the type check alone was the only thing standing between a user's own
-         scanned map and being written over (a fuzz put that at ~52k cards). `sync_man` is the ficha's
+         scanned map and being written over (a fuzz put that at ~52k cards). `sync_man` is the game info file's
          own receipt for bytes auto-fill installed, it survives the server re-encode (it records what
          the card holds, not what the server serves), and every card auto-fill ever filled has one.
          so the repair keeps working and an unproven file is left alone as a reported leftover. */
@@ -621,7 +621,7 @@ export function planManualSlots(
     // An extra with no known sha can't be deduped by bytes. Installing it would duplicate on every re-run.
     if (!m.sha256) { fail('nosha'); continue; }
     let slot: number | undefined;
-    // (2) the ficha's map.
+    // (2) the game info file's map.
     const mapped = tag ? where.get(tag) : undefined;
     if (mapped === 0) {
       // The same document twice in the server list, the second copy being the primary. Only trust it
@@ -670,7 +670,7 @@ export function planManualSlots(
      settled where every document actually ends up.
      Both halves matter, and getting either wrong deletes the last copy of a real manual:
        · identity from bytes, not from the stored map. The map is a claim about the past; the bytes are
-         what is in the file now. Two ROMs sharing a stem share one ficha, so one game's `man_slots` can
+         what is in the file now. Two ROMs sharing a stem share one game info file, so one game's `man_slots` can
          describe the other's slots, and a suspect named only by that map is not a duplicate of anything.
        · the survivor resolved after the loop. Electing it up front is what let this through: with `0:B`
          and `8:B` on the card and the GameDB promoting A to primary, slot 8 was condemned as a duplicate
@@ -736,11 +736,11 @@ export function planManualSlots(
  * broken by id so a re-run elects the same one and the card converges instead of oscillating.
  */
 /**
- * The identity of the `<stem>.yml` an entry's assets are recorded in. The ficha path, which is all
+ * The identity of the `<stem>.yml` an entry's assets are recorded in. The game info file path, which is all
  * the card can tell apart. Folded to lower case for the same reason `infoIndexKey` is: FAT resolves
  * case-insensitively, so two stems differing only in case are one file.
  */
-export function fichaKeyOf(k: AssetKey): string {
+export function gameInfoKeyOf(k: AssetKey): string {
   return infoDirFor(k).toLowerCase() + '/' + k.stem.toLowerCase();
 }
 
@@ -750,15 +750,15 @@ export function fichaKeyOf(k: AssetKey): string {
  * Why. Everything on the card is addressed by the ROM's filename, and `sgb/` is the only namespace
  * that splits it (the firmware builds the same path, `fileops.c` path_asset). So a SNES release and
  * its Satellaview counterpart under one filename, or three builds of a hack sitting in `sfc choice/`,
- * are different GameDB games sharing one ficha and one set of assets. Judged one at a time, each reads
+ * are different GameDB games sharing one game info file and one set of assets. Judged one at a time, each reads
  * the version the other recorded as "outdated": a run stamps one, the other goes stale, the next run
  * stamps it back. Forever, on a card that is already correct.
  *
  * The rule, strongest first:
- *   1. `namedByFicha` (the ficha's `rom:` field), a hint, never the answer: it records only the
+ *   1. `namedByGameInfo` (the game info file's `rom:` field), a hint, never the answer: it records only the
  *      filename, which is exactly what these copies have in common, so it cannot separate three copies
- *      of `Contra SNES.sfc`. A copy the ficha does not name yields to one it does, and no further.
- *   2. the shallowest folder. The ficha carries the owner's title and description, and the console
+ *      of `Contra SNES.sfc`. A copy the game info file does not name yields to one it does, and no further.
+ *   2. the shallowest folder. The game info file carries the owner's title and description, and the console
  *      shows them for every copy, so the owner should be the one you actually play, not the spare in
  *      `bkup/` or the regional build in `sfc choice/JPN/`. Reorganising the card can re-elect, but a
  *      card that was reorganised has changed anyway; within one layout this is fixed.
@@ -767,19 +767,19 @@ export function fichaKeyOf(k: AssetKey): string {
  * Determinism is the whole point. The same input must elect the same owner in any order, or the card
  * never settles and auto-fill re-offers the same games forever.
  */
-export function electFichaOwners<T>(
+export function electGameInfoOwners<T>(
   entries: readonly T[],
-  fichaKey: (e: T) => string,
+  gameInfoKey: (e: T) => string,
   idOf: (e: T) => string,
-  namedByFicha: (e: T) => boolean,
+  namedByGameInfo: (e: T) => boolean,
   depthOf: (e: T) => number = () => 0,
 ): Map<string, string> {
   const best = new Map<string, T>();
   for (const e of entries) {
-    const k = fichaKey(e);
+    const k = gameInfoKey(e);
     const cur = best.get(k);
     if (!cur) { best.set(k, e); continue; }
-    const en = namedByFicha(e), cn = namedByFicha(cur);
+    const en = namedByGameInfo(e), cn = namedByGameInfo(cur);
     const ed = depthOf(e), cd = depthOf(cur);
     if (en !== cn ? en : ed !== cd ? ed < cd : idOf(e) < idOf(cur)) best.set(k, e);
   }
@@ -867,7 +867,7 @@ export async function indexSidecarRoot(
       }
     };
     await eat(dir, false, 0);
-  } catch { /* root absent -> nothing indexed */ }
+  } catch {  }/* root absent -> nothing indexed */
 }
 
 /**
@@ -902,7 +902,7 @@ export async function indexInfoRoot(dir: FileSystemDirectoryHandle): Promise<Map
  * The index entry a game's badges come from.
  *
  * ⚠️ the legacy trap. The index derives `sgb` from where a file was found, but the pre-2.15 layout
- * has no `sgb/` segment at all (see bucketDirFor): a Game Boy game's ficha sits in
+ * has no `sgb/` segment at all (see bucketDirFor): a Game Boy game's game info sits in
  * `sd2snes/info/T/Tetris.yml`, so it indexes under `tetris` while the ROM `Tetris.gb` asks for
  * `sgb/tetris`. Keyed strictly, that is a permanent miss, every badge reads 'none' on a legacy card
  * and "Completar" rewrites every Game Boy game's assets on every session.
@@ -1050,13 +1050,13 @@ export class LibraryStore {
   private bulkBytesBase = 0; // card.writtenBytes at the start of this bulk (to measure main-thread writes)
   private workerBytes = 0;   // bytes the write worker has reported this bulk (main-thread writes are separate)
 
-  /** The `<rom>.yml` text this session last put on the card, per entry id. Written by every ficha write
+  /** The `<rom>.yml` text this session last put on the card, per entry id. Written by every game info file write
    *  (saveInfoYml, persistSyncTokens, ensureFmvFlag, and the worker's own `.yml` once it reports the
-   *  write), read by ensureFmvFlag so placing a preview right after writing the ficha patches the text
+   *  write), read by ensureFmvFlag so placing a preview right after writing the game info patches the text
    *  we already have instead of reading the file back. Keyed by entry id, so it must be dropped whenever
    *  the library is rebuilt (ids are positional, see applyScan). */
   private readonly ymlMemo = new Map<string, string>();
-  /** Cap on the above: a whole-card fill would otherwise hold one ficha (up to a few KB with the
+  /** Cap on the above: a whole-card fill would otherwise hold one game info file (up to a few KB with the
    *  localized descriptions) per game for the rest of the session. Eviction is insertion-order and costs
    *  only performance, a miss simply reads the file, exactly as before this cache existed, and the
    *  read it saves happens moments after the write, within one game's processing. */
@@ -1076,7 +1076,7 @@ export class LibraryStore {
    * the last `set` would clobber a Set a put() had already amended. */
   private manDirNames: Map<string, Promise<Set<string>>> | null = null;
 
-  /** Record the ficha text now on the card for `id` (only ever called after a successful write). */
+  /** Record the game info file text now on the card for `id` (only ever called after a successful write). */
   private rememberYml(id: string, text: string): void {
     this.ymlMemo.delete(id); // re-insert so the newest entry is always last (insertion-order eviction)
     this.ymlMemo.set(id, text);
@@ -1099,7 +1099,7 @@ export class LibraryStore {
       const sentinel = await wl.request('screen');
       this.wakeLock = sentinel;
       sentinel.addEventListener?.('release', () => { this.wakeLock = null; }); // dropped on hide → clear so we re-acquire
-    } catch { /* unsupported / denied → ignore (the bulk still runs, just without the lock) */ }
+    } catch {  }/* unsupported / denied → ignore (the bulk still runs, just without the lock) */
   }
   private releaseWakeLock(): void {
     const wl = this.wakeLock;
@@ -1431,12 +1431,12 @@ export class LibraryStore {
   openCheatEditor(g: Entry): void { this._cheatEdit.set(g); }
   closeCheatEditor(): void { this._cheatEdit.set(null); }
 
-  /** Game-info (metadata) editor target. The entry whose .yml ficha is being edited, or null. */
+  /** Game-info (metadata) editor target. The entry whose .yml game info is being edited, or null. */
   private readonly _infoEdit = signal<Entry | null>(null);
   readonly infoEdit = this._infoEdit.asReadonly();
   openInfoEditor(g: Entry): void { this._infoEdit.set(g); }
   closeInfoEditor(): void { this._infoEdit.set(null); }
-  /** Bumped whenever a game-info .yml is written, so open views re-read the ficha. */
+  /** Bumped whenever a game-info .yml is written, so open views re-read the game info file. */
   private readonly _infoRev = signal(0);
   readonly infoRev = this._infoRev.asReadonly();
 
@@ -1550,7 +1550,7 @@ export class LibraryStore {
       const bytes = new Uint8Array(await (await t.fileHandle.getFile()).arrayBuffer());
       const url = await renderThmToDataUrl(bytes);
       this._themePreviews.update((m) => new Map(m).set(t.path, url));
-    } catch { /* leave unrendered → palette icon */ }
+    } catch {  }/* leave unrendered → palette icon */
   }
 
   /** Whole-card tallies. The top statbar is always general (the filter only changes the list, never
@@ -2015,7 +2015,7 @@ export class LibraryStore {
       if (destPath) this._folders.update((s) => (s.has(destPath) ? s : new Set(s).add(destPath)));
       // Render its preview from the bytes we just fetched (no re-read) so it shows immediately.
       this.themeRenders.add(path); // already rendered → the tile's read-through must not read it again
-      void renderThmToDataUrl(bytes).then((url) => this._themePreviews.update((m) => new Map(m).set(path, url))).catch(() => { /* keep icon */ });
+      void renderThmToDataUrl(bytes).then((url) => this._themePreviews.update((m) => new Map(m).set(path, url))).catch(() => {  });/* keep icon */
       // Apply: the firmware selects the theme by the full absolute path in /sd2snes/config.yml. The copy
       // above already succeeded; applying is best-effort (a card without /sd2snes → warn, don't fabricate it).
       const full = '/' + path;
@@ -2243,7 +2243,7 @@ export class LibraryStore {
         const observed = await this.observeRootLayout(dir, root);
         if (observed) { this._cardLayout.set(observed); return; }
       }
-    } catch { /* leave it unknown -> layoutMode() falls back on the firmware kind */ }
+    } catch {  }/* leave it unknown -> layoutMode() falls back on the firmware kind */
   }
 
   /**
@@ -2619,9 +2619,9 @@ export class LibraryStore {
     // info-screen siblings: /sd2snes/info/[sgb/]<BB>/<stem>.{gcv,fmv,yml,gss,gd,man}, all from the
     // one enumeration above, so this game costs zero directory lookups and zero existence probes.
     const si = infoSidecarsFor(info, key);
-    if (si?.gcv) patch.gcv = 'has'; // ficha paletted cover
+    if (si?.gcv) patch.gcv = 'has'; // game info paletted cover
     if (si?.fmv) patch.fmv = 'has'; // animated clip (prévia)
-    if (si?.yml) patch.info = 'has'; // ficha (informações)
+    if (si?.yml) patch.info = 'has'; // game info (informações)
     // snapshot: the standalone .gss (static screenshot); else the legacy .gd shot region (back-compat).
     // The .gd is the one thing the index cannot answer. Whether a shot region is present is inside the
     // bytes, so it still reads the file, but now only for the handful of games that actually have one.
@@ -2638,11 +2638,11 @@ export class LibraryStore {
     if (si?.man.has(0)) patch.manual = 'has';
     if (this.saveKeys.has(ik)) patch.save = true;
     if (this.stateKeys.has(ik)) patch.state = 'has';
-    // ROM byte size from cheap file metadata (getFile() reads no content), so the ficha shows the real
+    // ROM byte size from cheap file metadata (getFile() reads no content), so the game info file shows the real
     // size even for games surfaced from on-card sidecars, before any CRC identify (which used to be the
     // Only thing that set `size`, leaving it 0 (the "· 0 KB" bug) for not-yet-identified ROMs).
     if (!e.size && e.fileHandle) {
-      try { const sz = (await e.fileHandle.getFile()).size; if (sz) patch.size = sz; } catch { /* unreadable → leave 0 */ }
+      try { const sz = (await e.fileHandle.getFile()).size; if (sz) patch.size = sz; } catch {  }/* unreadable → leave 0 */
     }
     if (Object.keys(patch).length) this.queueUpdate(e.id, patch); // batched: probeAllOnCard flushes at the end
   }
@@ -2702,10 +2702,10 @@ export class LibraryStore {
   /**
    * Only a resolved handle is memoized. Absence must never be, because the app does not own the card
    * alone: the auto-fill worker creates bucket directories on its own thread. Opening a game before a
-   * run would cache "sd2snes/info/XX does not exist"; the worker then creates it and writes the ficha,
+   * run would cache "sd2snes/info/XX does not exist"; the worker then creates it and writes the game info file,
    * and every later main-thread read (persistSyncTokens, readInfoYml, readFmvBytes, listGuides,
    * delInfo/delPreview) would still answer from that stale null, the sync_* tokens never get stamped,
-   * so the next "Atualizar" re-downloads the whole .s2pkg, and the ficha/preview look gone until a
+   * so the next "Atualizar" re-downloads the whole .s2pkg, and the game info file/preview look gone until a
    * reload. A miss simply costs the 2-4 getDirectoryHandle calls it always did, and only for a bucket
    * that genuinely is not there.
    *
@@ -3325,7 +3325,7 @@ export class LibraryStore {
       if (!handle || this._connected() || this.rootHandle) return;
       if (await hasRwPermission(handle)) await this.openCard(handle); // permission still granted → auto-resume
       else this._reconnectHandle.set(handle);                          // needs a gesture → offer the button
-    } catch { /* best-effort */ }
+    } catch {  }/* best-effort */
   }
 
   /** 1-click reconnect to the remembered card (from the connect screen). Requests permission (this
@@ -3550,7 +3550,7 @@ export class LibraryStore {
     }
     if (!cur.coverUrl) {
       // No GamesDB cover image: if the game already has a `.cov` on the card, derive the `.gcv` from it
-      // (decode -> crop to art -> re-encode centered) so the ficha still gets a pixel-centered cover
+      // (decode -> crop to art -> re-encode centered) so the game info file still gets a pixel-centered cover
       // instead of leaning on the firmware's tile-quantised OBJ fallback. Only with a card (writes the
       // .gcv into /sd2snes/info); the .cov already exists, so nothing else is written.
       if (cur.cover === 'has' && cur.dirHandle && this.rootHandle) {
@@ -3563,7 +3563,7 @@ export class LibraryStore {
     return this.encodeAndPlaceCover(cur, cur.coverUrl, 'has', this.i18n.translate('store.coverGenerated'), quiet);
   }
 
-  /** Derive the ficha `.gcv` from the game's existing on-card `.cov` (used when there is no GamesDB
+  /** Derive the game info `.gcv` from the game's existing on-card `.cov` (used when there is no GamesDB
    *  cover image). Reads <stem>.cov next to the ROM, rebuilds a centered 120c cover, writes it to
    *  /sd2snes/info/<bucket>/<stem>.gcv. Bounded + fail-safe: any error returns false (caller falls
    *  back to 'no-cover'). Returns true on a clean write. */
@@ -3663,7 +3663,7 @@ export class LibraryStore {
         this.update(g.id, { cover: status, gcv: 'has', busy: null, thumbUrl: covToDataUrl(pkg['cov']) });
         return 'ok';
       }
-      // Fetch the cover image once and build both the .cov (browser list OBJ) and the .gcv (the ficha
+      // Fetch the cover image once and build both the .cov (browser list OBJ) and the .gcv (the game info file
       // paletted 120c cover). The screenshot/FMV is now a separate file (.fmv), handled elsewhere, so
       // regenerating the cover never touches/wipes the snapshot.
       const coverBytes = await fetchBytes(cdnUrl(imageUrl) ?? imageUrl);
@@ -3702,13 +3702,13 @@ export class LibraryStore {
     const stem = stemOf(g.file);
     try {
       if (g.dirHandle) await this.card.remove(g.dirHandle, stem + '.cov');
-    } catch { /* already gone */ }
-    // also drop the ficha cover (.gcv) so removing the cover clears both halves (else a stale .gcv
+    } catch {  }/* already gone */
+    // also drop the game info cover (.gcv) so removing the cover clears both halves (else a stale .gcv
     // lingers and the capa reads half-present); mirrors how genCover writes the two together.
     try {
       const infoDir = await this.getDir(infoDirFor(this.key(g.file)));
       if (infoDir) await this.card.remove(infoDir, stem + '.gcv');
-    } catch { /* already gone */ }
+    } catch {  }/* already gone */
     this.update(g.id, { cover: g.coverUrl ? 'available' : 'none', gcv: 'none', thumbUrl: undefined });
     this.toast.show(this.i18n.translate('store.coverRemoved'), 'warn');
   }
@@ -3757,7 +3757,7 @@ export class LibraryStore {
     try {
       if (cheats.length === 0) {
         const dir = await this.getDir(cheatsDirFor(this.key(g.file)));
-        if (dir) { try { await this.card.remove(dir, name); } catch { /* gone */ } }
+        if (dir) { try { await this.card.remove(dir, name); } catch {  } }/* gone */
         this.update(g.id, { cheats: g.crc ? 'available' : 'none', cheatList: [], cheatsRaw: undefined });
         this.toast.show(this.i18n.translate('store.cheatsRemoved'), 'warn');
         return;
@@ -3785,7 +3785,7 @@ export class LibraryStore {
     try {
       const dir = await this.getDir(cheatsDirFor(this.key(g.file)));
       if (dir) await this.card.remove(dir, name);
-    } catch { /* already gone */ }
+    } catch {  }/* already gone */
     this.update(g.id, { cheats: g.crc ? 'available' : 'none' });
     this.toast.show(this.i18n.translate('store.cheatsRemoved'), 'warn');
   }
@@ -3796,20 +3796,20 @@ export class LibraryStore {
     try {
       const infoDir = await this.getDir(infoDirFor(this.key(g.file)));
       if (infoDir) for (const ext of ['.gss', '.fmv', '.pcm']) {
-        try { await this.card.remove(infoDir, stem + ext); } catch { /* not present */ }
+        try { await this.card.remove(infoDir, stem + ext); } catch {  }/* not present */
       }
-    } catch { /* no info dir */ }
+    } catch {  }/* no info dir */
     this.update(g.id, { snapshot: 'none', fmv: 'none' });
     this.toast.show(this.i18n.translate('store.previewRemoved'), 'warn');
   }
 
-  /** Delete the game-info description (.yml ficha) from /sd2snes/info. */
+  /** Delete the game-info description (.yml game info) from /sd2snes/info. */
   async delInfo(g: Entry): Promise<void> {
     const stem = stemOf(g.file);
     try {
       const infoDir = await this.getDir(infoDirFor(this.key(g.file)));
       if (infoDir) await this.card.remove(infoDir, stem + '.yml');
-    } catch { /* not present */ }
+    } catch {  }/* not present */
     this.ymlMemo.delete(g.id); // the file is gone: nothing in memory describes it any more
     this.update(g.id, { info: 'none' });
     this.toast.show(this.i18n.translate('store.infoRemoved'), 'warn');
@@ -3838,7 +3838,7 @@ export class LibraryStore {
     // (new audio-less packages, inflated here). Best-effort, a failure never blocks the `.fmv`.
     let pcm = audio ? pkg['pcm'] : undefined;
     if (audio && !pcm && g.pcmUrl) {
-      try { pcm = await fetchInflate(cdnUrl(g.pcmUrl) ?? g.pcmUrl); } catch { /* audio best-effort */ }
+      try { pcm = await fetchInflate(cdnUrl(g.pcmUrl) ?? g.pcmUrl); } catch {  }/* audio best-effort */
     }
     this.update(g.id, { busy: 'fmv' });
     try {
@@ -3869,7 +3869,7 @@ export class LibraryStore {
     }
   }
 
-  /** Explicit, PER-GAME action only (the ficha's "gerar prévia" button): place the ready clip from the
+  /** Explicit, PER-GAME action only (the game info file's "gerar prévia" button): place the ready clip from the
    *  `.s2pkg`, and only when the GameDB hasn't built one, download the video and encode it here.
    *  AUTO-FILL deliberately does not call this, it never encodes video (see placePackageFmv). */
   async genFmvFromGamedb(g: Entry, quiet = false): Promise<boolean> {
@@ -3932,7 +3932,7 @@ export class LibraryStore {
       return false;
     }
     console.log('[fmv] gamedb video fetched:', blob.size, 'bytes');
-    return this.encodeAndPlaceFmv(cur, blob, /* busyAlreadySet */ true, quiet, audio);
+    return this.encodeAndPlaceFmv(cur, blob,  true, quiet, audio);/* busyAlreadySet */
   }
 
   /** Generate the static screenshot as a 1-frame cover-less .fmv (for games with no video), from the
@@ -4093,17 +4093,17 @@ export class LibraryStore {
     return txt != null ? (parseInfoYml(txt) as Record<string, string>) : null;
   }
 
-  /** Ficha keys no caller knows about, preserved from the on-card `.yml` across a rewrite:
-   *   - the localized descriptions (`description_<lang>`) the caller did not mention. The ficha editor
+  /** GameInfo keys no caller knows about, preserved from the on-card `.yml` across a rewrite:
+   *   - the localized descriptions (`description_<lang>`) the caller did not mention. The game info editor
    *     only knows the base fields, so without this a manual edit would silently strip every translated
-   *     description the console reads. A caller that does list the keys (fichaFields, with null for the
+   *     description the console reads. A caller that does list the keys (gameInfoFields, with null for the
    *     missing ones) stays authoritative.
-   *   - `man_slots`, but only when the entry doesn't know the map (`undefined` = its ficha was never
+   *   - `man_slots`, but only when the entry doesn't know the map (`undefined` = its game info file was never
    *     loaded). The map lives nowhere but the card, and erasing it drops the game back to sha-only
    *     manual dedup, i.e. straight back into the duplicate-slots bug on the next GameDB re-encode.
    *   - the `sync_*` tokens. No caller here ever names them (persistSyncTokens owns them), so a rewrite
    *     that dropped them would erase the receipt, the proof that the bytes on the card came from
-   *     auto-fill, which adoption, overwrite and delete each demand before touching anything. A ficha
+   *     auto-fill, which adoption, overwrite and delete each demand before touching anything. A game info file
    *     saved in the editor would come back with its manuals unprovable, and therefore unrepairable:
    *     the next re-encode has no identity to anchor to and the game reports "no free guide slot" for
    *     good. persistSyncTokens does restore them from the pre-run snapshot, but only at the end of a
@@ -4117,13 +4117,13 @@ export class LibraryStore {
   }
 
   private async keepFromCard(g: Entry, fields: Record<string, string | null>): Promise<Record<string, string>> {
-    const wantSlots = g.manSlots === undefined && g.info === 'has'; // no ficha on card → no map to lose
+    const wantSlots = g.manSlots === undefined && g.info === 'has'; // no game info on card → no map to lose
     const wantDesc = (DESC_LANG_KEYS as string[]).filter((k) => !(k in fields));
     const wantSync = (SYNC_KEYS as string[]).filter((k) => !(k in fields));
     const out: Record<string, string> = {};
     // Receipts come from the PRE-RUN snapshot when it is loaded, the same source persistSyncTokens
     // resolves against, and free: loadOnCardYml runs library-wide before a fill, so the bulk path adds
-    // no read at all. Only a lone ficha save, with no snapshot, can reach the disk for them.
+    // no read at all. Only a lone game info file save, with no snapshot, can reach the disk for them.
     const snap = g.onCardYml;
     if (snap) for (const k of wantSync) if (snap[k]) out[k] = snap[k];
     if (!wantSlots && !wantDesc.length && (snap !== undefined || !wantSync.length)) return out;
@@ -4135,7 +4135,7 @@ export class LibraryStore {
     return out;
   }
 
-  /** Save the game-info `.yml` (the ficha editor). Preserves the fmv flag when the card holds either
+  /** Save the game-info `.yml` (the game info editor). Preserves the fmv flag when the card holds either
    *  media it gates (see `fmvFlagFor`) and the `.man` slot→document map, see `manSlotsFor`. */
   async saveInfoYml(g: Entry, fields: Record<string, string | null>, quiet = false): Promise<boolean> {
     if (!this.rootHandle) { if (!quiet) this.toast.show(this.i18n.translate('store.noCardConnected'), 'warn'); return false; }
@@ -4154,7 +4154,7 @@ export class LibraryStore {
       this.rememberYml(g.id, text);
       this.update(g.id, { info: 'has' });
       // Only nudge open views to re-read on a user edit. A bulk (quiet) write bumps this per game,
-      // and infoRev feeds the detail panel's media+ficha effects → the snapshot/video/description
+      // and infoRev feeds the detail panel's media+game info effects → the snapshot/video/description
       // would reset and flicker on every game in the run. Bulk skips it (the panel still updates for
       // the selected game via its own cover/fmv signals when that game is the one being processed).
       if (!quiet) this._infoRev.update((v) => v + 1);
@@ -4174,12 +4174,12 @@ export class LibraryStore {
    *  otherwise keep the stored value (so an untouched-but-stale category stays flagged). On a legacy `.yml`
    *  with no stored token, adopt the current value as a baseline, unconditionally for package/manual
    *  (unverifiable without a download), and for `sync_meta` only when the on-card metadata already equals
-   *  the server's (verified locally). Reads the current ficha (the worker may have just rewritten it),
+   *  the server's (verified locally). Reads the current game info file (the worker may have just rewritten it),
    *  merges the tokens, and rewrites only when something actually changed. */
   private async persistSyncTokens(g: Entry, wrote: { pkg?: boolean; pcm?: boolean; man?: boolean; meta?: boolean }): Promise<void> {
     if (!this.rootHandle || this.card.unwritable) return;
     const cur = await this.readInfoYml(g).catch(() => null);
-    if (!cur) return; // no ficha on card → nothing to annotate (never create one just to store tokens)
+    if (!cur) return; // no game info on card → nothing to annotate (never create one just to store tokens)
     const desired = syncTokensFromMatch(g) as Record<string, string | null>;
     // `stored` = the tokens as they were before this run (the pre-run snapshot), not re-read from `cur`:
     // the worker rewrites the `.yml` from metadata-only fields when it (re)writes info/preview, which
@@ -4196,7 +4196,7 @@ export class LibraryStore {
     // Package/manual tokens are only set by an actual (re)write, never adopted from a bare legacy `.yml`
     // (we can't prove the on-card art matches the server without downloading, so adopting would hide a real
     // update). `sync_meta` is the exception: a local field compare proves equality, so a matching legacy
-    // ficha can safely stamp the token without a rewrite.
+    // game info can safely stamp the token without a rewrite.
     resolve('sync_pkg', wrote.pkg, false);
     resolve('sync_pcm', wrote.pcm, false);
     resolve('sync_man', wrote.man, false);
@@ -4216,9 +4216,9 @@ export class LibraryStore {
       const text = buildYml(merged);
       await this.card.write(dir, stemOf(g.file) + '.yml', text);
       this.rememberYml(g.id, text);
-      // Both halves of the ficha snapshot, always together: loadOnCardYml skips an entry whose
+      // Both halves of the game info snapshot, always together: loadOnCardYml skips an entry whose
       // `onCardYml` is already defined, so refreshing one without the other leaves `manSlots` stuck at
-      // `undefined` for the rest of the session, and the next run's worker ficha would then bake
+      // `undefined` for the rest of the session, and the next run's worker game info would then bake
       // `man_slots: null` and wipe the map off the card.
       this.update(g.id, { onCardYml: merged, manSlots: slots ? (parseManSlots(slots) as Map<number, string>) : null });
     } catch (err) {
@@ -4235,7 +4235,7 @@ export class LibraryStore {
    *  Which slot each manual goes to (and which leftover slots are swept) is decided by the pure
    *  `planManualSlots` (spec'd; read its header for the whole policy and the re-encode bug it fixes).
    *  This function is the I/O half: probe the card, run the plan, keep the slot→document map (`man_slots`
-   *  in the ficha) current, and translate the plan's failures into the report's reason codes
+   *  in the game info file) current, and translate the plan's failures into the report's reason codes
    *  (nofile/nosha/slotsfull/download).
    *  `force` (auto-fill under 'update'/'replace') rewrites slot 0 even when the sha can't prove staleness. */
   private async installManuals(g: Entry, opts: { quiet?: boolean; force?: boolean; deferMap?: boolean } = {}): Promise<{ wrote: number; failed: number; dropped: number; reason: string }> {
@@ -4297,20 +4297,20 @@ export class LibraryStore {
             const head = await readFileHeader(dir, guideFileName(stem, nn), 40);
             if (head) {
               try { headBySlot.set(nn, { slug: parseManHeader(head).slug ?? null }); }
-              catch { /* not a readable `.man` → no type, so it can never be adopted or swept */ }
+              catch {  }/* not a readable `.man` → no type, so it can never be adopted or swept */
             }
           }
         }
       }
       probed = true;
       // What the card says about which document is in each slot, and which manuals it was last synced to.
-      // Preferred off the entry: auto-fill pre-loads every ficha (loadOnCardYml) and the write worker
+      // Preferred off the entry: auto-fill pre-loads every game info file (loadOnCardYml) and the write worker
       // rewrites `<rom>.yml` from metadata alone, so the entry's copy is the one that survives a run
       // intact. The same reason persistSyncTokens works off the pre-run `onCardYml` snapshot. Only a
-      // game whose ficha was never loaded (the per-game action, outside a run) pays a read.
-      const ficha = g.manSlots === undefined || g.onCardYml === undefined ? await this.readInfoYml(g).catch(() => null) : undefined;
-      const groups: ManSlotMap = g.manSlots ?? (parseManSlots(ficha?.[MAN_SLOTS_KEY]) as Map<number, string>);
-      const syncMan = (g.onCardYml === undefined ? ficha?.['sync_man'] : g.onCardYml?.['sync_man']) ?? '';
+      // game whose game info was never loaded (the per-game action, outside a run) pays a read.
+      const gameInfo = g.manSlots === undefined || g.onCardYml === undefined ? await this.readInfoYml(g).catch(() => null) : undefined;
+      const groups: ManSlotMap = g.manSlots ?? (parseManSlots(gameInfo?.[MAN_SLOTS_KEY]) as Map<number, string>);
+      const syncMan = (g.onCardYml === undefined ? gameInfo?.['sync_man'] : g.onCardYml?.['sync_man']) ?? '';
       const hadOnCard = new Set(occupied); // what the card held before this pass (map repair on a failed write)
       const plan = planManualSlots(
         manuals,
@@ -4327,7 +4327,7 @@ export class LibraryStore {
       const wroteSlots = new Set<number>(); // slots whose write actually landed (feeds the report below)
       const stems = plan.drops.length ? this.stemsLower() : null;
       const sweep = async (nn: number, why: string): Promise<void> => {
-        if (!occupied.has(nn)) return; // the ficha named a slot the card does not actually hold
+        if (!occupied.has(nn)) return; // the game info file named a slot the card does not actually hold
         const name = guideFileName(stem, nn);
         /* `Game v1.02.man` is slot 2 of `Game v1` and slot 0 of `Game v1.02`. listManSlots keeps that
            ambiguity on purpose (whichever game asks, gets it) because it only ever cost a skipped
@@ -4400,7 +4400,7 @@ export class LibraryStore {
       }
       // Record the slot→document map so the next re-encode resolves by identity instead of by bytes. Done
       // even when nothing was written: recognizing a slot is the new knowledge, an already-correct card
-      // adopts its map here, at the cost of the one small ficha write below.
+      // adopts its map here, at the cost of the one small game info file write below.
       // In a bulk run that write rides along with persistSyncTokens instead: a manual landed, so sync_man
       // advances and that pass rewrites this very `.yml` anyway. Thousands of games go through here on a
       // re-encode run, on a medium where close() is the whole cost of a small write.
@@ -4409,9 +4409,9 @@ export class LibraryStore {
       // The window this opens: cancel the run between here and the token pass and the map exists only in
       // memory. Nothing is corrupted, and the reliable cure is the next full run: `sync_man` is not
       // stamped either, so the category stays due and the token pass writes the map then. (A per-game
-      // action only heals a game whose ficha was not pre-loaded. Reading it is what defeats the entry
+      // action only heals a game whose game info file was not pre-loaded. Reading it is what defeats the entry
       // short-circuit; a reload clears `manSlots` and cures the rest.)
-      if (!(opts.deferMap && wrote > 0 && !failed)) await this.persistManSlots(g, finalMap, ficha);
+      if (!(opts.deferMap && wrote > 0 && !failed)) await this.persistManSlots(g, finalMap, gameInfo);
       slotMap = finalMap; // → the entry, in the finally (rides the busy/guides patch, no rebuild of its own)
       if (!quiet) {
         if (reason === 'slotsfull') this.toast.show(this.i18n.translate('store.manualSlotsFull'), 'warn');
@@ -4433,27 +4433,27 @@ export class LibraryStore {
     }
   }
 
-  /** Write the slot→document map into the ficha's `man_slots`, when the card doesn't already say exactly
+  /** Write the slot→document map into the game info file's `man_slots`, when the card doesn't already say exactly
    *  that. The entry side is patched by installManuals' own finally; this is the half that makes the map
    *  survive to the next session.
    *
    *  Same doctrine as persistSyncTokens: never create a `<rom>.yml` just to hold bookkeeping, never fail
    *  a run over it, and never touch `onCardYml`. That field is the PRE-RUN snapshot persistSyncTokens
-   *  reads the old `sync_*` out of, and refreshing it here would hand it a ficha the worker has already
+   *  reads the old `sync_*` out of, and refreshing it here would hand it a game info file the worker has already
    *  stripped, dropping every token for a category this run didn't rewrite. */
-  private async persistManSlots(g: Entry, map: Map<number, string>, ficha?: Record<string, string> | null): Promise<void> {
+  private async persistManSlots(g: Entry, map: Map<number, string>, gameInfo?: Record<string, string> | null): Promise<void> {
     if (this.card.unwritable) return;
     const value = (serializeManSlots(map) as string | null) ?? null;
     // The steady state (a card whose map is already right) must cost nothing: the entry's map came out
-    // of the ficha (loadOnCardYml) and every writer puts it back verbatim, so "unchanged" is decidable
+    // of the game info file (loadOnCardYml) and every writer puts it back verbatim, so "unchanged" is decidable
     // without touching the card at all. Thousands of games go through here on a full run.
-    // Not taken when the caller already read the ficha: that read is the card's actual answer, and it is
+    // Not taken when the caller already read the game info file: that read is the card's actual answer, and it is
     // the one that can disagree with the entry (a run that deferred its map write to persistSyncTokens
     // and was then cancelled leaves the entry ahead of the file, see installManuals' `deferMap`).
-    if (ficha === undefined && g.manSlots !== undefined && manSlotsFor(g) === value) return;
-    // `ficha` is the read installManuals already paid for (undefined = it didn't need one).
-    const cur = ficha !== undefined ? ficha : await this.readInfoYml(g).catch(() => null);
-    if (!cur || (cur[MAN_SLOTS_KEY] ?? null) === value) return; // no ficha to annotate, or already current
+    if (gameInfo === undefined && g.manSlots !== undefined && manSlotsFor(g) === value) return;
+    // `game info` is the read installManuals already paid for (undefined = it didn't need one).
+    const cur = gameInfo !== undefined ? gameInfo : await this.readInfoYml(g).catch(() => null);
+    if (!cur || (cur[MAN_SLOTS_KEY] ?? null) === value) return; // no game info to annotate, or already current
     const merged: Record<string, string> = { ...cur };
     if (value == null) delete merged[MAN_SLOTS_KEY]; else merged[MAN_SLOTS_KEY] = value;
     try {
@@ -4478,7 +4478,7 @@ export class LibraryStore {
     return s;
   }
 
-  /** The slots the ficha's `man_slots` assigns to an official document, off the entry when it knows the
+  /** The slots the game info file's `man_slots` assigns to an official document, off the entry when it knows the
    *  map, off the card otherwise (the guides editor runs outside a fill, so nothing pre-loaded it). */
   private async reservedManSlots(g: Entry): Promise<Set<number>> {
     const map = g.manSlots !== undefined
@@ -4487,7 +4487,7 @@ export class LibraryStore {
     return new Set<number>(map ? [...map.keys()] : []);
   }
 
-  /** Mark a slot in the ficha's `man_slots` as the user's own guide (MAN_USER_TAG), see addGuide. */
+  /** Mark a slot in the game info file's `man_slots` as the user's own guide (MAN_USER_TAG), see addGuide. */
   private async claimUserSlot(g: Entry, nn: number): Promise<void> {
     const cur = await this.readInfoYml(g).catch(() => null);
     const map = parseManSlots(cur?.[MAN_SLOTS_KEY]) as Map<number, string>;
@@ -4497,7 +4497,7 @@ export class LibraryStore {
     await this.persistManSlots(g, map, cur);
   }
 
-  /** Drop one slot from the ficha's `man_slots` (the user deleted that guide). Read off the card rather
+  /** Drop one slot from the game info file's `man_slots` (the user deleted that guide). Read off the card rather
    *  than the entry: this only ever runs outside a fill run (removeGuide is gated on `bulkBusy`), so the
    *  file is authoritative and no worker can be mid-rewrite of it. */
   private async forgetManSlot(g: Entry, nn: number): Promise<void> {
@@ -4538,7 +4538,7 @@ export class LibraryStore {
           const n = name.toLowerCase();
           if (h.kind === 'file' && n.endsWith('.man')) names.add(n);
         }
-      } catch { /* unreadable dir → treated as "no slots", exactly as the per-slot probe did */ }
+      } catch {  }/* unreadable dir → treated as "no slots", exactly as the per-slot probe did */
       return names;
     })();
     this.manDirNames?.set(path, p); // installed before the first await → one walk per bucket, ever
@@ -4573,7 +4573,7 @@ export class LibraryStore {
       try {
         const h = parseManHeader(head);
         let sizeBytes = 0;
-        try { sizeBytes = (await (await dir.getFileHandle(fileName)).getFile()).size; } catch { /* metadata-only best-effort */ }
+        try { sizeBytes = (await (await dir.getFileHandle(fileName)).getFile()).size; } catch {  }/* metadata-only best-effort */
         // an official slug-tagged doc has no free-text title (its label comes from the slug), keep title
         // '' so consumers don't surface the font-decoder's '?' for the reserved slug byte.
         out.push({ nn, fileName, title: h.slug ? '' : h.title, slug: h.slug ?? null, npages: h.npages, nblocks: h.nblocks, zoomNblocks: h.zoomNblocks, zoom: h.zoom, sizeBytes });
@@ -4603,7 +4603,7 @@ export class LibraryStore {
     const dir = await this.ensureDir(infoDirFor(this.key(g.file)));
     const present = new Set<number>();
     for (const nn of GUIDE_SLOTS) if (await fileExists(dir, guideFileName(stem, nn))) present.add(nn);
-    /* A slot the ficha's `man_slots` assigns to an official document is taken even when the file is not
+    /* A slot the game info file's `man_slots` assigns to an official document is taken even when the file is not
        there right now (a failed/interrupted install). Auto-fill addresses documents by identity now, not
        by "first free slot", so it will rewrite exactly that slot on its next pass, a user guide parked
        there would be overwritten without a word. */
@@ -4627,7 +4627,7 @@ export class LibraryStore {
       // A `.man` landed behind installManuals' shared bucket listing, drop that path so a later
       // pass re-lists instead of treating the slot as free and overwriting this very guide.
       this.manDirNames?.delete(infoDirFor(this.key(g.file)));
-      /* Claim the slot as the user's in the ficha's `man_slots` (MAN_USER_TAG). Auto-fill now recognizes
+      /* Claim the slot as the user's in the game info file's `man_slots` (MAN_USER_TAG). Auto-fill now recognizes
          an older copy of a document by the `.man` header's type slug, so without this marker a guide of
          a type the GameDB also serves could be taken for the stale official copy and rewritten in place.
          Marked, it is out of reach of adoption and of every sweep, permanently. */
@@ -4655,7 +4655,7 @@ export class LibraryStore {
       const dir = await this.getDir(infoDirFor(this.key(g.file)));
       if (dir) await this.card.remove(dir, guideFileName(stem, nn));
       this.manDirNames?.delete(infoDirFor(this.key(g.file))); // slot freed behind the shared listing
-      // ...and the ficha's map has to forget it too, or the slot stays reserved for the document that used
+      // ...and the game info file's map has to forget it too, or the slot stays reserved for the document that used
       // to be there: the next auto-fill pass would write it straight back over whatever the user puts in
       // the slot they just freed (see addGuide's `reserved`).
       await this.forgetManSlot(g, nn);
@@ -4704,11 +4704,11 @@ export class LibraryStore {
     return ok;
   }
 
-  /** The game-info fields written to the ficha .yml (from the GameDB match metadata). Every
+  /** The game-info fields written to the game info .yml (from the GameDB match metadata). Every
    *  localized description key is listed explicitly (null when the GameDB has no such translation)
    *  so this path also clears a translation that was removed upstream, the editor path, which omits
    *  the keys entirely, is the one that preserves what is on the card (see keepFromCard). */
-  private fichaFields(g: Entry): Record<string, string | null> {
+  private gameInfoFields(g: Entry): Record<string, string | null> {
     return {
       title: g.title,
       developer: g.developer ?? null,
@@ -4756,7 +4756,7 @@ export class LibraryStore {
     if (this.autoFillEpoch !== epoch || !this._autoFill()) return; // dialog closed or superseded during analysis
     // Pre-load each matched game's on-card `.yml` (with its `sync_*` tokens) so staleness, "present but
     // a newer version exists on the GameDB". Can be tallied synchronously by fillCounts. Only matched
-    // games with a ficha on card can be stale; the rest are skipped (no read).
+    // games with a game info file on card can be stale; the rest are skipped (no read).
     await this.loadOnCardYml(this._entries().filter((g) => inScope(g) && g.matched && g.info === 'has'));
     if (this.autoFillEpoch !== epoch || !this._autoFill()) return;
     const fresh = this._entries().filter(inScope);
@@ -4771,8 +4771,8 @@ export class LibraryStore {
         const cur = this.entriesById().get(e.id);
         if (!cur || cur.onCardYml !== undefined) return; // already loaded this session
         const yml = await this.readInfoYml(cur).catch(() => null);
-        // `manSlots` is hydrated in the same pass (and to null, not undefined, when the ficha has no map)
-        // so every later ficha rewrite can tell "this card has no map" from "nobody looked yet", the
+        // `manSlots` is hydrated in the same pass (and to null, not undefined, when the game info file has no map)
+        // so every later game info rewrite can tell "this card has no map" from "nobody looked yet", the
         // difference between preserving the key and silently erasing it. See keepFromCard/manSlotsFor.
         const map = yml ? (parseManSlots(yml[MAN_SLOTS_KEY]) as Map<number, string>) : null;
         this.queueUpdate(e.id, { onCardYml: yml, manSlots: map && map.size ? map : null }); // batched: hundreds of ymls, one transition
@@ -4813,23 +4813,23 @@ export class LibraryStore {
    * Every asset on the card is addressed by the ROM's filename, `/sd2snes/info/<BB>/<stem>....`, with
    * `sgb/` the only namespace that splits it (the firmware builds the very same path, `fileops.c`
    * path_asset). So `C/Chou Aniki (Japan).sfc` and `_BSX/Chou Aniki (Japan).bs`, a SNES release and
-   * its Satellaview counterpart, two different GameDB games, resolve to one ficha and one set of
+   * its Satellaview counterpart, two different GameDB games, resolve to one game info file and one set of
    * assets. Counted per entry, each reads the other's recorded version as "outdated": a run stamps the
    * SNES token, the BSX copy goes stale, the next run stamps the BSX token and the SNES copy goes
    * stale. Forever, on a card that is already correct. That ping-pong is what kept re-offering the
    * same games after every single fill.
    *
-   * The ficha names an owner in `rom:`, but only by filename, which is exactly what these copies have
+   * The game info file names an owner in `rom:`, but only by filename, which is exactly what these copies have
    * in common, so it cannot separate `_INFIDELITY/Contra SNES/Contra SNES.sfc` from the USA and jpn
    * builds beside it in `sfc choice/`. It is a strong hint and nothing more, so it only breaks the tie
-   * one way: a copy the ficha does not name yields to one it does, and among equals the lowest id wins.
+   * one way: a copy the game info file does not name yields to one it does, and among equals the lowest id wins.
    * Stable across runs, so the card converges instead of oscillating.
    *
    * Not a fix for the sharing itself: the console shows one of them too. Separating them for real
    * needs a namespace of its own in the firmware's path builder, like `sgb/`.
    */
-  private ownsFicha(g: Entry): boolean {
-    return this.fichaOwners().get(fichaKeyOf(this.key(g.file))) === g.id;
+  private ownsGameInfo(g: Entry): boolean {
+    return this.gameInfoOwners().get(gameInfoKeyOf(this.key(g.file))) === g.id;
   }
 
   /**
@@ -4837,7 +4837,7 @@ export class LibraryStore {
    *
    * The cover is the one asset that does not live in the shared bucket, it sits beside the ROM, so
    * each copy has its own, and the console reads the one in the folder you are browsing. Only the
-   * elected owner writes (see ownsFicha), and the owner can perfectly well be the copy in `bkup/` or
+   * elected owner writes (see ownsGameInfo), and the owner can perfectly well be the copy in `bkup/` or
    * in `sfc choice/JPN/`: refreshing only its folder leaves the copy you actually play showing the old
    * art. Same bytes, one extra write per sibling, and it only runs when a cover was really written.
    *
@@ -4847,32 +4847,32 @@ export class LibraryStore {
   private async mirrorCovToSiblings(id: string, cov: Uint8Array): Promise<void> {
     const src = this.entriesById().get(id);
     if (!src) return;
-    const key = fichaKeyOf(this.key(src.file));
+    const key = gameInfoKeyOf(this.key(src.file));
     const name = stemOf(src.file) + '.cov';
     for (const g of this._entries()) {
-      if (g.id === id || !g.dirHandle || fichaKeyOf(this.key(g.file)) !== key) continue;
+      if (g.id === id || !g.dirHandle || gameInfoKeyOf(this.key(g.file)) !== key) continue;
       // Same folder as the owner (two entries can share one) → the write already happened.
       if (g.dirHandle === src.dirHandle) continue;
       try {
         // isolated: a read-only sibling folder must skip, never latch the card unwritable mid-run.
         await this.card.write(g.dirHandle, name, cov, { isolated: true });
         this.queueUpdate(g.id, { cover: 'has', thumbUrl: covToDataUrl(cov) });
-      } catch { /* read-only folder / vanished copy → skipped, same as the owner's own write */ }
+      } catch {  }/* read-only folder / vanished copy → skipped, same as the owner's own write */
     }
   }
 
-  /** Shared-ficha key → the single entry that speaks for it. Recomputed with the library (and with
+  /** Shared-game info key → the single entry that speaks for it. Recomputed with the library (and with
    *  `onCardYml`, which is what turns the `rom:` hint on). */
-  private readonly fichaOwners = computed(() => electFichaOwners(
+  private readonly gameInfoOwners = computed(() => electGameInfoOwners(
     this._entries(),
-    (g) => fichaKeyOf(this.key(g.file)),
+    (g) => gameInfoKeyOf(this.key(g.file)),
     (g) => g.id,
     (g) => g.onCardYml?.['rom'] === g.file,
     (g) => (g.folder ? g.folder.split('/').length : 0), // card root = 0, `sfc choice/JPN` = 2
   ));
 
   private fillStale(g: Entry, cat: FillCategory): boolean {
-    if (!this.fillPresent(g, cat) || !this.fillAvailable(g, cat) || !this.ownsFicha(g)) return false;
+    if (!this.fillPresent(g, cat) || !this.fillAvailable(g, cat) || !this.ownsGameInfo(g)) return false;
     const desired = syncTokensFromMatch(g);
     const key = LibraryStore.CAT_SYNC_KEY[cat];
     const want = desired[key];
@@ -4885,8 +4885,8 @@ export class LibraryStore {
     // adopt-as-current here: assuming the on-card asset matches the server would permanently hide a real
     // update whenever the card's art is actually older than the GameDB's.
     if (key === 'sync_meta') return !this.metaFieldsMatch(g, g.onCardYml);
-    // ...but only when there is a ficha to stamp the refreshed token into. With no `<rom>.yml` on the
-    // card, persistSyncTokens has nowhere to record the result (it never creates a ficha just for
+    // ...but only when there is a game info file to stamp the refreshed token into. With no `<rom>.yml` on the
+    // card, persistSyncTokens has nowhere to record the result (it never creates a game info file just for
     // bookkeeping), so flagging this would re-offer the same game on every single run, forever.
     return g.info === 'has';
   }
@@ -4895,13 +4895,13 @@ export class LibraryStore {
    *  staleness, verified without the sync_meta token). Compares the firmware fields after the same
    *  normalization buildYml applies (falsy omitted; `"`→`'`; CR/LF→space; trim). */
   private metaFieldsMatch(g: Entry, y: Record<string, string> | null | undefined): boolean {
-    if (!y) return false; // no ficha to compare → treat as needing (re)write
+    if (!y) return false; // no game info to compare → treat as needing (re)write
     const norm = (v: unknown): string => (v == null || v === '' ? '' : String(v).replace(/"/g, "'").replace(/\r|\n/g, ' ').trim());
     const server: Record<string, unknown> = {
       title: g.title, developer: g.developer, publisher: g.publisher, release_year: g.releaseYear != null ? String(g.releaseYear) : null,
       players: g.players, genre: g.genre, special_chip: g.specialChip, description: g.description,
       rom: g.file, region: g.region ?? null, gamedb_id: g.gamedbId ?? null,
-      // the localized descriptions are part of the ficha too: a card written before they existed (or
+      // the localized descriptions are part of the game info file too: a card written before they existed (or
       // before a translation landed) has to read as stale, or it would never be rewritten
       ...Object.fromEntries(DESC_LANG_LIST.map((l) => [`description_${l}`, g.descriptions?.[l] ?? null])),
     };
@@ -4955,7 +4955,7 @@ export class LibraryStore {
     try {
       const prev = Number(localStorage.getItem('sd2_mbps')) || bytesPerSec;
       localStorage.setItem('sd2_mbps', String(Math.round(prev * 0.6 + bytesPerSec * 0.4))); // smooth across runs
-    } catch { /* localStorage unavailable */ }
+    } catch {  }/* localStorage unavailable */
   }
   /** Assumed download throughput (bytes/sec) for the .s2pkg bundles. Network is usually not the
    *  bottleneck (the SD card is), so a fixed estimate is fine; persisted/overridable later. */
@@ -5138,7 +5138,7 @@ export class LibraryStore {
         await this.loadOnCardYml(this._entries().filter((g) => inScope(g) && g.matched && g.info === 'has'));
         // Re-read last: both the identify and the yml load flushed new entry objects into `_entries`,
         // and `p1` below decides what to fetch from `fillStale`, which reads `onCardYml`. Off a stale
-        // array every game reads as "no ficha loaded" → up-to-date games re-enter the run and the
+        // array every game reads as "no game info loaded" → up-to-date games re-enter the run and the
         // worker downloads their whole `.s2pkg` to write nothing.
         targets = this._entries().filter(inScope);
         ok = true;
@@ -5176,7 +5176,7 @@ export class LibraryStore {
     let cancelled = false;
     /* Games whose preview was planned but whose package didn't carry the `.fmv`.
        Auto-fill never encodes video (no ffmpeg, no mp4 download): the clip has to come ready from the
-       GameDB, so these are skipped, named in the post-run report, and, because the ficha handed to the
+       GameDB, so these are skipped, named in the post-run report, and, because the game info file handed to the
        worker already had `fmv: 1` baked in, get that now-orphan flag taken back out (see below). */
     const previaSkipped = new Set<string>();
     // Which sync-token groups were (re)written per game this run → persistSyncTokens advances only those
@@ -5192,7 +5192,7 @@ export class LibraryStore {
       const t = tokenWrites.get(id); if (t) { delete t[k]; if (!Object.keys(t).length) tokenWrites.delete(id); }
     };
 
-    // A passada única: capa + tela + ficha + cheats + prévia + manual
+    // A passada única: capa + tela + game info + cheats + prévia + manual
     // 'previa' entra aqui como qualquer outra categoria: o `.fmv` sai pronto do `.s2pkg`, então é só mais
     // um membro do pacote que já está em mãos. Não existe mais uma segunda fase de vídeo, quem não tiver
     // clipe no pacote é pulado e vai para o relatório (auto-fill não roda ffmpeg). 'manual' também anda
@@ -5208,7 +5208,7 @@ export class LibraryStore {
     // Build the work orders: games with a pre-built .s2pkg go to the dedicated write worker (the fast
     // path that keeps running at full speed even when the tab is backgrounded, worker threads aren't
     // throttled like an inactive tab's main thread, the fix for the run pausing/slowing when unfocused).
-    // Games with no package fall back to main-thread covgen/ffmpeg generation. The .yml ficha + cheats
+    // Games with no package fall back to main-thread covgen/ffmpeg generation. The .yml game info + cheats
     // text are pre-serialized here (the worker only does I/O: fetch .s2pkg → write members to the card).
     const jobs: AutofillJob[] = [];
     const mainOnly: Entry[] = [];
@@ -5239,7 +5239,7 @@ export class LibraryStore {
       // construction (pcm separated); only legacy rows still offer a "no-audio" variant, prefer it
       // there when pcm isn't wanted (it skips the embedded .pcm, a much smaller download).
       const wantPcm = nPrevia && previaAudio;
-      // Split the capa into its two halves so a game that only lacks the ficha .gcv (its .cov is already
+      // Split the capa into its two halves so a game that only lacks the game info .gcv (its .cov is already
       // on the card) gets just the .gcv written -- not a needless .cov rewrite (matters in bulk: rewriting
       // every existing .cov would ~double the write volume). 'replace' rewrites both.
       // Rewrite both halves under 'replace', and under 'update' only for a genuinely stale game (the
@@ -5285,14 +5285,14 @@ export class LibraryStore {
         id: g.id, packageUrl: url, fallbackPackageUrl: fallbackPkgUrl, manualUrl, pcmUrl, file: g.file, mode: this.layoutMode(), stem: stemOf(g.file), folder: g.folder,
         want: { cov: wantCov, gcv: wantGcv, gss: nTela, fmv: nPrevia, pcm: wantPcm },
         cheatsText: nCheats && g.dbCheats?.length ? this.cheats.serialize(g.dbCheats, shortTitle(g)) : null,
-        // The ficha replaces what is on the card, so its `fmv:` flag has to cover everything that flag
+        // The game info file replaces what is on the card, so its `fmv:` flag has to cover everything that flag
         // gates, the clip and the static snapshot (see fmvFlagFor: the firmware probes `<rom>.fmv` and
         // `<rom>.gss` inside one `if(fmv_eligible)`). Baked ahead because the worker writes the `.yml`
         // and the media in a single pass: what this run is about to write (nPrevia/nTela) plus whatever
         // the card already holds. Missing `nTela`/`snapshot` here meant an "Atualizar → Informações" over
         // a card full of snapshots-without-clips turned every one of those snapshots off.
         // `man_slots` rides along for the same structural reason as the fmv flag: the worker replaces the
-        // ficha, so anything not baked in here is erased. Losing it would drop the game back to sha-only
+        // game info, so anything not baked in here is erased. Losing it would drop the game back to sha-only
         // manual dedup and hand the next GameDB re-encode the duplicate-slots bug all over again. The
         // value is the map as the entry knows it (manSlotsFor, one source of truth). The manual pass
         // that runs after the worker rewrites it with whatever it actually installed.
@@ -5301,7 +5301,7 @@ export class LibraryStore {
         // only the groups that actually landed. Without them a cancelled run leaves every game the
         // worker touched with no proof of origin for its manuals, unrepairable on the next re-encode.
         infoYml: (nInfo || nPrevia)
-          ? buildYml({ ...this.fichaFields(g), ...this.syncTokensOnCard(g), rom: g.file, crc: g.crc || null, gamedb_id: g.gamedbId ?? null,
+          ? buildYml({ ...this.gameInfoFields(g), ...this.syncTokensOnCard(g), rom: g.file, crc: g.crc || null, gamedb_id: g.gamedbId ?? null,
                        fmv: (nPrevia || nTela || fmvFlagFor(g) != null) ? 1 : null,
                        [MAN_SLOTS_KEY]: manSlotsField(g, g.onCardYml?.[MAN_SLOTS_KEY]) })
           : null,
@@ -5311,7 +5311,7 @@ export class LibraryStore {
     let done = 0;
     // Package path → the dedicated write worker. Each progress message updates the counters + entry state.
     const handledIds = new Set<string>();
-    // The ficha text handed to the worker, per game, memoized once the worker confirms the write, so a
+    // The game info file text handed to the worker, per game, memoized once the worker confirms the write, so a
     // later fmv-flag patch knows what is on the card without reading it (see ensureFmvFlag/ymlMemo).
     const ymlByJob = new Map(jobs.filter((j) => j.infoYml != null).map((j) => [j.id, j.infoYml as string]));
     if (jobs.length && !this.cancelImport) {
@@ -5341,7 +5341,7 @@ export class LibraryStore {
         // Render the new cover in the list immediately (the worker can't make a dataURL): decode the cov
         // bytes it sent. Without this the thumbnail only appears when the card re-enters view / on select.
         if (w.cov && m.cov) {
-          try { patch.thumbUrl = covToDataUrl(m.cov); } catch { /* bad cov → leave placeholder */ }
+          try { patch.thumbUrl = covToDataUrl(m.cov); } catch {  }/* bad cov → leave placeholder */
           void this.mirrorCovToSiblings(m.id, m.cov);
         }
         // Slot 0 (<stem>.man, the official manual) just landed, bump `guides` too (the detail panel's
@@ -5372,7 +5372,7 @@ export class LibraryStore {
         // (after the flush below), so it only uses this object's identity/id.
         if (stranded) { const g = this.entriesById().get(m.id); if (g) mainOnly.push(g); }
         // No `.fmv` written → the preview is skipped (auto-fill never falls back to downloading the mp4
-        // and re-encoding it with ffmpeg. That is what the per-game action on the ficha is for). Which
+        // and re-encoding it with ffmpeg. That is what the per-game action on the game info file is for). Which
         // skip it was matters to the user: `hadPackage` false means the bundle never arrived (network /
         // 404 / cancelled) and retrying is the fix; only with the bundle in hand does "the GameDB hasn't
         // built this clip yet" hold. A stranded game reports from its own pass below.
@@ -5430,7 +5430,7 @@ export class LibraryStore {
     /* The owner installed the shared files; a sibling asking for the same set of documents is satisfied
        by them, so its token advances too. Otherwise it would read stale on every future run and offer
        work that is already done. A sibling wanting a different set gets no token: the card physically
-       cannot hold both, and claiming otherwise would be a lie in the ficha. */
+       cannot hold both, and claiming otherwise would be a lie in the game info file. */
     const shareManMark = (ownerId: string): void => {
       const g = this.entriesById().get(ownerId); if (!g) return;
       const digest = syncTokensFromMatch(g).sync_man;
@@ -5449,7 +5449,7 @@ export class LibraryStore {
           nInfo = this.fillNeeds(g, 'info', plan), nCheats = this.fillNeeds(g, 'cheats', plan),
           nPrevia = this.fillNeeds(g, 'previa', plan), nManual = wantManual.has(g.id);
         if (nCapa) {
-          // A card `.cov` with only the ficha `.gcv` missing is derived locally (buildGcvFromCov), no
+          // A card `.cov` with only the game info `.gcv` missing is derived locally (buildGcvFromCov), no
           // download, and it works even when the GameDB has no cover image. Only when the `.cov` itself
           // is absent do we fetch the image and build both halves.
           const onlyGcv = (g.cover === 'has' || g.cover === 'custom') && g.gcv !== 'has';
@@ -5458,7 +5458,7 @@ export class LibraryStore {
             : g.coverUrl
               ? await this.encodeAndPlaceCover(g, g.coverUrl, 'has', this.i18n.translate('store.cover'), true) !== 'cov-failed'
               : await this.genGcvFromCov(g, true);
-          // 'cov-readonly' counts as done: the ficha .gcv did land, only the .cov next to the ROM was
+          // 'cov-readonly' counts as done: the game info .gcv did land, only the .cov next to the ROM was
           // refused, and encodeAndPlaceCover already recorded that in the report.
           if (ok) { capas++; markWrote(g.id, 'pkg'); }
           // A cover we were asked for and could not build: count it and name it in the report, so the
@@ -5470,7 +5470,7 @@ export class LibraryStore {
           else this.pushFillError(cur(g), 'gss', g.screenshotUrl ? 'download' : 'nosource');
         }
         g = cur(g);
-        if (nInfo && (await this.saveInfoYml(g, this.fichaFields(g), true))) { infos++; markWrote(g.id, 'meta'); }
+        if (nInfo && (await this.saveInfoYml(g, this.gameInfoFields(g), true))) { infos++; markWrote(g.id, 'meta'); }
         if (nCheats && (await this.dlCheats(cur(g), true))) { cheats++; markWrote(g.id, 'pkg'); }
         // Preview: the package's ready `.fmv`, or nothing. No mp4 download, no ffmpeg, a game the GameDB
         // hasn't built the clip for is skipped and named in the post-run report. Naming the right reason
@@ -5536,7 +5536,7 @@ export class LibraryStore {
     }
 
     // Flag `fmv: 1` órfã dos jogos cuja prévia foi pulada
-    // A ficha entregue ao worker já sai com `fmv: 1` quando a prévia entra no plano (ele grava `.yml` e
+    // A game info file entregue ao worker já sai com `fmv: 1` quando a prévia entra no plano (ele grava `.yml` e
     // `.fmv` de uma vez só, não dá para perguntar depois). Quando o pacote não trouxe o clipe, essa flag
     // ficaria apontando para arquivos que ninguém gravou, o firmware sondaria `<rom>.fmv`/`.gss` a cada
     // visita e não acharia nada. Tira a flag só de quem ficou sem nenhum dos dois (um `.gss` na mão, ou
@@ -5752,19 +5752,19 @@ export class LibraryStore {
   private async sumUsage(): Promise<void> {
     if (!this.rootHandle) return;
     try { this._cardUsedBytes.set(await walkUsage(this.rootHandle)); }
-    catch { /* leave the last value */ }
+    catch {  }/* leave the last value */
   }
 
   /** Ensure the sibling .yml carries `fmv: 1` (the firmware gates the .fmv/.gss probe on it).
    *
-   *  Costs a read + a write on a file this very flow has usually just written, the ficha of the game
+   *  Costs a read + a write on a file this very flow has usually just written, the game info file of the game
    *  whose preview is being placed, so the current text comes from `ymlMemo` (what we last put on the
    *  card for this game) when it's there, and only from the card otherwise. That drops the read after
    *  saveInfoYml in auto-fill's main-thread path, and makes a second call within one game (snapshot
    *  then preview, which the memo now shows as already flagged) a complete no-op.
    *
    *  `Entry.onCardYml` is deliberately not consulted, tempting as it looks: it is a PRE-RUN snapshot
-   *  that persistSyncTokens depends on staying stale (see its note), so it can describe a ficha several
+   *  that persistSyncTokens depends on staying stale (see its note), so it can describe a game info file several
    *  rewrites old, and trusting a stale "it already has the flag" would leave the clip on the card with
    *  the console never probing for it, silently. */
   private async ensureFmvFlag(g: Entry, dir: FileSystemDirectoryHandle, stem: string): Promise<void> {
@@ -5778,10 +5778,10 @@ export class LibraryStore {
     this.rememberYml(g.id, next);
   }
 
-  /** Take `fmv: 1` back out of a game's ficha. For the one case that can produce an orphan flag: the
-   *  write worker gets the ficha with the flag already baked in (it writes `.yml` and `.fmv` in a single
+  /** Take `fmv: 1` back out of a game's game info. For the one case that can produce an orphan flag: the
+   *  write worker gets the game info file with the flag already baked in (it writes `.yml` and `.fmv` in a single
    *  pass), and the package then turns out not to carry the clip. Same memo-first read as ensureFmvFlag,
-   *  and a complete no-op when there is no ficha or no flag. Best-effort: bookkeeping never fails a run. */
+   *  and a complete no-op when there is no game info or no flag. Best-effort: bookkeeping never fails a run. */
   private async clearFmvFlag(g: Entry): Promise<void> {
     if (!this.rootHandle || this.card.unwritable) return;
     const stem = stemOf(g.file);
@@ -5806,7 +5806,7 @@ export class LibraryStore {
         await this.card.remove(dir, stem + '.fmv').catch(() => {});
         await this.card.remove(dir, stem + '.pcm').catch(() => {});
       }
-    } catch { /* already gone */ }
+    } catch {  }/* already gone */
     this.update(g.id, { fmv: 'none' });
     this.toast.show(this.i18n.translate('store.previewRemoved'), 'warn');
   }
@@ -5871,7 +5871,7 @@ export class LibraryStore {
         if (m.srcDir === m.destDir && m.srcName === m.destName) continue;
         try {
           if (await fileExists(m.destDir, m.destName)) await this.card.remove(m.destDir, m.destName);
-        } catch { /* ignore */ }
+        } catch {  }/* ignore */
         const newFh = await this.card.moveFile(m.srcDir, m.fh, m.destDir, m.destName);
         if (m.srcName === e.file) this.update(id, { file: newName, fileHandle: newFh });
         count++;
@@ -5957,7 +5957,7 @@ export class LibraryStore {
       if (!r.ok) return;
       // .srm SRAM + .gtc (SGB rtc) + .mpk (BS-X Memory Pack) -- all the ROM's on-card save data.
       for (const ext of ['.srm', '.gtc', '.mpk']) {
-        try { await this.card.remove(savesDir, stemOf(g.file) + ext); } catch { /* gone */ }
+        try { await this.card.remove(savesDir, stemOf(g.file) + ext); } catch {  }/* gone */
       }
     }
     this.update(g.id, { save: false });
@@ -5977,7 +5977,7 @@ export class LibraryStore {
       confirmLabel: this.i18n.translate('store.delete'), danger: true,
     });
     if (!r.ok) return;
-    for (const s of slots) { try { await this.card.remove(s.dir, s.name); } catch { /* gone */ } }
+    for (const s of slots) { try { await this.card.remove(s.dir, s.name); } catch {  } }/* gone */
     this.stateKeys.delete(assetIndexKey(key));
     this.update(g.id, { state: 'none' });
     this.toast.show(this.i18n.translate('store.statesRemoved'), 'warn');
@@ -6014,7 +6014,7 @@ export class LibraryStore {
       const patch: Partial<Entry> = {};
       if (keys.has('cover')) { patch.cover = g.coverUrl ? 'available' : 'none'; patch.gcv = 'none'; patch.thumbUrl = undefined; }
       if (keys.has('preview')) { patch.snapshot = 'none'; patch.fmv = 'none'; }
-      // The ficha is gone: a memo of what it used to hold would let ensureFmvFlag rewrite the whole
+      // The game info file is gone: a memo of what it used to hold would let ensureFmvFlag rewrite the whole
       // file the user just deleted (it patches the text it believes is on the card).
       if (keys.has('info')) { patch.info = 'none'; this.ymlMemo.delete(g.id); }
       if (keys.has('cheats')) patch.cheats = g.crc ? 'available' : 'none';
@@ -6047,32 +6047,32 @@ export class LibraryStore {
    *  (.gss/.fmv/.pcm), info (.yml), cheats (.yml), states (.state slots), save (.srm/.gtc/.mpk). */
   private async removeAssets(key: AssetKey, romDir: FileSystemDirectoryHandle | null | undefined, assets: ReadonlySet<string>): Promise<void> {
     const stem = key.stem;
-    if (assets.has('cover') && romDir) { try { await this.card.remove(romDir, stem + '.cov'); } catch { /* */ } }
+    if (assets.has('cover') && romDir) { try { await this.card.remove(romDir, stem + '.cov'); } catch {  } }/* */
     if (assets.has('cheats')) {
       const d = await this.bucketDir(CHEATS_ROOT, key);
-      if (d) { try { await this.card.remove(d, stem + '.yml'); } catch { /* */ } }
+      if (d) { try { await this.card.remove(d, stem + '.yml'); } catch {  } }/* */
     }
     if (assets.has('save')) {
       const d = await this.bucketDir(SAVES_ROOT, key);
       if (d) for (const ext of ['.srm', '.gtc', '.mpk']) {
-        try { await this.card.remove(d, stem + ext); } catch { /* */ }
+        try { await this.card.remove(d, stem + ext); } catch {  }/* */
       }
     }
     if (assets.has('states')) {
-      for (const s of await this.listSaveStates(key)) { try { await this.card.remove(s.dir, s.name); } catch { /* */ } }
+      for (const s of await this.listSaveStates(key)) { try { await this.card.remove(s.dir, s.name); } catch {  } }/* */
       this.stateKeys.delete(assetIndexKey(key));
     }
     if (this.rootHandle && (assets.has('cover') || assets.has('preview') || assets.has('info'))) {
       try {
         const infoDir = await this.getDir(infoDirFor(key));
         if (infoDir) {
-          if (assets.has('cover')) { try { await this.card.remove(infoDir, stem + '.gcv'); } catch { /* */ } }
+          if (assets.has('cover')) { try { await this.card.remove(infoDir, stem + '.gcv'); } catch {  } }/* */
           if (assets.has('preview')) for (const ext of ['.gss', '.fmv', '.pcm']) {
-            try { await this.card.remove(infoDir, stem + ext); } catch { /* */ }
+            try { await this.card.remove(infoDir, stem + ext); } catch {  }/* */
           }
-          if (assets.has('info')) { try { await this.card.remove(infoDir, stem + '.yml'); } catch { /* */ } }
+          if (assets.has('info')) { try { await this.card.remove(infoDir, stem + '.yml'); } catch {  } }/* */
         }
-      } catch { /* */ }
+      } catch {  }/* */
     }
   }
 
@@ -6081,7 +6081,7 @@ export class LibraryStore {
     const idset = new Set(ids);
     const targets = this._entries().filter((e) => idset.has(e.id));
     for (const e of targets) {
-      if (e.dirHandle) { try { await this.card.remove(e.dirHandle, e.file); } catch { /* gone */ } }
+      if (e.dirHandle) { try { await this.card.remove(e.dirHandle, e.file); } catch {  } }/* gone */
       if (assets.size) await this.removeAssets(this.key(e.file), e.dirHandle, assets);
     }
     this._entries.update((gs) => gs.filter((g) => !idset.has(g.id)));
@@ -6094,28 +6094,28 @@ export class LibraryStore {
   private async deleteSiblings(key: AssetKey): Promise<void> {
     const stem = key.stem;
     { const d = await this.bucketDir(CHEATS_ROOT, key);
-      try { if (d) await this.card.remove(d, stem + '.yml'); } catch { /* */ } }
+      try { if (d) await this.card.remove(d, stem + '.yml'); } catch {  } }/* */
     // /sd2snes/saves: SRAM (.srm), Super Game Boy rtc (.gtc), BS-X Memory Pack (.mpk)
     { const d = await this.bucketDir(SAVES_ROOT, key);
       for (const ext of ['.srm', '.gtc', '.mpk']) {
-        try { if (d) await this.card.remove(d, stem + ext); } catch { /* */ }
+        try { if (d) await this.card.remove(d, stem + ext); } catch {  }/* */
       } }
     // /sd2snes/states: save-state slots <stem>NN.state
     for (const s of await this.listSaveStates(key)) {
-      try { await this.card.remove(s.dir, s.name); } catch { /* */ }
+      try { await this.card.remove(s.dir, s.name); } catch {  }/* */
     }
     if (this.rootHandle) {
       try {
         const infoDir = await this.getDir(infoDirFor(key));
         if (infoDir) for (const ext of ['.yml', '.gcv', '.gss', '.fmv', '.pcm']) {
-          try { await this.card.remove(infoDir, stem + ext); } catch { /* */ }
+          try { await this.card.remove(infoDir, stem + ext); } catch {  }/* */
         }
         // guides (.man): <stem>.man + <stem>.0N.man. Otherwise deleting the ROM leaves orphaned
         // (potentially tens-of-MB) guide files behind forever.
         if (infoDir) for (const nn of GUIDE_SLOTS) {
-          try { await this.card.remove(infoDir, guideFileName(stem, nn)); } catch { /* not present */ }
+          try { await this.card.remove(infoDir, guideFileName(stem, nn)); } catch {  }/* not present */
         }
-      } catch { /* */ }
+      } catch {  }/* */
     }
   }
 
@@ -6181,7 +6181,7 @@ export class LibraryStore {
         }
         if (action === 'skip') { done++; this._bulk.update((b) => (b ? { ...b, done } : b)); continue; }
         if (action === 'keepboth') name = await this.uniqueName(dest, name);
-        if (action === 'overwrite') { try { await dest.removeEntry(name); } catch { /* */ } }
+        if (action === 'overwrite') { try { await dest.removeEntry(name); } catch {  } }/* */
       }
       try {
         const newStem = stemOf(name);
@@ -6190,7 +6190,7 @@ export class LibraryStore {
           try {
             const covFh = await e.dirHandle.getFileHandle(stemOf(e.file) + '.cov');
             await this.card.moveFile(e.dirHandle, covFh, dest, newStem + '.cov');
-          } catch { /* no .cov */ }
+          } catch {  }/* no .cov */
         }
         this.update(e.id, { folder: destFolderPath, dirHandle: dest, file: name, fileHandle: newFh });
         moved++;
@@ -6254,7 +6254,7 @@ export class LibraryStore {
         }
         if (action === 'skip') { done++; this._bulk.update((b) => (b ? { ...b, done } : b)); continue; }
         if (action === 'keepboth') name = await this.uniqueName(dest, name);
-        if (action === 'overwrite') { try { await dest.removeEntry(name); } catch { /* */ } }
+        if (action === 'overwrite') { try { await dest.removeEntry(name); } catch {  } }/* */
       }
       try {
         const newStem = stemOf(name);
@@ -6394,14 +6394,14 @@ export class LibraryStore {
         if (srcDir) {
           await this.card.moveFolderRecursive(srcDir, destParent, newLeaf);
           const srcParent = oldParentPath ? await getDirByPath(this.rootHandle, oldParentPath) : this.rootHandle;
-          try { if (srcParent) await this.card.removeFolder(srcParent, oldLeaf); } catch { /* */ }
+          try { if (srcParent) await this.card.removeFolder(srcParent, oldLeaf); } catch {  }/* */
         }
         // re-resolve each moved entry's handles at its new location
         for (const e of inFolder) {
           const nf = newPath + e.folder.slice(oldPath.length);
           const dh = await getDirByPath(this.rootHandle, nf);
           let fh = e.fileHandle;
-          if (dh) { try { fh = await dh.getFileHandle(e.file); } catch { /* */ } }
+          if (dh) { try { fh = await dh.getFileHandle(e.file); } catch {  } }/* */
           this.update(e.id, { folder: nf, dirHandle: dh ?? e.dirHandle, fileHandle: fh });
         }
       } else {
@@ -6459,7 +6459,7 @@ export class LibraryStore {
     }
 
     // covers: auto-identify (CRC → gamedb) then really generate the capa per game (no simulation). A capa
-    // is incomplete when it lacks the browser .cov or the ficha .gcv (fillPresent('capa') = both), so a
+    // is incomplete when it lacks the browser .cov or the game info .gcv (fillPresent('capa') = both), so a
     // .cov-without-.gcv is targeted too, the loop derives the missing .gcv from the existing .cov.
     const targets = this._entries().filter((g) => inSel(g) && g.fileHandle && !this.fillPresent(g, 'capa'));
     if (!targets.length) {
@@ -6508,10 +6508,10 @@ export class LibraryStore {
         if (g.coverUrl) {
           const res = await this.encodeAndPlaceCover(g, g.coverUrl, 'has', 'Generated .cov', true);
           if (res === 'cov-failed') covFail++;
-          else if (res === 'cov-readonly') { /* read-only folder → recorded in the fill report, not a failure */ }
+          else if (res === 'cov-readonly') {  }/* read-only folder → recorded in the fill report, not a failure */
           else { made++; if (res === 'gd-failed') gdFail++; else if (res === 'shot-missing') shotRetry.push(g.id); }
         } else if (g.cover === 'has' || g.cover === 'custom') {
-          // No GameDB cover image, but a .cov is already on the card → derive the missing ficha .gcv
+          // No GameDB cover image, but a .cov is already on the card → derive the missing game info .gcv
           // from it (the reason this game is a target). Bounded + fail-safe.
           if (await this.genGcvFromCov(g, true)) made++; else covFail++;
         } else if (!g.identified) {

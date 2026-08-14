@@ -55,7 +55,7 @@ async function terminateFfmpeg() {
   _ffReady = null;
   _ffJobs = 0;
   if (!ready) return;
-  try { (await ready.catch(() => null))?.terminate?.(); } catch { /* already gone */ }
+  try { (await ready.catch(() => null))?.terminate?.(); } catch {  }/* already gone */
 }
 
 /** Run one ffmpeg job under a hard whole-job timeout. A hang anywhere (writeFile/exec/readFile) ⇒
@@ -103,7 +103,7 @@ export async function buildCoverFile(coverBytes) {
   return bandpal.encodeCoverFile(bandpal.encodeCover(c.rgb, c.opaque));
 }
 /** Derive a `.gcv` from an existing on-card `.cov`, for games with no GamesDB cover image (so the
- *  ficha still gets a pixel-centered cover instead of the firmware's tile-quantised OBJ fallback).
+ *  game info still gets a pixel-centered cover instead of the firmware's tile-quantised OBJ fallback).
  *  Decodes the `.cov`, crops to its opaque art (the `.cov` letterbox bars are transparent, value 0),
  *  then re-encodes through the standard `.gcv` path, which letterbox-fits + centers into 128×128. The
  *  crop is what makes the result match a GamesDB `.gcv`: it discards the `.cov`'s top-aligned padding so

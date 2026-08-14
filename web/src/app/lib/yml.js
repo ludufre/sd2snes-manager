@@ -79,13 +79,13 @@ export function manGroupTag(groupUuid) {
 /* The grammar of the value, which is what makes "the line always fits" an invariant by construction
    rather than a hope: a slot is one digit and a tag is at most MAN_GROUP_TAG_LEN chars, so ten pairs
    is the absolute ceiling, 10 * (1 + 1 + 8) + 9 commas = 109 chars, against YAML_BUFLEN's 256. Both
-   ends clamp, so nothing a hand-edited (or future) ficha carries can push the line past the firmware
+   ends clamp, so nothing a hand-edited (or future) game info carries can push the line past the firmware
    reader's cap. Which digits are real guide slots stays man.js's business (GUIDE_SLOTS), this module
    only decides what the field may look like, exactly as it does for every other key. */
 const MAN_SLOT_PAIR = /^\s*(\d)\s*:\s*([a-z0-9]{1,8})\s*$/i;
 
 /** `"0:h5y4tn5i,2:ahtd2trh"` → `Map<slot, tag>`. Tolerant in the same spirit as parseInfoYml: an
- *  unreadable pair is dropped rather than thrown over (the ficha may be hand-edited, and a bad byte
+ *  unreadable pair is dropped rather than thrown over (the game info file may be hand-edited, and a bad byte
  *  there must not take a whole run down). A tag repeated across two slots is kept. That duplicate is
  *  precisely what the cleanup pass is looking for.
  *  @returns {Map<number, string>} */
@@ -101,7 +101,7 @@ export function parseManSlots(value) {
 
 /** The inverse. Null for an empty map, so yfield omits the key entirely instead of writing `""`.
  *  Pairs go out in ascending slot order: an unchanged map must serialize byte-identically, or every
- *  ficha rewrite would look like a change and cost a needless card write. Clamped to the same grammar
+ *  game info rewrite would look like a change and cost a needless card write. Clamped to the same grammar
  *  parseManSlots accepts, so serialize(parse(x)) can never grow the line.
  *  @param {ReadonlyMap<number, string> | null | undefined} map */
 export function serializeManSlots(map) {

@@ -20,7 +20,7 @@ import { decodeFmvFrame, composeCgram } from '../../../lib/bandpal.js';
 
 /** Game-info fields (mirrors the `.yml` keys buildYml writes). Read-only here. `description` is the
  *  canonical English text; `descriptions` holds the per-language translations the console picks from. */
-interface Ficha {
+interface GameInfo {
   title: string;
   developer: string;
   publisher: string;
@@ -32,9 +32,9 @@ interface Ficha {
   descriptions: Descriptions;
   gamedb_id: string;
 }
-const EMPTY_FICHA: Ficha = { title: '', developer: '', publisher: '', release_year: '', players: '', genre: '', special_chip: '', description: '', descriptions: {}, gamedb_id: '' };
+const EMPTY_GAME_INFO: GameInfo = { title: '', developer: '', publisher: '', release_year: '', players: '', genre: '', special_chip: '', description: '', descriptions: {}, gamedb_id: '' };
 
-/** Right-hand detail panel: on-card media (cover/snapshot/video), ficha editor, cheats, danger zone.
+/** Right-hand detail panel: on-card media (cover/snapshot/video), game info editor, cheats, danger zone.
  *  Rendered inline in split view, or as a slide-over drawer in list/gallery. */
 @Component({
   selector: 'app-detail-panel',
@@ -77,8 +77,8 @@ export class DetailPanel {
   protected readonly cardSnapshot = signal<string | null>(null);
   // The real cover image (decoded .cov thumbnail), shown at its natural aspect in the showcase.
   protected readonly coverSrc = computed(() => this.lib.sel()?.thumbUrl ?? null);
-  // Ficha (.yml), read-only here; editing happens in the InfoEditor modal.
-  protected readonly ficha = signal<Ficha>(EMPTY_FICHA);
+  // GameInfo (.yml), read-only here; editing happens in the InfoEditor modal.
+  protected readonly gameInfo = signal<GameInfo>(EMPTY_GAME_INFO);
   protected readonly stateInputs = signal<{ checksum: string; save: string; load: string } | null>(null);
   protected readonly stateInputsLoading = signal(false);
   protected readonly stateInputsSaving = signal(false);
@@ -103,7 +103,7 @@ export class DetailPanel {
   /** Filled metadata fields for the read-only summary (empties dropped). */
   protected readonly infoRows = computed(() => {
     this.langs.ready(); // translate() is not a signal, see LangService.ready
-    const f = this.ficha();
+    const f = this.gameInfo();
     return [
       { k: this.i18n.translate('detail.fieldDeveloper'), v: f.developer },
       { k: this.i18n.translate('detail.fieldPublisher'), v: f.publisher },
@@ -113,23 +113,23 @@ export class DetailPanel {
       { k: this.i18n.translate('detail.fieldSpecialChip'), v: f.special_chip },
     ].filter((r) => (r.v ?? '').trim());
   });
-  /** The description as this app's language would read it, the translation when the ficha carries one,
+  /** The description as this app's language would read it, the translation when the game info file carries one,
    *  English otherwise. Exactly the choice the console makes for its own menu language (gameinfo.c
    *  gi_desc_lang_key), so the panel previews what a console set to this language will show. */
   protected readonly descText = computed(() => {
-    const f = this.ficha();
+    const f = this.gameInfo();
     return (f.descriptions[this.langs.lang() as DescLang] || f.description || '').trim();
   });
   protected readonly hasInfo = computed(() => this.infoRows().length > 0 || !!this.descText());
   /** GameDB id for the "Ver no GameDB" link: from the live match, else from the on-card .yml (so the
    *  link shows for games that were filled but not re-identified this session). */
-  protected readonly linkGamedbId = computed(() => this.lib.sel()?.gamedbId || this.ficha().gamedb_id || null);
+  protected readonly linkGamedbId = computed(() => this.lib.sel()?.gamedbId || this.gameInfo().gamedb_id || null);
 
   // Guards so the async loads below only re-run on real changes, not on every entry mutation.
-  // (During "[cov] fetch cover" the selected entry is replaced repeatedly; without these the ficha
+  // (During "[cov] fetch cover" the selected entry is replaced repeatedly; without these the game info file
   //  would reset to empty and flicker on each update.)
   private mediaKey = '';
-  private fichaKey = '';
+  private gameInfoKey = '';
 
   constructor() {
     // Media (cover thumb + snapshot + fmv): reload only when the game or its on-card media changes.
@@ -165,7 +165,7 @@ export class DetailPanel {
         if (url) { this.cardSnapshot.set(url); return; }
         void this.lib.readGdBytes(g).then((gd) => {
           if (this.lib.sel()?.id !== id || !gd) return;
-          try { this.cardSnapshot.set(decodeGdRegions(gd).snapshotUrl); } catch { /* leave snapshot empty */ }
+          try { this.cardSnapshot.set(decodeGdRegions(gd).snapshotUrl); } catch {  }/* leave snapshot empty */
         });
       });
     });
@@ -189,20 +189,20 @@ export class DetailPanel {
       });
     });
 
-    // Ficha (.yml metadata): reload only when the selected game changes or an edit is saved (infoRev),
+    // GameInfo (.yml metadata): reload only when the selected game changes or an edit is saved (infoRev),
     // never on cover/thumb/busy updates, so the info doesn't flicker while covers are being fetched.
     effect(() => {
       const g = this.lib.sel();
       const rev = this.lib.infoRev();
       const key = g ? `${g.id}#${rev}` : '';
-      if (key === this.fichaKey) return;
-      this.fichaKey = key;
-      this.ficha.set(EMPTY_FICHA);
+      if (key === this.gameInfoKey) return;
+      this.gameInfoKey = key;
+      this.gameInfo.set(EMPTY_GAME_INFO);
       if (!g) return;
       const id = g.id;
       void this.lib.readInfoYml(g).then((yml) => {
         const cur = this.lib.sel();
-        if (cur?.id === id) this.ficha.set(this.fichaFrom(cur, yml));
+        if (cur?.id === id) this.gameInfo.set(this.gameInfoFrom(cur, yml));
       });
     });
   }
@@ -229,7 +229,7 @@ export class DetailPanel {
     } catch { return null; }
   }
 
-  private fichaFrom(g: Entry, yml: Record<string, string> | null): Ficha {
+  private gameInfoFrom(g: Entry, yml: Record<string, string> | null): GameInfo {
     return {
       title: yml?.['title'] ?? g.title ?? '',
       developer: yml?.['developer'] ?? g.developer ?? '',
@@ -240,7 +240,7 @@ export class DetailPanel {
       special_chip: yml?.['special_chip'] ?? g.specialChip ?? '',
       description: yml?.['description'] ?? g.description ?? '',
       // per-language: the on-card `.yml` wins (that is what the console will actually read), the
-      // GameDB match fills in for a game whose ficha has not been written yet
+      // GameDB match fills in for a game whose game info file has not been written yet
       descriptions: Object.fromEntries(
         DESC_LANG_LIST.map((l) => [l, yml?.[`description_${l}`] ?? g.descriptions?.[l] ?? '']).filter(([, v]) => v),
       ) as Descriptions,

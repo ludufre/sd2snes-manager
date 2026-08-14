@@ -4,7 +4,7 @@
 // converts covers client-side with the exact same code path as the native covgen, no server
 // round-trip. It registers the global `covgenEncode(bytes, opts)`.
 // (The .gd DirectColor encoder is intentionally not exposed: the Manager retired the .gd info-screen
-// path. The ficha cover/snapshot/preview are now built by the JS bandpal/ffmpeg encoder.)
+// path. The game info cover/snapshot/preview are now built by the JS bandpal/ffmpeg encoder.)
 package main
 
 import (
