@@ -2065,10 +2065,17 @@ export class LibraryStore {
     if (!dir || raw == null) return false;
     const comboKeys = new Set(['IngameButtonsSaveState', 'IngameButtonsLoadState', 'IngameButtonsChangeState']);
     const safeValues = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, comboKeys.has(key) ? normalizeSnesCombo(value) : value]));
-    const out = Object.entries(safeValues).reduce(
-      (text, [key, value]) => text.replace(new RegExp(`^(${key}\\s*:)\\s*.*$`, 'm'), `$1 ${value}`),
-      raw,
-    );
+    const ending = raw.includes('\r\n') ? '\r\n' : '\n';
+    const out = Object.entries(safeValues).reduce((text, [key, value]) => {
+      const line = new RegExp(`^(${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:)\\s*.*$`, 'm');
+      // Append rather than drop when the key is not in the file: older config.yml files predate
+      // several of these keys, and one of them has no menu entry in the firmware at all, so the
+      // setting would silently do nothing. The parser reads `key: value` in any order, and the
+      // firmware rewrites the whole file in its own order at the next cfg_save().
+      // Replacement callback, not "$1 value": a '$' in a path value must not be expanded.
+      if (!line.test(text)) return text.replace(/\s*$/, '') + `${ending}${key}: ${value}${ending}`;
+      return text.replace(line, (_match: string, head: string) => `${head} ${value}`);
+    }, raw);
     return await this.card.write(dir, 'config.yml', out);
   }
 
