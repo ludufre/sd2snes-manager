@@ -200,6 +200,7 @@ export interface Entry {
   manSlots?: ManSlotMap | null;
   /** Match metadata from the gamedb (for the ficha editor + the game-info .yml). */
   developer?: string | null;
+  publisher?: string | null;
   releaseYear?: number | null;
   players?: string | null;
   genre?: string | null;

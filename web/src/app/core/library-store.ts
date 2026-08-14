@@ -2850,6 +2850,7 @@ export class LibraryStore {
         p.pcmBytes = match.pcmBytes ?? undefined;
         p.metaRev = match.metaRev ?? undefined; // info/.yml staleness token (stored on card as sync_meta)
         p.developer = match.developer;
+        p.publisher = match.publisher;
         p.releaseYear = match.releaseYear;
         p.players = match.players;
         p.genre = match.genre;
@@ -4711,6 +4712,7 @@ export class LibraryStore {
     return {
       title: g.title,
       developer: g.developer ?? null,
+      publisher: g.publisher ?? null,
       release_year: g.releaseYear != null ? String(g.releaseYear) : null,
       players: g.players ?? null,
       genre: g.genre ?? null,
@@ -4896,7 +4898,7 @@ export class LibraryStore {
     if (!y) return false; // no ficha to compare → treat as needing (re)write
     const norm = (v: unknown): string => (v == null || v === '' ? '' : String(v).replace(/"/g, "'").replace(/\r|\n/g, ' ').trim());
     const server: Record<string, unknown> = {
-      title: g.title, developer: g.developer, release_year: g.releaseYear != null ? String(g.releaseYear) : null,
+      title: g.title, developer: g.developer, publisher: g.publisher, release_year: g.releaseYear != null ? String(g.releaseYear) : null,
       players: g.players, genre: g.genre, special_chip: g.specialChip, description: g.description,
       rom: g.file, region: g.region ?? null, gamedb_id: g.gamedbId ?? null,
       // the localized descriptions are part of the ficha too: a card written before they existed (or

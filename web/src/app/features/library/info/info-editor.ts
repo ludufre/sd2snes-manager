@@ -11,6 +11,7 @@ import { TranslocoModule } from '@jsverse/transloco';
 interface Ficha {
   title: string;
   developer: string;
+  publisher: string;
   release_year: string;
   players: string;
   genre: string;
@@ -23,7 +24,7 @@ interface Ficha {
   description_it: string;
 }
 const EMPTY: Ficha = {
-  title: '', developer: '', release_year: '', players: '', genre: '', special_chip: '',
+  title: '', developer: '', publisher: '', release_year: '', players: '', genre: '', special_chip: '',
   description: '', description_pt: '', description_es: '', description_de: '', description_fr: '', description_it: '',
 };
 
@@ -53,11 +54,12 @@ function descField(tab: DescTab): keyof Ficha {
       <div class="ebody scroll">
         <div class="grid">
           <label class="fl full"><span>{{ 'info.name' | transloco }}</span><input class="fi" type="text" [value]="form().title" (input)="set('title', $event)" /></label>
-          <label class="fl"><span>{{ 'info.publisher' | transloco }}</span><input class="fi" type="text" [value]="form().developer" (input)="set('developer', $event)" /></label>
+          <label class="fl"><span>{{ 'info.developer' | transloco }}</span><input class="fi" type="text" [value]="form().developer" (input)="set('developer', $event)" /></label>
+          <label class="fl"><span>{{ 'info.publisher' | transloco }}</span><input class="fi" type="text" [value]="form().publisher" (input)="set('publisher', $event)" /></label>
           <label class="fl"><span>{{ 'info.year' | transloco }}</span><input class="fi" type="text" inputmode="numeric" [value]="form().release_year" (input)="set('release_year', $event)" /></label>
           <label class="fl"><span>{{ 'info.players' | transloco }}</span><input class="fi" type="text" [value]="form().players" (input)="set('players', $event)" /></label>
           <label class="fl"><span>{{ 'info.genre' | transloco }}</span><input class="fi" type="text" [value]="form().genre" (input)="set('genre', $event)" /></label>
-          <label class="fl full"><span>{{ 'info.specialChip' | transloco }}</span><input class="fi" type="text" [value]="form().special_chip" (input)="set('special_chip', $event)" /></label>
+          <label class="fl"><span>{{ 'info.specialChip' | transloco }}</span><input class="fi" type="text" [value]="form().special_chip" (input)="set('special_chip', $event)" /></label>
           <div class="fl full">
             <div class="dhead">
               <span>{{ 'info.description' | transloco }}</span>
@@ -153,6 +155,7 @@ export class InfoEditor {
     return {
       title: yml?.['title'] ?? g.title ?? '',
       developer: yml?.['developer'] ?? g.developer ?? '',
+      publisher: yml?.['publisher'] ?? g.publisher ?? '',
       release_year: yml?.['release_year'] ?? (g.releaseYear != null ? String(g.releaseYear) : ''),
       players: yml?.['players'] ?? g.players ?? '',
       genre: yml?.['genre'] ?? g.genre ?? '',

@@ -23,6 +23,7 @@ import { decodeFmvFrame, composeCgram } from '../../../lib/bandpal.js';
 interface Ficha {
   title: string;
   developer: string;
+  publisher: string;
   release_year: string;
   players: string;
   genre: string;
@@ -31,7 +32,7 @@ interface Ficha {
   descriptions: Descriptions;
   gamedb_id: string;
 }
-const EMPTY_FICHA: Ficha = { title: '', developer: '', release_year: '', players: '', genre: '', special_chip: '', description: '', descriptions: {}, gamedb_id: '' };
+const EMPTY_FICHA: Ficha = { title: '', developer: '', publisher: '', release_year: '', players: '', genre: '', special_chip: '', description: '', descriptions: {}, gamedb_id: '' };
 
 /** Right-hand detail panel: on-card media (cover/snapshot/video), ficha editor, cheats, danger zone.
  *  Rendered inline in split view, or as a slide-over drawer in list/gallery. */
@@ -104,7 +105,8 @@ export class DetailPanel {
     this.langs.ready(); // translate() is not a signal, see LangService.ready
     const f = this.ficha();
     return [
-      { k: this.i18n.translate('detail.fieldPublisher'), v: f.developer },
+      { k: this.i18n.translate('detail.fieldDeveloper'), v: f.developer },
+      { k: this.i18n.translate('detail.fieldPublisher'), v: f.publisher },
       { k: this.i18n.translate('detail.fieldYear'), v: f.release_year },
       { k: this.i18n.translate('detail.fieldPlayers'), v: f.players },
       { k: this.i18n.translate('detail.fieldGenre'), v: f.genre },
@@ -231,6 +233,7 @@ export class DetailPanel {
     return {
       title: yml?.['title'] ?? g.title ?? '',
       developer: yml?.['developer'] ?? g.developer ?? '',
+      publisher: yml?.['publisher'] ?? g.publisher ?? '',
       release_year: yml?.['release_year'] ?? (g.releaseYear != null ? String(g.releaseYear) : ''),
       players: yml?.['players'] ?? g.players ?? '',
       genre: yml?.['genre'] ?? g.genre ?? '',

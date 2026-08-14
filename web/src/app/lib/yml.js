@@ -10,7 +10,7 @@ export function yfield(key, val) {
   return s ? `${key}: "${s}"` : null;
 }
 
-const FIELD_ORDER = ['title', 'developer', 'release_year', 'players', 'genre', 'special_chip', 'description', 'rom', 'region', 'crc', 'gamedb_id'];
+const FIELD_ORDER = ['title', 'developer', 'publisher', 'release_year', 'players', 'genre', 'special_chip', 'description', 'rom', 'region', 'crc', 'gamedb_id'];
 
 // Per-language descriptions. `description` stays the canonical English text; each translation the
 // GameDB has rides a sibling `description_<lang>` key. The firmware (gameinfo.c gi_desc_lang_key)
@@ -174,6 +174,7 @@ export function ymlFieldsFromMatch(match, rom) {
   return {
     title: match.title,
     developer: match.developer,
+    publisher: match.publisher,
     release_year: match.releaseYear != null ? String(match.releaseYear) : null,
     players: match.players,
     genre: match.genre,

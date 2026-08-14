@@ -14,6 +14,32 @@ describe('shaFromAssetUrl', () => {
   });
 });
 
+describe('publisher', () => {
+  it('rides in the ficha right after developer', () => {
+    const yml: string = buildYml({ title: 'Super Mario World', developer: 'Nintendo EAD', publisher: 'Nintendo of America, Inc.', release_year: '1991' });
+    expect(yml).toContain('publisher: "Nintendo of America, Inc."');
+    expect(yml.indexOf('developer:')).toBeLessThan(yml.indexOf('publisher:'));
+    expect(yml.indexOf('publisher:')).toBeLessThan(yml.indexOf('release_year:'));
+  });
+
+  it('is omitted when the GameDB has none, and survives a parse + rebuild', () => {
+    expect(buildYml({ title: 'Tetris', publisher: null })).not.toContain('publisher');
+    const back = parseInfoYml(buildYml({ title: 'Super Mario World', publisher: 'Nintendo of America, Inc.' })) as Record<string, string>;
+    expect(back['publisher']).toBe('Nintendo of America, Inc.');
+    // the rewrite paths rebuild from exactly this object; the value has to come out the other side
+    expect(buildYml(back)).toContain('publisher: "Nintendo of America, Inc."');
+  });
+
+  it('ymlFieldsFromMatch carries it from the match', () => {
+    const f = ymlFieldsFromMatch(
+      { title: 'Super Mario World', developer: 'Nintendo EAD', publisher: 'Nintendo of America, Inc.', videoUrl: null },
+      { romName: 'Super Mario World (USA).sfc', crc: 'B19ED489', region: 'USA' },
+    ) as Record<string, unknown>;
+    expect(f['developer']).toBe('Nintendo EAD');
+    expect(f['publisher']).toBe('Nintendo of America, Inc.');
+  });
+});
+
 describe('syncTokensFromMatch', () => {
   it('derives all four tokens from a resolved match', () => {
     const t = syncTokensFromMatch({
