@@ -39,6 +39,7 @@ import {
   readTextFile,
 } from '../lib/scan.js';
 import { headerlessCrc32, crc32 } from '../lib/crc32.js';
+import { snesHeaderChecksum } from '../lib/snes-header';
 import { crcKey, loadCrcCache, getCrcCached, saveCrcCache, pruneCrcCache } from '../lib/crc-cache.js';
 import { loadGamedbCache, saveGamedbCache, clearGamedbCache, pruneGamedbCache, isFresh } from '../lib/gamedb-cache.js';
 import { BIOS_FILES, BIOS_DIR, type BiosFile } from './bios';
@@ -74,6 +75,16 @@ import type {
   SystemFilter,
   ThemeFile,
 } from './models';
+
+function normalizeSnesCombo(value: string): string {
+  const result = new Set<string>();
+  const opposite: Record<string, string> = { u: 'd', d: 'u', l: 'r', r: 'l' };
+  for (const key of value) {
+    if (opposite[key]) result.delete(opposite[key]);
+    result.add(key);
+  }
+  return [...result].join('');
+}
 import { BOARD_COLS } from './models';
 import { assetAvailable, assetPresent, FILL_CATS, fillModeActs, matchesStatus, needsGamedbRefresh, tallyBoard } from './board-stats';
 
@@ -1997,6 +2008,74 @@ export class LibraryStore {
    *  Never creates config.yml from scratch either: a bare file with only `SkinName` isn't a valid config
    *  and the firmware may leave it as-is instead of writing its real defaults, returns 'no-config' so the
    *  caller can tell the user to boot the firmware once (which creates config.yml) or pick the .thm by hand. */
+  /** Read every scalar setting from config.yml. Comments and document markers are ignored. */
+  async readConfigSettings(): Promise<Record<string, string> | null> {
+    if (!this.rootHandle) return null;
+    const dir = await getDirByPath(this.rootHandle, 'sd2snes');
+    const raw = dir ? await readTextFile(dir, 'config.yml') : null;
+    if (raw == null) return null;
+    const values: Record<string, string> = {};
+    for (const line of raw.split(/\r?\n/)) {
+      const match = line.match(/^([A-Za-z0-9_]+)\s*:\s*(.*?)\s*$/);
+      if (match) values[match[1]] = match[2];
+    }
+    return values;
+  }
+
+  async saveConfigSettings(values: Record<string, string>): Promise<boolean> {
+    if (!this.rootHandle || this.card.unwritable) return false;
+    const dir = await getDirByPath(this.rootHandle, 'sd2snes');
+    const raw = dir ? await readTextFile(dir, 'config.yml') : null;
+    if (!dir || raw == null) return false;
+    const comboKeys = new Set(['IngameButtonsSaveState', 'IngameButtonsLoadState', 'IngameButtonsChangeState']);
+    const safeValues = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, comboKeys.has(key) ? normalizeSnesCombo(value) : value]));
+    const out = Object.entries(safeValues).reduce(
+      (text, [key, value]) => text.replace(new RegExp(`^(${key}\\s*:)\\s*.*$`, 'm'), `$1 ${value}`),
+      raw,
+    );
+    return await this.card.write(dir, 'config.yml', out);
+  }
+
+  /** Read this ROM's internal 16-bit checksum and its optional custom save/load inputs. */
+  async readSavestateInputs(g: Entry): Promise<{ checksum: string; save: string; load: string } | null> {
+    if (!this.rootHandle || !g.fileHandle || g.system !== 'SNES') return null;
+    const checksum = await snesHeaderChecksum(await g.fileHandle.getFile());
+    if (!checksum) return null;
+    const dir = await getDirByPath(this.rootHandle, 'sd2snes');
+    const raw = dir ? await readTextFile(dir, 'savestate_inputs.yml') : null;
+    const match = raw?.match(new RegExp(`^\\s*${checksum}\\s*:\\s*([^,#\\r\\n]*)\\s*,\\s*([^#\\r\\n]*?)\\s*(?:#.*)?$`, 'mi'));
+    return { checksum, save: normalizeSnesCombo(match?.[1]?.trim() ?? ''), load: normalizeSnesCombo(match?.[2]?.trim() ?? '') };
+  }
+
+  /** Upsert one checksum entry while retaining the file's comments, order and line endings. */
+  async saveSavestateInputs(checksum: string, save: string, load: string, gameName: string): Promise<boolean> {
+    if (!this.rootHandle || this.card.unwritable || !/^[0-9A-F]{4}$/i.test(checksum)) return false;
+    const dir = await getDirByPath(this.rootHandle, 'sd2snes');
+    if (!dir) return false;
+    const raw = await readTextFile(dir, 'savestate_inputs.yml');
+    const value = `${normalizeSnesCombo(save)},${normalizeSnesCombo(load)}`;
+    const comment = gameName.replace(/[\r\n]+/g, ' ').trim() || 'unknown game';
+    const empty = !normalizeSnesCombo(save) && !normalizeSnesCombo(load);
+    let out: string;
+    if (raw == null) {
+      if (empty) return true;
+      out = `---\n# Savestate Custom Inputs\n# CKSUM: SAVE,LOAD\n${checksum.toUpperCase()}: ${value} # ${comment}\n`;
+    } else {
+      const line = new RegExp(`^([ \\t]*${checksum}[ \\t]*:[ \\t]*)[^#\\r\\n]*?([ \\t]*(?:#.*)?)$`, 'mi');
+      const ending = raw.includes('\r\n') ? '\r\n' : '\n';
+      if (empty) {
+        const wholeLine = new RegExp(`^[ \\t]*${checksum}[ \\t]*:[^\\r\\n]*(?:\\r?\\n|$)`, 'mi');
+        if (!wholeLine.test(raw)) return true;
+        out = raw.replace(wholeLine, '');
+      } else {
+        out = line.test(raw)
+          ? raw.replace(line, `$1${value}$2`)
+          : raw.replace(/\s*$/, '') + `${ending}${checksum.toUpperCase()}: ${value} # ${comment}${ending}`;
+      }
+    }
+    return await this.card.write(dir, 'savestate_inputs.yml', out);
+  }
+
   private async applyThemeConfig(skinPath: string): Promise<'applied' | 'no-sd2snes' | 'no-config'> {
     if (!this.rootHandle) return 'no-sd2snes';
     const dir = await getDirByPath(this.rootHandle, 'sd2snes');

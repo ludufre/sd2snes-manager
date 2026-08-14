@@ -49,6 +49,9 @@
         @if (lib.migrationRequired()) { <span class="biosdot">{{ lib.migrateCount() }}</span> }
       </button>
     }
+    <button class="btn ghost sm" type="button" [title]="'topbar.configTitle' | transloco" (click)="openConfig.emit()">
+      <app-icon name="sliders" [size]="14" /><span class="lbl">{{ 'topbar.config' | transloco }}</span>
+    </button>
     <button class="btn ghost sm" type="button" [title]="'topbar.ejectTitle' | transloco" (click)="lib.eject()">
       <app-icon name="eject" [size]="14" /><span class="lbl">{{ 'topbar.eject' | transloco }}</span>
     </button>

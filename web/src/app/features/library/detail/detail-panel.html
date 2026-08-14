@@ -152,6 +152,34 @@
       </div>
 
       <!-- Cheats (lista com toggle · edição em modal) -->
+      @if (g.system === 'SNES' && g.fileHandle) {
+        <div class="dsection">
+          <div class="sh"><h3>{{ 'detail.stateInputsTitle' | transloco }}</h3></div>
+          @if (stateInputsLoading()) {
+            <p class="low-p">{{ 'detail.stateInputsLoading' | transloco }}</p>
+          } @else if (stateInputs(); as inputs) {
+            <p class="path-note">{{ 'detail.stateInputsChecksum' | transloco }} {{ inputs.checksum }}</p>
+            <div class="state-input-row">
+              <span>{{ 'detail.stateInputsSave' | transloco }}</span>
+              <button class="btn sm combo-value" type="button" (click)="editingStateInput.set('save')">{{ comboLabel(inputs.save) }}</button>
+            </div>
+            <div class="state-input-row">
+              <span>{{ 'detail.stateInputsLoad' | transloco }}</span>
+              <button class="btn sm combo-value" type="button" (click)="editingStateInput.set('load')">{{ comboLabel(inputs.load) }}</button>
+            </div>
+            <div class="dactions">
+              <button class="btn sm primary" type="button" [disabled]="stateInputsSaving()" (click)="saveStateInputs()">{{ (stateInputsSaving() ? 'detail.stateInputsSaving' : 'detail.stateInputsSaveAction') | transloco }}</button>
+              @if (stateInputsStatus(); as status) {
+                <span class="save-status" [class.error]="status === 'error'">{{ (status === 'saved' ? 'detail.stateInputsSaved' : 'detail.stateInputsSaveError') | transloco }}</span>
+              }
+            </div>
+          } @else {
+            <p class="low-p">{{ 'detail.stateInputsHeaderError' | transloco }}</p>
+          }
+        </div>
+      }
+
+      <!-- Cheats (lista com toggle · edição em modal) -->
       <div class="dsection">
         <div class="sh"><h3>{{ 'detail.cheatsTitle' | transloco }}</h3></div>
         @if (g.cheats === 'has' && g.cheatList) {
@@ -240,4 +268,14 @@
   <div class="detail">
     <div class="noresults pad">{{ 'detail.emptyState' | transloco }}</div>
   </div>
+}
+
+@if (editingStateInput(); as field) {
+  <app-snes-combo-editor
+    [value]="stateInputs()?.[field] ?? ''"
+    [title]="'detail.stateInputsEditTitle'"
+    [subtitle]="field === 'save' ? 'detail.stateInputsSave' : 'detail.stateInputsLoad'"
+    (apply)="applyStateInput($event)"
+    (cancel)="editingStateInput.set(null)"
+  />
 }
