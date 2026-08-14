@@ -85,6 +85,31 @@ function normalizeSnesCombo(value: string): string {
   }
   return [...result].join('');
 }
+
+/*  The firmware's YAML parser refills its line buffer with f_gets(line, YAML_BUFLEN, ...) where
+ *  YAML_BUFLEN is 256 (src/yaml.c:130, src/yaml.h:17), so it reads the file in 255-byte chunks
+ *  rather than in lines. A longer line is split mid-content: the tail arrives on the next read as
+ *  its own logical line, without the leading '#' that made it a comment, and a ':' inside it is
+ *  then parsed as a key whose value is the entry on the line below. savestate_inputs.yml warns
+ *  about exactly this and keeps its entries under ~250 bytes, so trim our trailing comment until
+ *  the whole line fits that budget. */
+const YAML_LINE_BYTES = 250;
+const utf8Length = (text: string): number => new TextEncoder().encode(text).length;
+
+export function clampYamlLine(line: string): string {
+  if (utf8Length(line) <= YAML_LINE_BYTES) return line;
+  const hash = line.indexOf('#');
+  if (hash < 0) return line;
+  const head = line.slice(0, hash + 1);
+  const bare = line.slice(0, hash).trimEnd();
+  const budget = YAML_LINE_BYTES - utf8Length(head);
+  if (budget <= 0) return bare;
+  // Byte budget caps the char count too, since no UTF-8 sequence is shorter than one byte.
+  let comment = line.slice(hash + 1).slice(0, budget);
+  while (comment && utf8Length(comment) > budget) comment = comment.slice(0, -1);
+  comment = comment.replace(/[\uD800-\uDBFF]$/, '').trimEnd();
+  return comment ? head + comment : bare;
+}
 import { BOARD_COLS } from './models';
 import { assetAvailable, assetPresent, FILL_CATS, fillModeActs, matchesStatus, needsGamedbRefresh, tallyBoard } from './board-stats';
 
@@ -2056,10 +2081,11 @@ export class LibraryStore {
     const value = `${normalizeSnesCombo(save)},${normalizeSnesCombo(load)}`;
     const comment = gameName.replace(/[\r\n]+/g, ' ').trim() || 'unknown game';
     const empty = !normalizeSnesCombo(save) && !normalizeSnesCombo(load);
+    const entry = clampYamlLine(`${checksum.toUpperCase()}: ${value} # ${comment}`);
     let out: string;
     if (raw == null) {
       if (empty) return true;
-      out = `---\n# Savestate Custom Inputs\n# CKSUM: SAVE,LOAD\n${checksum.toUpperCase()}: ${value} # ${comment}\n`;
+      out = `---\n# Savestate Custom Inputs\n# CKSUM: SAVE,LOAD\n${entry}\n`;
     } else {
       const line = new RegExp(`^([ \\t]*${checksum}[ \\t]*:[ \\t]*)[^#\\r\\n]*?([ \\t]*(?:#.*)?)$`, 'mi');
       const ending = raw.includes('\r\n') ? '\r\n' : '\n';
@@ -2068,9 +2094,11 @@ export class LibraryStore {
         if (!wholeLine.test(raw)) return true;
         out = raw.replace(wholeLine, '');
       } else {
+        // Replacement callback, not a "$1..$2" string: it keeps the entry's own comment and
+        // alignment, re-fits the rebuilt line, and stops '$' inside a value being expanded.
         out = line.test(raw)
-          ? raw.replace(line, `$1${value}$2`)
-          : raw.replace(/\s*$/, '') + `${ending}${checksum.toUpperCase()}: ${value} # ${comment}${ending}`;
+          ? raw.replace(line, (_match: string, head: string, tail: string) => clampYamlLine(`${head}${value}${tail}`))
+          : raw.replace(/\s*$/, '') + `${ending}${entry}${ending}`;
       }
     }
     return await this.card.write(dir, 'savestate_inputs.yml', out);

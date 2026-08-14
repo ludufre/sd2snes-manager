@@ -10,7 +10,7 @@
  * Get this wrong and nothing throws: the clip lands on the card and the console never plays it.
  */
 import { describe, expect, it } from 'vitest';
-import { electFichaOwners, fichaKeyOf, fmvFlagFor, groupManualBuckets, manSlotsField, manSlotsFor, planManualSlots, ymlWithFmvFlag, ymlWithoutFmvFlag } from './library-store';
+import { clampYamlLine, electFichaOwners, fichaKeyOf, fmvFlagFor, groupManualBuckets, manSlotsField, manSlotsFor, planManualSlots, ymlWithFmvFlag, ymlWithoutFmvFlag } from './library-store';
 import { buildYml, parseInfoYml, MAN_USER_TAG } from '../lib/yml.js';
 import { slugIdOfType } from '../lib/man.js';
 
@@ -771,5 +771,53 @@ describe('fichaKeyOf — two ROMs share a ficha exactly when the card cannot tel
 
   it('keeps Game Boy apart — the one namespace the firmware does honour', () => {
     expect(k('Tetris', true)).not.toBe(k('Tetris', false));
+  });
+});
+
+/**
+ * savestate_inputs.yml is read by the firmware, not by us, and this does not fail loudly: get it
+ * wrong and the card looks fine while the console reads something else.
+ *
+ * The parser refills its buffer with f_gets(line, YAML_BUFLEN, ...) where YAML_BUFLEN is 256
+ * (src/yaml.c:130, src/yaml.h:17), so it walks the file in 255-byte chunks, not in lines. Past
+ * that, the tail of a long line arrives as its own logical line with no leading '#' to mark it as
+ * a comment, and a ':' inside it is parsed as a key whose value is the entry below. The stock file
+ * carries that warning at savestate/savestate_inputs.yml:27-28.
+ */
+describe('clampYamlLine: keeping an entry inside the parser chunk', () => {
+  const line = (comment: string) => `13B8: XR,XL # ${comment}`;
+
+  it('leaves a normal entry byte for byte alone', () => {
+    expect(clampYamlLine(line('dkc1 v1.0 (EU)'))).toBe(line('dkc1 v1.0 (EU)'));
+    expect(clampYamlLine('A109: XR,XL     #dkc1 v1.0 (EU)')).toBe('A109: XR,XL     #dkc1 v1.0 (EU)');
+  });
+
+  it('trims the comment of a long entry to the budget, keeping the value intact', () => {
+    const out = clampYamlLine(line('x'.repeat(400)));
+    expect(new TextEncoder().encode(out).length).toBeLessThanOrEqual(250);
+    expect(out.startsWith('13B8: XR,XL # ')).toBe(true);
+  });
+
+  it('counts bytes, not characters, so an accented title cannot slip past the budget', () => {
+    const out = clampYamlLine(line('á'.repeat(400)));
+    expect(new TextEncoder().encode(out).length).toBeLessThanOrEqual(250);
+  });
+
+  it('never cuts an astral character in half', () => {
+    const out = clampYamlLine(line('🎮'.repeat(200)));
+    expect(new TextEncoder().encode(out).length).toBeLessThanOrEqual(250);
+    expect(out).not.toMatch(/[\uD800-\uDBFF]$/);
+    expect(out).not.toContain('�');
+  });
+
+  it('drops the comment entirely when even a trimmed one would not fit', () => {
+    const out = clampYamlLine(`${'K'.repeat(260)}: XR,XL # anything`);
+    expect(out.endsWith('XR,XL')).toBe(true);
+    expect(out).not.toContain('#');
+  });
+
+  it('leaves a long line with no comment alone: there is nothing safe to cut', () => {
+    const bare = `13B8: ${'X'.repeat(300)}`;
+    expect(clampYamlLine(bare)).toBe(bare);
   });
 });
