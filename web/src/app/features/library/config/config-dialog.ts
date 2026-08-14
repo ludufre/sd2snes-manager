@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, inject, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, output, signal } from '@angular/core';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { LibraryStore } from '../../../core/library-store';
+import { MENU_COMBO_DEFAULT, menuComboError as checkMenuCombo, menuComboShadows } from '../../../lib/menu-combo';
 import { Icon } from '../../../ui/icon/icon';
 import { SnesComboEditor } from '../../../ui/snes-combo-editor/snes-combo-editor';
 
@@ -49,11 +50,16 @@ const normalizeCombo = (value: string): string => { const result = new Set<strin
             <button class="group-head" type="button" (click)="toggleGroup('combos')" [attr.aria-expanded]="openGroup() === 'combos'"><span>{{ 'config.groups.combos' | transloco }}</span><app-icon name="chevron" [size]="15" /></button>
             @if (openGroup() === 'combos') { <div class="group-body">
               @for (field of fields; track field.key) { <button class="combo" type="button" (click)="edit(field.key)"><span>{{ field.label | transloco }}</span><strong>{{ pretty(values()[field.key]) }}</strong><app-icon name="chevron" [size]="15" /></button> }
+              @if (menuComboError(); as reason) {
+                <p class="hint warn">{{ ('config.menuComboError.' + reason) | transloco }}</p>
+              } @else if (menuComboShadowed()) {
+                <p class="hint warn">{{ 'config.menuComboShadows' | transloco }}</p>
+              }
               <p class="hint">{{ 'config.hint' | transloco }}</p>
             </div> }
           </section>
         </div>
-        <div class="actions"><button class="btn" type="button" (click)="close.emit()">{{ 'config.cancel' | transloco }}</button><button class="btn primary" type="button" [disabled]="saving()" (click)="save()"><app-icon name="save" [size]="14" />{{ saving() ? ('config.saving' | transloco) : ('config.save' | transloco) }}</button></div>
+        <div class="actions"><button class="btn" type="button" (click)="close.emit()">{{ 'config.cancel' | transloco }}</button><button class="btn primary" type="button" [disabled]="saving() || !!menuComboError()" (click)="save()"><app-icon name="save" [size]="14" />{{ saving() ? ('config.saving' | transloco) : ('config.save' | transloco) }}</button></div>
       }
     </div>
     @if (editing()) {
@@ -89,12 +95,27 @@ export class ConfigDialog {
     { key: 'IngameButtonsSaveState', label: 'config.saveState' },
     { key: 'IngameButtonsLoadState', label: 'config.loadState' },
     { key: 'IngameButtonsChangeState', label: 'config.changeState' },
+    { key: 'IngameButtonsMenu', label: 'config.menuCombo' },
   ];
+
+  /*  IngameButtonsMenu is the one combo the firmware rewrites behind the user's back: a combo
+   *  cfg_check_menu_combo() rejects is replaced by the default and written back to the card at
+   *  the next boot (cfg.h:160-164). Flag it here so the setting does not quietly revert. */
+  protected readonly menuComboError = computed(() => checkMenuCombo(this.values()['IngameButtonsMenu'] ?? ''));
+
+  /** Non-fatal, and non-fatal in the firmware too: the menu probe runs before the save/load
+   *  matcher, so a menu combo contained in one of them shadows it (cfg.c:148-156). */
+  protected readonly menuComboShadowed = computed(() => {
+    const menu = this.values()['IngameButtonsMenu'] ?? '';
+    if (!menu || this.menuComboError()) return false;
+    return ['IngameButtonsSaveState', 'IngameButtonsLoadState', 'IngameButtonsChangeState']
+      .some((key) => menuComboShadows(menu, this.values()[key] ?? ''));
+  });
   protected readonly groups: SettingGroup[] = [
     { label: 'config.groups.video', fields: [bool('PairModeAllowed'), select('VideoModeMenu', [['0','config.options.60hz'],['1','config.options.50hz'],['2','config.options.auto']]), select('VideoModeGame', [['0','config.options.60hz'],['1','config.options.50hz'],['2','config.options.auto']]), bool('R213fOverride'), bool('1CHIPTransientFixes'), num('BrightnessLimit', 0, 15), select('ShortReset2Menu', [['0','config.options.off'],['1','config.options.menu'],['2','config.options.lastFolder'],['3','config.options.preselectRom']]), bool('ClearPpuOnBoot'), bool('BusCompat')] },
     { label: 'config.groups.satellaview', fields: [bool('BSXUseUsertime'), datetime('BSXTime')] },
     { label: 'config.groups.hooks', fields: [bool('EnableCheats'), bool('EnableIngameHook'), bool('EnableIngameButtons'), bool('EnableHookHoldoff'), bool('ResetPatch'), select('EnableIngameSavestate', [['0','config.options.disabled'],['1','config.options.enabled']]), num('LoadstateDelay', 0), bool('EnableSavestateSlots'), bool('EnableCheatOverlay')] },
-    { label: 'config.groups.sgb', fields: [bool('SGBEnableIngameHook'), bool('SGBEnableState'), select('SGBVolumeBoost', [['0','config.options.none'],['1','config.options.boost35'],['2','config.options.boost6'],['3','config.options.boost95'],['4','config.options.boost12']]), bool('SGBEnhOverride'), bool('SGBClockFix'), num('SGBBiosVersion', 1)] },
+    { label: 'config.groups.sgb', fields: [bool('SGBEnableIngameHook'), bool('SGBEnableState'), select('SGBVolumeBoost', [['0','config.options.none'],['1','config.options.boost35'],['2','config.options.boost6'],['3','config.options.boost95'],['4','config.options.boost12']]), bool('SGBEnhOverride'), bool('SGBSprIncrease'), bool('SGBClockFix'), num('SGBBiosVersion', 1)] },
     { label: 'config.groups.interface', fields: [bool('EnableScreensaver'), bool('SortDirectories'), bool('HideExtensions'), num('LEDBrightness',0,15), select('ShowCovers', [['0','config.options.off'],['1','config.options.large'],['2','config.options.small']]), bool('ShowCoversInLists'), select('Language', [['0','config.options.english'],['1','config.options.portuguese'],['2','config.options.spanish'],['3','config.options.german'],['4','config.options.french'],['5','config.options.italian']]), bool('EnableMenuMusic'), bool('EnableMenuSFX'), bool('SortFavorites'), bool('EnableGameManual')] },
     { label: 'config.groups.chips', fields: [select('Cx4Speed', [['0','config.options.original'],['1','config.options.fast']]), select('GSUSpeed', [['0','config.options.original'],['1','config.options.fast']]), select('MSUVolumeBoost', [['0','config.options.none'],['1','config.options.boost35'],['2','config.options.boost6'],['3','config.options.boost95'],['4','config.options.boost12']])] },
     { label: 'config.groups.saves', fields: [bool('EnableAutoSave'), bool('EnableMSU1AutoSave')] },
@@ -115,7 +136,10 @@ export class ConfigDialog {
   private async load(): Promise<void> {
     const result = await this.lib.readConfigSettings();
     if (result == null) this.error.set(this.i18n.translate('config.readError'));
-    else this.values.set(result);
+    // IngameButtonsMenu is YAML only and newer than some cards' config.yml. When the line is
+    // absent the firmware runs on CFG_DEFAULT, so show that instead of an empty combo, which
+    // would read as "no buttons" and trip the validation on a perfectly fine card.
+    else this.values.set({ IngameButtonsMenu: MENU_COMBO_DEFAULT, ...result });
     this.loading.set(false);
   }
 
@@ -138,6 +162,7 @@ export class ConfigDialog {
   protected applyCombo(value: string): void { this.setValue(this.editing(), normalizeCombo(value)); this.editing.set(''); }
 
   protected async save(): Promise<void> {
+    if (this.menuComboError()) return;
     this.saving.set(true);
     const ok = await this.lib.saveConfigSettings(this.values());
     this.saving.set(false);

@@ -2063,7 +2063,7 @@ export class LibraryStore {
     const dir = await getDirByPath(this.rootHandle, 'sd2snes');
     const raw = dir ? await readTextFile(dir, 'config.yml') : null;
     if (!dir || raw == null) return false;
-    const comboKeys = new Set(['IngameButtonsSaveState', 'IngameButtonsLoadState', 'IngameButtonsChangeState']);
+    const comboKeys = new Set(['IngameButtonsSaveState', 'IngameButtonsLoadState', 'IngameButtonsChangeState', 'IngameButtonsMenu']);
     const safeValues = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, comboKeys.has(key) ? normalizeSnesCombo(value) : value]));
     const ending = raw.includes('\r\n') ? '\r\n' : '\n';
     const out = Object.entries(safeValues).reduce((text, [key, value]) => {
