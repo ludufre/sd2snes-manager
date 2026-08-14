@@ -168,6 +168,8 @@
     "stateInputsSaveError": "Could not save the inputs.",
     "stateInputsHeaderError": "Could not read the SNES ROM header.",
     "stateInputsEditTitle": "Edit save state input",
+    "stateInputsPartial": "Set both inputs or clear both: the firmware reads a lone combo as the save one.",
+    "stateInputsShortCombo": "A single-button combo is held during normal play and fires on its own. Use two buttons or more.",
     "addCheats": "Add cheats",
     "addReadyCheats": "Add ready-made cheats",
     "altCover": "game cover",

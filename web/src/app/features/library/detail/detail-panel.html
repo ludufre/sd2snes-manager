@@ -167,8 +167,13 @@
               <span>{{ 'detail.stateInputsLoad' | transloco }}</span>
               <button class="btn sm combo-value" type="button" (click)="editingStateInput.set('load')">{{ comboLabel(inputs.load) }}</button>
             </div>
+            @if (stateInputsPartial()) {
+              <p class="state-input-warn error">{{ 'detail.stateInputsPartial' | transloco }}</p>
+            } @else if (stateInputsShort()) {
+              <p class="state-input-warn">{{ 'detail.stateInputsShortCombo' | transloco }}</p>
+            }
             <div class="dactions">
-              <button class="btn sm primary" type="button" [disabled]="stateInputsSaving()" (click)="saveStateInputs()">{{ (stateInputsSaving() ? 'detail.stateInputsSaving' : 'detail.stateInputsSaveAction') | transloco }}</button>
+              <button class="btn sm primary" type="button" [disabled]="stateInputsSaving() || stateInputsPartial()" (click)="saveStateInputs()">{{ (stateInputsSaving() ? 'detail.stateInputsSaving' : 'detail.stateInputsSaveAction') | transloco }}</button>
               @if (stateInputsStatus(); as status) {
                 <span class="save-status" [class.error]="status === 'error'">{{ (status === 'saved' ? 'detail.stateInputsSaved' : 'detail.stateInputsSaveError') | transloco }}</span>
               }

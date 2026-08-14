@@ -85,6 +85,20 @@ export class DetailPanel {
   protected readonly editingStateInput = signal<'save' | 'load' | null>(null);
   private stateInputsKey = '';
 
+  /** Only one of the two combos filled in. The firmware's strtok(";, \t") skips leading
+   *  delimiters, so an entry written as ",SL" is read back as the SAVE combo: block the write
+   *  instead of storing something that means the opposite on the card. */
+  protected readonly stateInputsPartial = computed(() => {
+    const inputs = this.stateInputs();
+    return !!inputs && (inputs.save === '') !== (inputs.load === '');
+  });
+
+  /** A one-button combo is held constantly during normal play, so it fires on its own. */
+  protected readonly stateInputsShort = computed(() => {
+    const inputs = this.stateInputs();
+    return !!inputs && [inputs.save, inputs.load].some((combo) => combo.length === 1);
+  });
+
   /** Filled metadata fields for the read-only summary (empties dropped). */
   protected readonly infoRows = computed(() => {
     this.langs.ready(); // translate() is not a signal, see LangService.ready
@@ -245,7 +259,7 @@ export class DetailPanel {
   protected async saveStateInputs(): Promise<void> {
     const value = this.stateInputs();
     const game = this.lib.sel();
-    if (!value || !game) return;
+    if (!value || !game || this.stateInputsPartial()) return;
     this.stateInputsSaving.set(true);
     const saved = await this.lib.saveSavestateInputs(value.checksum, value.save, value.load, game.title || game.file).catch(() => false);
     this.stateInputsStatus.set(saved ? 'saved' : 'error');

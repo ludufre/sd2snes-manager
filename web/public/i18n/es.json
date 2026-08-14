@@ -168,6 +168,8 @@
     "stateInputsSaveError": "No se pudieron guardar los controles.",
     "stateInputsHeaderError": "No se pudo leer la cabecera de la ROM SNES.",
     "stateInputsEditTitle": "Editar control de estado",
+    "stateInputsPartial": "Define los dos controles o borra ambos: el firmware lee un control aislado como el de guardar.",
+    "stateInputsShortCombo": "Una combinación de un solo botón se mantiene pulsada durante el juego y se activa sola. Usa dos botones o más.",
     "addCheats": "Añadir trucos",
     "addReadyCheats": "Añadir trucos listos",
     "altCover": "carátula del juego",

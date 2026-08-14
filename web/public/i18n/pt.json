@@ -168,6 +168,8 @@
     "stateInputsSaveError": "Não foi possível salvar os comandos.",
     "stateInputsHeaderError": "Não foi possível ler o cabeçalho da ROM SNES.",
     "stateInputsEditTitle": "Editar comando de save state",
+    "stateInputsPartial": "Defina os dois comandos ou limpe os dois: a firmware lê um comando isolado como o de salvar.",
+    "stateInputsShortCombo": "Um comando de um botão só fica pressionado durante o jogo e dispara sozinho. Use dois botões ou mais.",
     "addCheats": "Adicionar cheats",
     "addReadyCheats": "Adicionar cheats prontos",
     "altCover": "capa do jogo",

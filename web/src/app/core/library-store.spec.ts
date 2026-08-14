@@ -10,7 +10,7 @@
  * Get this wrong and nothing throws: the clip lands on the card and the console never plays it.
  */
 import { describe, expect, it } from 'vitest';
-import { clampYamlLine, electFichaOwners, fichaKeyOf, fmvFlagFor, groupManualBuckets, manSlotsField, manSlotsFor, planManualSlots, ymlWithFmvFlag, ymlWithoutFmvFlag } from './library-store';
+import { clampYamlLine, electFichaOwners, fichaKeyOf, fmvFlagFor, groupManualBuckets, manSlotsField, manSlotsFor, planManualSlots, savestateInputsValue, ymlWithFmvFlag, ymlWithoutFmvFlag } from './library-store';
 import { buildYml, parseInfoYml, MAN_USER_TAG } from '../lib/yml.js';
 import { slugIdOfType } from '../lib/man.js';
 
@@ -819,5 +819,30 @@ describe('clampYamlLine: keeping an entry inside the parser chunk', () => {
   it('leaves a long line with no comment alone: there is nothing safe to cut', () => {
     const bare = `13B8: ${'X'.repeat(300)}`;
     expect(clampYamlLine(bare)).toBe(bare);
+  });
+});
+
+/**
+ * The value is split with strtok(";, \t") (src/savestate.c:258), which skips leading delimiters,
+ * so a ",SL" written for load-only is read back as the SAVE combo: the user configures one thing
+ * and the console does the other, with nothing on screen to say so.
+ */
+describe('savestateInputsValue: both combos or neither', () => {
+  it('joins the pair the way the stock file writes it', () => {
+    expect(savestateInputsValue('XR', 'XL')).toBe('XR,XL');
+  });
+
+  it('refuses a half-filled pair, which the firmware would read as the SAVE combo', () => {
+    expect(savestateInputsValue('', 'SL')).toBeNull();
+    expect(savestateInputsValue('SR', '')).toBeNull();
+  });
+
+  it('accepts the empty pair, which is how an entry gets removed', () => {
+    expect(savestateInputsValue('', '')).toBe(',');
+  });
+
+  it('normalises each combo, and a combo that collapses to nothing still counts as empty', () => {
+    expect(savestateInputsValue('udXR', 'lrXL')).toBe('dXR,rXL'); // opposite directions cancel
+    expect(savestateInputsValue('ud', '')).toBeNull();            // 'ud' collapses to 'd', not empty
   });
 });

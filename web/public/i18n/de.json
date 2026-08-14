@@ -168,6 +168,8 @@
     "stateInputsSaveError": "Die Tasten konnten nicht gespeichert werden.",
     "stateInputsHeaderError": "Der SNES-ROM-Header konnte nicht gelesen werden.",
     "stateInputsEditTitle": "Speicherstand-Tasten bearbeiten",
+    "stateInputsPartial": "Beide Tastenkombinationen festlegen oder beide leeren: Die Firmware liest eine einzelne Kombination als die zum Speichern.",
+    "stateInputsShortCombo": "Eine Kombination aus nur einer Taste wird im Spiel dauerhaft gehalten und löst von selbst aus. Verwende zwei oder mehr Tasten.",
     "addCheats": "Cheats hinzufügen",
     "addReadyCheats": "Fertige Cheats hinzufügen",
     "altCover": "Spiel-Cover",

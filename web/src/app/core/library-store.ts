@@ -110,6 +110,17 @@ export function clampYamlLine(line: string): string {
   comment = comment.replace(/[\uD800-\uDBFF]$/, '').trimEnd();
   return comment ? head + comment : bare;
 }
+
+/*  The value side of a savestate_inputs.yml entry, or null when the pair is half filled.
+ *  The firmware splits it with strtok(";, \t") (src/savestate.c:258), which skips leading
+ *  delimiters, so ",SL" comes back as the SAVE combo and the user gets the opposite of what
+ *  they asked for. Both combos or neither. */
+export function savestateInputsValue(save: string, load: string): string | null {
+  const saveCombo = normalizeSnesCombo(save);
+  const loadCombo = normalizeSnesCombo(load);
+  if ((saveCombo === '') !== (loadCombo === '')) return null;
+  return `${saveCombo},${loadCombo}`;
+}
 import { BOARD_COLS } from './models';
 import { assetAvailable, assetPresent, FILL_CATS, fillModeActs, matchesStatus, needsGamedbRefresh, tallyBoard } from './board-stats';
 
@@ -2072,15 +2083,19 @@ export class LibraryStore {
     return { checksum, save: normalizeSnesCombo(match?.[1]?.trim() ?? ''), load: normalizeSnesCombo(match?.[2]?.trim() ?? '') };
   }
 
-  /** Upsert one checksum entry while retaining the file's comments, order and line endings. */
+  /** Upsert one checksum entry while retaining the file's comments, order and line endings.
+   *  Rejects a half-filled pair: the firmware splits the value with strtok(";, \t")
+   *  (src/savestate.c:258), which skips leading delimiters, so an entry written as ",SL" comes
+   *  back as the SAVE combo instead of the load one. */
   async saveSavestateInputs(checksum: string, save: string, load: string, gameName: string): Promise<boolean> {
     if (!this.rootHandle || this.card.unwritable || !/^[0-9A-F]{4}$/i.test(checksum)) return false;
+    const value = savestateInputsValue(save, load);
+    if (value == null) return false;
     const dir = await getDirByPath(this.rootHandle, 'sd2snes');
     if (!dir) return false;
     const raw = await readTextFile(dir, 'savestate_inputs.yml');
-    const value = `${normalizeSnesCombo(save)},${normalizeSnesCombo(load)}`;
     const comment = gameName.replace(/[\r\n]+/g, ' ').trim() || 'unknown game';
-    const empty = !normalizeSnesCombo(save) && !normalizeSnesCombo(load);
+    const empty = value === ',';
     const entry = clampYamlLine(`${checksum.toUpperCase()}: ${value} # ${comment}`);
     let out: string;
     if (raw == null) {

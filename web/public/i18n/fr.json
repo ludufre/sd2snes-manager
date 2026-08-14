@@ -168,6 +168,8 @@
     "stateInputsSaveError": "Impossible d’enregistrer les commandes.",
     "stateInputsHeaderError": "Impossible de lire l’en-tête de la ROM SNES.",
     "stateInputsEditTitle": "Modifier la commande de sauvegarde",
+    "stateInputsPartial": "Définissez les deux commandes ou effacez-les toutes les deux : le firmware lit une commande isolée comme celle de sauvegarde.",
+    "stateInputsShortCombo": "Une combinaison à un seul bouton reste enfoncée pendant le jeu et se déclenche toute seule. Utilisez deux boutons ou plus.",
     "addCheats": "Ajouter des codes de triche",
     "addReadyCheats": "Ajouter des codes de triche prêts à l'emploi",
     "altCover": "jaquette du jeu",

@@ -168,6 +168,8 @@
     "stateInputsSaveError": "Impossibile salvare i comandi.",
     "stateInputsHeaderError": "Impossibile leggere l’intestazione della ROM SNES.",
     "stateInputsEditTitle": "Modifica comando di salvataggio",
+    "stateInputsPartial": "Imposta entrambi i comandi oppure svuotali tutti e due: il firmware legge un comando isolato come quello di salvataggio.",
+    "stateInputsShortCombo": "Una combinazione con un solo pulsante resta premuta durante il gioco e scatta da sola. Usa due pulsanti o più.",
     "addCheats": "Aggiungi trucchi",
     "addReadyCheats": "Aggiungi trucchi pronti",
     "altCover": "copertina del gioco",
