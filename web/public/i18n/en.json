@@ -156,6 +156,18 @@
     "setTheme": "Set as menu theme"
   },
   "detail": {
+    "stateInputsTitle": "Save state inputs",
+    "stateInputsLoading": "Reading ROM header and savestate_inputs.yml…",
+    "stateInputsChecksum": "ROM checksum:",
+    "stateInputsSave": "Save state",
+    "stateInputsLoad": "Load state",
+    "stateInputsNotSet": "Not set",
+    "stateInputsSaveAction": "Save inputs",
+    "stateInputsSaving": "Saving…",
+    "stateInputsSaved": "Saved ✓",
+    "stateInputsSaveError": "Could not save the inputs.",
+    "stateInputsHeaderError": "Could not read the SNES ROM header.",
+    "stateInputsEditTitle": "Edit save state input",
     "addCheats": "Add cheats",
     "addReadyCheats": "Add ready-made cheats",
     "altCover": "game cover",
@@ -729,8 +741,32 @@
     "gamesCount": "{{count}} games",
     "migrate": "Organize",
     "migrateTitle": "Organize the card for firmware 2.15+",
+    "config": "Config",
+    "configTitle": "Edit sd2snes settings",
     "themes": "Themes",
     "themesTitle": "Download menu themes"
+  },
+  "config": {
+    "title": "sd2snes settings",
+    "loading": "Reading config.yml…",
+    "saveState": "Save state buttons",
+    "loadState": "Load state buttons",
+    "changeState": "Change state slot buttons",
+    "hint": "Choose a setting, select the buttons on the controller, then apply the combination.",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving…"
+    ,"editTitle": "Edit button combination",
+    "apply": "Apply",
+    "none": "None",
+    "readError": "Could not read /sd2snes/config.yml.",
+    "saveError": "Could not save /sd2snes/config.yml.",
+    "groups": { "video": "Video and console", "satellaview": "Satellaview", "hooks": "In-game hooks and save states", "sgb": "Super Game Boy", "interface": "Menu and interface", "chips": "Enhancement chips and audio", "saves": "Autosave", "patches": "ROM patches", "gameInfo": "Game information", "files": "Theme and music files", "network": "Network", "combos": "Default in-game savestate inputs" },
+    "options": { "60hz": "60 Hz", "50hz": "50 Hz", "auto": "Automatic", "off": "Off", "on": "On", "menu": "Return to menu", "lastFolder": "Return to last folder", "preselectRom": "Return and preselect ROM", "disabled": "Disabled", "enabled": "Enabled", "none": "None", "boost35": "+3.5 dBFS", "boost6": "+6 dBFS", "boost95": "+9.5 dBFS", "boost12": "+12 dBFS", "large": "Large", "small": "Small", "english": "English", "portuguese": "Português (BR)", "spanish": "Spanish", "german": "German", "french": "French", "italian": "Italian", "original": "Original", "fast": "Fast", "contextOnly": "Context menu only" },
+    "settings": {
+      "PairModeAllowed": "Allow SuperCIC pair mode", "VideoModeMenu": "Menu video mode", "VideoModeGame": "Game video mode", "BSXUseUsertime": "Use custom Satellaview time", "BSXTime": "Satellaview broadcast time", "R213fOverride": "Patch PPU region flag", "1CHIPTransientFixes": "1CHIP transient fixes", "BrightnessLimit": "Brightness limit", "ShortReset2Menu": "Short reset behavior", "EnableCheats": "Enable cheats on game load", "EnableIngameHook": "Enable in-game hooks", "EnableIngameButtons": "Enable in-game buttons", "EnableHookHoldoff": "10-second hook holdoff", "ResetPatch": "Reset patch", "EnableIngameSavestate": "In-game save states", "LoadstateDelay": "Load-state delay (frames)", "EnableSavestateSlots": "Enable save-state slots", "SGBEnableIngameHook": "SGB in-game hooks", "SGBEnableState": "SGB save states", "SGBVolumeBoost": "SGB volume boost", "SGBEnhOverride": "Disable SGB enhancements", "SGBClockFix": "Use original SGB clock", "SGBBiosVersion": "SGB BIOS version", "EnableScreensaver": "Enable screensaver", "SortDirectories": "Sort directories", "HideExtensions": "Hide file extensions", "LEDBrightness": "LED brightness", "Cx4Speed": "Cx4 core speed", "GSUSpeed": "SuperFX core speed", "MSUVolumeBoost": "MSU-1 volume boost", "EnableAutoSave": "Enable autosave", "EnableMSU1AutoSave": "Enable MSU-1 autosave", "ShowCovers": "Cover preview size", "ShowCoversInLists": "Show covers in lists", "Language": "Firmware language", "PatchVerifyIntegrity": "Verify patched ROM integrity", "EnableMenuMusic": "Enable menu music", "EnableMenuSFX": "Enable menu sound effects", "SortFavorites": "Sort favorites", "EnableCheatOverlay": "Enable cheat overlay", "EnableBpsCopier": "Enable fast BPS copier", "ClearPpuOnBoot": "Clear PPU before patched ROM", "BusCompat": "Bus compatibility mode", "EnableGameManual": "Enable in-game manual", "SkinName": "Menu theme path", "MenuMusicFile": "Menu music path", "ShowGameInfo": "Game information screen", "GameInfoVideo": "Play game information video", "GameInfoMusic": "Play game information audio", "EnableWifi": "Enable Wi-Fi companion"
+    },
+    "buttons": { "select": "Select", "start": "Start", "up": "Up", "down": "Down", "left": "Left", "right": "Right", "L": "L", "R": "R", "A": "A", "B": "B", "X": "X", "Y": "Y" }
   },
   "update": {
     "available": "New version available.",

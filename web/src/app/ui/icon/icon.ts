@@ -5,7 +5,7 @@ export type IconName =
   | 'split' | 'image' | 'download' | 'refresh' | 'trash' | 'edit' | 'x'
   | 'chevron' | 'check' | 'save' | 'settings' | 'spark' | 'plus' | 'moreHorizontal' | 'folderPlus' | 'move'
   | 'play' | 'pause' | 'sound' | 'mute'
-  | 'monitor' | 'film' | 'info' | 'upload' | 'cheats' | 'eject' | 'palette' | 'book' | 'eye';
+  | 'monitor' | 'film' | 'info' | 'upload' | 'cheats' | 'eject' | 'palette' | 'book' | 'eye' | 'gamepad' | 'sliders';
 
 /** Lucide-style stroked icons (ported from the prototype's Icon set). */
 @Component({
@@ -52,6 +52,8 @@ export type IconName =
         @case ('palette') { <path d="M12 3a9 9 0 1 0 0 18c1 0 1.7-.8 1.7-1.8 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-1 .8-1.8 1.8-1.8H16a5 5 0 0 0 5-5c0-3.9-4-7-9-7z" /><circle cx="7.5" cy="10.5" r="1" /><circle cx="12" cy="7.5" r="1" /><circle cx="16.5" cy="10.5" r="1" /> }
         @case ('book') { <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /> }
         @case ('eye') { <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /> }
+        @case ('gamepad') { <path d="M6.5 8h11a4 4 0 0 1 3.8 5.3l-1.2 3.6a2.3 2.3 0 0 1-4.1.5L15 15H9l-1 2.4a2.3 2.3 0 0 1-4.1-.5l-1.2-3.6A4 4 0 0 1 6.5 8z" /><path d="M7 11v4M5 13h4M17 12h.01M19 14h.01" /> }
+        @case ('sliders') { <path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h7M15 18h5" /><circle cx="16" cy="6" r="2" /><circle cx="8" cy="12" r="2" /><circle cx="13" cy="18" r="2" /> }
       }
     </svg>
   `,

@@ -25,6 +25,7 @@ export class Topbar {
   readonly openThemes = output<void>();
   readonly openMigrate = output<void>();
   readonly openChangelog = output<void>();
+  readonly openConfig = output<void>();
 
   protected setLang(lang: Lang): void {
     this.langs.set(lang);

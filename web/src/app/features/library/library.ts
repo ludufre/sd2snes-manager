@@ -30,6 +30,7 @@ import { AutoFillDialog } from './autofill/autofill-dialog';
 import { AutofillReport } from './autofill/autofill-report';
 import { ChangelogDialog } from './changelog/changelog-dialog';
 import { UpdateBanner } from './update-banner/update-banner';
+import { ConfigDialog } from './config/config-dialog';
 
 /**
  * The single app screen, lays out the shell (topbar · statbar · toolbar ·
@@ -42,7 +43,7 @@ import { UpdateBanner } from './update-banner/update-banner';
     Icon, Topbar, StatBar, Toolbar, BulkBar, BulkProgress, Sidebar, Breadcrumb,
     ListView, GalleryView, DetailPanel, SettingsPop, Toasts, Dialog, ContextMenu, MovePicker, FirmwareDialog,
     ThemesDialog, UpdateBanner, BiosDialog, MigrateDialog, CheatEditor, InfoEditor, GuidesEditor, IdentifyDialog, AutoFillDialog, AutofillReport,
-    ChangelogDialog, TranslocoModule,
+    ChangelogDialog, ConfigDialog, TranslocoModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './library.html',
@@ -106,6 +107,7 @@ export class Library {
   protected readonly biosOpen = signal(false);
   protected readonly migrateOpen = signal(false);
   protected readonly changelogOpen = signal(false);
+  protected readonly configOpen = signal(false);
   protected readonly drag = signal(false);
 
   /** Opened from the version pill or from the Settings footer, the popover closes with it, so the

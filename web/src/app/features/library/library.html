@@ -6,6 +6,7 @@
     (openThemes)="themesOpen.set(true)"
     (openBios)="biosOpen.set(true)"
     (openMigrate)="migrateOpen.set(true)"
+    (openConfig)="configOpen.set(true)"
     (openChangelog)="openChangelog()" />
 
   @if (!lib.connected()) {
@@ -86,6 +87,7 @@
   @if (themesOpen()) { <app-themes-dialog (close)="themesOpen.set(false)" /> }
   @if (biosOpen()) { <app-bios-dialog (close)="biosOpen.set(false)" /> }
   @if (migrateOpen()) { <app-migrate-dialog (close)="closeMigrate()" /> }
+  @if (configOpen()) { <app-config-dialog (close)="configOpen.set(false)" /> }
   @if (lib.cheatEdit(); as g) { <app-cheat-editor [entry]="g" (close)="lib.closeCheatEditor()" /> }
   @if (lib.infoEdit(); as g) { <app-info-editor [entry]="g" (close)="lib.closeInfoEditor()" /> }
   @if (lib.guidesEdit(); as g) { <app-guides-editor [entry]="g" (close)="lib.closeGuidesEditor()" /> }

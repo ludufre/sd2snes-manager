@@ -169,6 +169,9 @@
 .kv .v.ell { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
 
 .dactions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.state-input-row { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:10px; font-size:13px; color:var(--tx-mid); }
+.combo-value { min-width:150px; justify-content:center; color:var(--accent); font-family:var(--mono); }
+.save-status { align-self:center; font-size:12px; color:var(--ok); }.save-status.error { color:var(--danger); }
 
 .btn.xs { font-size: 11px; padding: 4px 7px; gap: 4px; }
 .sh .btn.xs { margin: -2px 0; }

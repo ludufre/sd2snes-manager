@@ -13,6 +13,7 @@ import { fmtSize } from '../../../core/format';
 import { Icon } from '../../../ui/icon/icon';
 import { CoverArt } from '../../../ui/cover-art/cover-art';
 import { Toggle } from '../../../ui/toggle/toggle';
+import { SnesComboEditor } from '../../../ui/snes-combo-editor/snes-combo-editor';
 import { FmvPlayer } from '../../../ui/fmv-player/fmv-player';
 import { decodeGdRegions } from '../../../lib/gd.js';
 import { decodeFmvFrame, composeCgram } from '../../../lib/bandpal.js';
@@ -36,7 +37,7 @@ const EMPTY_FICHA: Ficha = { title: '', developer: '', release_year: '', players
  *  Rendered inline in split view, or as a slide-over drawer in list/gallery. */
 @Component({
   selector: 'app-detail-panel',
-  imports: [Icon, CoverArt, Toggle, FmvPlayer, TranslocoModule],
+  imports: [Icon, CoverArt, Toggle, FmvPlayer, SnesComboEditor, TranslocoModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './detail-panel.html',
   styleUrl: './detail-panel.scss',
@@ -77,6 +78,12 @@ export class DetailPanel {
   protected readonly coverSrc = computed(() => this.lib.sel()?.thumbUrl ?? null);
   // Ficha (.yml), read-only here; editing happens in the InfoEditor modal.
   protected readonly ficha = signal<Ficha>(EMPTY_FICHA);
+  protected readonly stateInputs = signal<{ checksum: string; save: string; load: string } | null>(null);
+  protected readonly stateInputsLoading = signal(false);
+  protected readonly stateInputsSaving = signal(false);
+  protected readonly stateInputsStatus = signal<'saved' | 'error' | null>(null);
+  protected readonly editingStateInput = signal<'save' | 'load' | null>(null);
+  private stateInputsKey = '';
 
   /** Filled metadata fields for the read-only summary (empties dropped). */
   protected readonly infoRows = computed(() => {
@@ -147,6 +154,25 @@ export class DetailPanel {
       });
     });
 
+    effect(() => {
+      const g = this.lib.sel();
+      const key = g?.system === 'SNES' && g.fileHandle ? g.id : '';
+      if (key === this.stateInputsKey) return;
+      this.stateInputsKey = key;
+      this.stateInputs.set(null);
+      this.stateInputsStatus.set(null);
+      this.editingStateInput.set(null);
+      if (!key || !g) return;
+      this.stateInputsLoading.set(true);
+      void this.lib.readSavestateInputs(g).then((value) => {
+        if (this.lib.sel()?.id === key) this.stateInputs.set(value);
+      }).catch(() => {
+        if (this.lib.sel()?.id === key) this.stateInputs.set(null);
+      }).finally(() => {
+        if (this.lib.sel()?.id === key) this.stateInputsLoading.set(false);
+      });
+    });
+
     // Ficha (.yml metadata): reload only when the selected game changes or an edit is saved (infoRev),
     // never on cover/thumb/busy updates, so the info doesn't flicker while covers are being fetched.
     effect(() => {
@@ -207,6 +233,29 @@ export class DetailPanel {
 
   protected close(): void {
     this.lib.closeDetail();
+  }
+
+  protected applyStateInput(value: string): void {
+    const field = this.editingStateInput();
+    if (field) this.stateInputs.update((current) => current ? { ...current, [field]: value } : current);
+    this.editingStateInput.set(null);
+    this.stateInputsStatus.set(null);
+  }
+
+  protected async saveStateInputs(): Promise<void> {
+    const value = this.stateInputs();
+    const game = this.lib.sel();
+    if (!value || !game) return;
+    this.stateInputsSaving.set(true);
+    const saved = await this.lib.saveSavestateInputs(value.checksum, value.save, value.load, game.title || game.file).catch(() => false);
+    this.stateInputsStatus.set(saved ? 'saved' : 'error');
+    this.stateInputsSaving.set(false);
+  }
+
+  protected comboLabel(value: string): string {
+    if (!value) return this.i18n.translate('detail.stateInputsNotSet');
+    const names: Record<string, string> = { s:'select', S:'start', u:'up', d:'down', l:'left', r:'right', L:'L', R:'R', a:'A', b:'B', x:'X', y:'Y' };
+    return [...value].map((key) => this.i18n.translate(`config.buttons.${names[key] ?? key}`)).join(' + ');
   }
 
   /** Link to the game's canonical GameDB page. */

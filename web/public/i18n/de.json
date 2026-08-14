@@ -156,6 +156,18 @@
     "setTheme": "Als Menü-Theme festlegen"
   },
   "detail": {
+    "stateInputsTitle": "Speicherstand-Tasten",
+    "stateInputsLoading": "ROM-Header und savestate_inputs.yml werden gelesen…",
+    "stateInputsChecksum": "ROM-Prüfsumme:",
+    "stateInputsSave": "Speicherstand sichern",
+    "stateInputsLoad": "Speicherstand laden",
+    "stateInputsNotSet": "Nicht festgelegt",
+    "stateInputsSaveAction": "Tasten speichern",
+    "stateInputsSaving": "Wird gespeichert…",
+    "stateInputsSaved": "Gespeichert ✓",
+    "stateInputsSaveError": "Die Tasten konnten nicht gespeichert werden.",
+    "stateInputsHeaderError": "Der SNES-ROM-Header konnte nicht gelesen werden.",
+    "stateInputsEditTitle": "Speicherstand-Tasten bearbeiten",
     "addCheats": "Cheats hinzufügen",
     "addReadyCheats": "Fertige Cheats hinzufügen",
     "altCover": "Spiel-Cover",
@@ -729,9 +741,12 @@
     "gamesCount": "{{count}} Spiele",
     "migrate": "Ordnen",
     "migrateTitle": "Karte für Firmware 2.15+ ordnen",
+    "config": "Konfiguration",
+    "configTitle": "sd2snes-Einstellungen bearbeiten",
     "themes": "Themes",
     "themesTitle": "Menü-Themes herunterladen"
   },
+  "config": { "title": "sd2snes-Einstellungen", "loading": "config.yml wird gelesen…", "saveState": "Tasten zum Speichern", "loadState": "Tasten zum Laden", "changeState": "Tasten zum Wechseln des Slots", "hint": "Markiere die Tasten am Controller und übernimm die Kombination.", "cancel": "Abbrechen", "save": "Speichern", "saving": "Wird gespeichert…", "editTitle": "Tastenkombination bearbeiten", "apply": "Übernehmen", "none": "Keine", "readError": "/sd2snes/config.yml konnte nicht gelesen werden.", "saveError": "/sd2snes/config.yml konnte nicht gespeichert werden.", "groups": { "video":"Video und Konsole","satellaview":"Satellaview","hooks":"In-Game-Funktionen und Speicherstände","sgb":"Super Game Boy","interface":"Menü und Oberfläche","chips":"Erweiterungschips und Audio","saves":"Automatisches Speichern","patches":"ROM-Patches","gameInfo":"Spielinformationen","files":"Theme- und Musikdateien","network":"Netzwerk","combos":"Standardtasten für In-Game-Speicherstände" }, "options": { "60hz":"60 Hz","50hz":"50 Hz","auto":"Automatisch","off":"Aus","on":"Ein","menu":"Zum Menü zurückkehren","lastFolder":"Zum letzten Ordner zurückkehren","preselectRom":"Zurückkehren und ROM auswählen","disabled":"Deaktiviert","enabled":"Aktiviert","none":"Keine","boost35":"+3,5 dBFS","boost6":"+6 dBFS","boost95":"+9,5 dBFS","boost12":"+12 dBFS","large":"Groß","small":"Klein","english":"Englisch","portuguese":"Portugiesisch (BR)","spanish":"Spanisch","german":"Deutsch","french":"Französisch","italian":"Italienisch","original":"Original","fast":"Schnell","contextOnly":"Nur Kontextmenü" }, "settings": { "PairModeAllowed":"SuperCIC-Pair-Modus erlauben","VideoModeMenu":"Videomodus des Menüs","VideoModeGame":"Videomodus des Spiels","BSXUseUsertime":"Benutzerdefinierte Satellaview-Zeit","BSXTime":"Satellaview-Sendezeit","R213fOverride":"PPU-Regionsflag korrigieren","1CHIPTransientFixes":"1CHIP-Übergangsfehler beheben","BrightnessLimit":"Helligkeitsgrenze","ShortReset2Menu":"Verhalten bei kurzem Reset","EnableCheats":"Cheats beim Laden aktivieren","EnableIngameHook":"In-Game-Hooks aktivieren","EnableIngameButtons":"In-Game-Tasten aktivieren","EnableHookHoldoff":"10-Sekunden-Hook-Verzögerung","ResetPatch":"Reset-Patch","EnableIngameSavestate":"In-Game-Speicherstände","LoadstateDelay":"Ladeverzögerung (Frames)","EnableSavestateSlots":"Speicherstand-Slots aktivieren","SGBEnableIngameHook":"SGB-In-Game-Hooks","SGBEnableState":"SGB-Speicherstände","SGBVolumeBoost":"SGB-Lautstärkeanhebung","SGBEnhOverride":"SGB-Verbesserungen deaktivieren","SGBClockFix":"Originalen SGB-Takt verwenden","SGBBiosVersion":"SGB-BIOS-Version","EnableScreensaver":"Bildschirmschoner aktivieren","SortDirectories":"Verzeichnisse sortieren","HideExtensions":"Dateiendungen ausblenden","LEDBrightness":"LED-Helligkeit","Cx4Speed":"Cx4-Kerngeschwindigkeit","GSUSpeed":"SuperFX-Geschwindigkeit","MSUVolumeBoost":"MSU-1-Lautstärkeanhebung","EnableAutoSave":"Automatisches Speichern aktivieren","EnableMSU1AutoSave":"MSU-1-Autosave aktivieren","ShowCovers":"Covergröße","ShowCoversInLists":"Cover in Listen anzeigen","Language":"Firmware-Sprache","PatchVerifyIntegrity":"Gepatchte ROM prüfen","EnableMenuMusic":"Menümusik aktivieren","EnableMenuSFX":"Menü-Soundeffekte aktivieren","SortFavorites":"Favoriten sortieren","EnableCheatOverlay":"Cheat-Overlay aktivieren","EnableBpsCopier":"Schnellen BPS-Kopierer aktivieren","ClearPpuOnBoot":"PPU vor gepatchter ROM löschen","BusCompat":"Bus-Kompatibilitätsmodus","EnableGameManual":"In-Game-Handbuch aktivieren","SkinName":"Pfad zum Menü-Theme","MenuMusicFile":"Pfad zur Menümusik","ShowGameInfo":"Spielinformationsbildschirm","GameInfoVideo":"Informationsvideo abspielen","GameInfoMusic":"Informationston abspielen","EnableWifi":"WLAN aktivieren" }, "buttons": { "select": "Select", "start": "Start", "up": "Oben", "down": "Unten", "left": "Links", "right": "Rechts", "L": "L", "R": "R", "A": "A", "B": "B", "X": "X", "Y": "Y" } },
   "update": {
     "available": "Neue Version verfügbar.",
     "built": "erstellt {{date}}",
