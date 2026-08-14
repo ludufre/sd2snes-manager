@@ -80,6 +80,8 @@ The `.cov` encoder is Go, in [`covgen/`](covgen), compiled to WebAssembly by `co
 
 Project and web tools by [@ludufre](https://github.com/ludufre). Built on the [original sd2snes project](https://github.com/mrehkopf/sd2snes) by [@mrehkopf](https://github.com/mrehkopf) and its contributors.
 
+Thanks to [@furious](https://github.com/furious) for the `/sd2snes/config.yml` editor, the per-game save state buttons and the SNES controller combo picker ([#1](https://github.com/ludufre/sd2snes-manager/pull/1)).
+
 Licensed under **GPL-2.0**, the same as the sd2snes+ firmware and the original sd2snes project. © 2026 Luan Freitas and contributors. See [LICENSE](LICENSE).
 
 Third-party components keep their own licenses. Worth singling out: the video previews are produced by [ffmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm), whose `@ffmpeg/core` build is **GPL-2.0-or-later** and ships with the deployed app. The rest is permissive: Angular, `fflate`, `fzstd`, `marked` and Transloco under MIT, `pdfjs-dist` under Apache-2.0.

@@ -5,6 +5,22 @@ Every released version, newest first.
 Some releases were published together and reach the repository as a single commit. When that
 happens, the entry says which versions it covers.
 
+## 1.23.0 - 2026-08-14
+
+### Added
+
+- **The whole of `/sd2snes/config.yml` is now editable from the Manager**, contributed by
+  [@furious](https://github.com/furious). Every setting the firmware writes is there, grouped by
+  subject, with the button combinations picked on a drawing of the controller instead of typed as
+  `XR`. Comments and the order of the file are preserved. Two of the settings have no entry in the
+  console's own menu and until now could only be set by editing the card by hand: `SGBSprIncrease`
+  (10 or 16 Super Game Boy sprites per scanline, Mk.III only) and `IngameButtonsMenu`, the combo
+  that opens the in-game menu.
+- **Save state buttons per game.** Games where Start pauses (Donkey Kong Country, Yoshi's Island,
+  Mega Man X) need a combo of their own, which used to mean editing `savestate_inputs.yml` by hand.
+  The game panel now reads the entry for the selected ROM and writes it back, leaving the rest of
+  the file untouched.
+
 ## 1.22.4 - 2026-08-13
 
 ### Changed
