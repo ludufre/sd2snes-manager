@@ -19,14 +19,14 @@ export const appConfig: ApplicationConfig = {
     // withComponentInputBinding: bind `folder`/`game` query params straight to component inputs.
     provideRouter(routes, withComponentInputBinding()),
     provideHttpClient(withFetch()),
-    // i18n, Português (default), English (fallback), Español, Deutsch, Français, Italiano.
+    // i18n, Português (default), English (fallback), Español, Deutsch, Français, Italiano, Русский.
     // Keep this list in lockstep with langs in core/lang.service.ts: nothing derives one from
     // the other, and a language missing here resolves to the fallback with no error.
     // Translations are JSON assets in public/i18n/, loaded under the app's base-href
     // (see TranslocoHttpLoader).
     provideTransloco({
       config: {
-        availableLangs: ['pt', 'en', 'es', 'de', 'fr', 'it'],
+        availableLangs: ['pt', 'en', 'es', 'de', 'fr', 'it', 'ru'],
         defaultLang: 'pt',
         fallbackLang: 'en',
         reRenderOnLangChange: true,
