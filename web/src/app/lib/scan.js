@@ -8,7 +8,7 @@ import { openDb } from './idb.js';
  *  because it mirrors a rule in the firmware; this one has a single owner.) */
 import { isJunkDir } from '../core/sd-layout';
 
-export const ROM_EXTS = ['sfc', 'smc', 'bs', 'gb', 'gbc', 'sgb', 'nes', 'sms'];
+export const ROM_EXTS = ['sfc', 'smc', 'bs', 'gb', 'gbc', 'sgb', 'nes', 'sms', 'a26'];
 /** Menu-theme files (sd2snes+ firmware): a `.thm` (or `.skin`) in any visible card folder. */
 export const THEME_EXTS = ['thm', 'skin'];
 /** ROM patches the firmware applies at boot, they live next to the ROM they patch. Collected on
@@ -17,7 +17,7 @@ export const THEME_EXTS = ['thm', 'skin'];
  *  Must agree with PATCH_EXTS in core/sd-layout.ts, which carries the firmware's own rule. */
 export const PATCH_EXTS = ['ips', 'bps'];
 
-const SYSTEM_BY_EXT = { sfc: 'SNES', smc: 'SNES', bs: 'BSX', gb: 'GB', gbc: 'GBC', sgb: 'SGB', nes: 'NES', sms: 'SMS' };
+const SYSTEM_BY_EXT = { sfc: 'SNES', smc: 'SNES', bs: 'BSX', gb: 'GB', gbc: 'GBC', sgb: 'SGB', nes: 'NES', sms: 'SMS', a26: 'A26' };
 
 export function fsAccessSupported() {
   return typeof window !== 'undefined' && typeof window.showDirectoryPicker === 'function';

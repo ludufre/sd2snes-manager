@@ -109,6 +109,11 @@ describe('isGbRom — the .sgb trap', () => {
     ['Tetris.sfc', false],
     ['Tetris.smc', false],
     ['Tetris.bs', false],
+    // Every other console the firmware loads shares the plain bucket: sgb/ is the ONLY namespace,
+    // because it is the only extension family that collides with a SNES stem.
+    ['Tetris.nes', false],
+    ['Tetris.sms', false],
+    ['Tetris.a26', false],
     ['Tetris', false],          // no dot at all -> firmware's `!ext` -> return
     ['foo.gb.sfc', false],      // last extension wins; both sides use strrchr('.')
     ['.gb', true],              // leaf that is just an extension; both sides agree
@@ -125,6 +130,9 @@ describe('asset paths per namespace', () => {
     expect(savesDirFor(assetKeyOf('Tetris.sfc', 'buckets'))).toBe(`${SAVES_ROOT}/TE`);
     // ...and .sgb goes with the SNES one, because that is what the device does
     expect(savesDirFor(assetKeyOf('Tetris.sgb', 'buckets'))).toBe(`${SAVES_ROOT}/TE`);
+    // as do the other consoles: path_is_gb() in fileops.c only ever answers for "gb*"
+    expect(savesDirFor(assetKeyOf('Tetris.nes', 'buckets'))).toBe(`${SAVES_ROOT}/TE`);
+    expect(savesDirFor(assetKeyOf('Tetris.a26', 'buckets'))).toBe(`${SAVES_ROOT}/TE`);
   });
 
   it('keeps the two-letter bucket INSIDE sgb/, padding just the same', () => {

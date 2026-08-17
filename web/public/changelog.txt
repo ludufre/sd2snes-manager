@@ -5,6 +5,15 @@ Every released version, newest first.
 Some releases were published together and reach the repository as a single commit. When that
 happens, the entry says which versions it covers.
 
+## 1.26.0 - 2026-08-17
+
+### Added
+
+- **Atari 2600** as a first-class platform: `.a26` ROMs are scanned, identified by CRC32 against the
+  GameDB and counted in the scoreboard and the system filters, and they take box art, game info,
+  cheats and guides like every other console. Their sidecars use the plain two-letter folders, the
+  same as NES and Master System — only Game Boy has a namespace of its own.
+
 ## 1.25.0 - 2026-08-16
 
 ### Added

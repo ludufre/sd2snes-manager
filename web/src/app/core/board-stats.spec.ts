@@ -335,8 +335,8 @@ describe('tallyBoard', () => {
   });
 
   it('lists only systems present on the card, in canonical order', () => {
-    const rows = tallyBoard([game('SMS'), game('SNES'), game('GB')]);
-    expect(rows.filter((r) => r.system).map((r) => r.system)).toEqual(['SNES', 'GB', 'SMS']);
+    const rows = tallyBoard([game('SMS'), game('A26'), game('SNES'), game('GB')]);
+    expect(rows.filter((r) => r.system).map((r) => r.system)).toEqual(['SNES', 'GB', 'SMS', 'A26']);
   });
 
   it('appends a TOTAL row only when there is more than one system', () => {

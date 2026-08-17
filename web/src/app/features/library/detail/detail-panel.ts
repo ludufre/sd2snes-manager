@@ -65,6 +65,7 @@ export class DetailPanel {
       case 'GB': return 'Game Boy';
       case 'NES': return 'Nintendo Entertainment System';
       case 'SMS': return 'Master System';
+      case 'A26': return 'Atari 2600';
       default: return '';
     }
   });
