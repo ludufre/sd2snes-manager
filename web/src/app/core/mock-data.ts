@@ -34,6 +34,11 @@ export const MOCK_ENTRIES: Entry[] = [
     c1: '#1f6fd0', c2: '#0a2a5a',
   },
   {
+    id: 'pitfall-a26', title: 'Pitfall!', file: 'Pitfall! (USA).a26', folder: 'ATARI',
+    system: 'A26', crc: '3E90CF23', size: 4096, cover: 'available', cheats: 'none', save: false, matched: true,
+    c1: '#c8641e', c2: '#4a2208',
+  },
+  {
     id: 'alttp', title: 'Legend of Zelda, The - A Link to the Past', file: 'Zelda - A Link to the Past (USA).sfc', folder: 'SNES',
     system: 'SNES', crc: '777AAC2F', size: 1048576, cover: 'has', cheats: 'has', save: true, matched: true,
     c1: '#1f8a5b', c2: '#0a3a26',

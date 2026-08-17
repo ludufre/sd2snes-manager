@@ -2859,11 +2859,12 @@ export class LibraryStore {
         p.descriptions = match.descriptions;    // one per translated language (written as description_<lang>)
         p.dbCheats = match.cheats ?? undefined; // reserve the cheats from the lookup (auto-fill writes them, no re-fetch)
         // Reclassify by the GameDB platform when it disagrees with the extension scan, covers
-        // Satellaview ROMs shipped as .sfc/.smc (bsx), and NES/SMS dumps carrying an odd extension.
-        // SNES/GB/GBC/SGB are left alone.
+        // Satellaview ROMs shipped as .sfc/.smc (bsx), and NES/SMS/Atari 2600 dumps carrying an odd
+        // extension. SNES/GB/GBC/SGB are left alone.
         if (match.platform === 'bsx') p.system = 'BSX';
         else if (match.platform === 'nes') p.system = 'NES';
         else if (match.platform === 'sms') p.system = 'SMS';
+        else if (match.platform === 'a26') p.system = 'A26';
       }
       // cover 'available' only when there's a server cover and no .cov on card
       if (gg.cover !== 'has' && gg.cover !== 'custom') {
