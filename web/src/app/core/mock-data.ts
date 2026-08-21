@@ -39,6 +39,11 @@ export const MOCK_ENTRIES: Entry[] = [
     c1: '#c8641e', c2: '#4a2208',
   },
   {
+    id: 'sdgg-axis-st', title: 'SD Gundam Generation - Axis Senki', file: 'SD Gundam Generation - Axis Senki (Japan).st', folder: 'SUFAMI',
+    system: 'ST', crc: '72B4235F', size: 524288, cover: 'available', cheats: 'none', save: true, matched: true,
+    c1: '#8b5cf6', c2: '#2e1a5a',
+  },
+  {
     id: 'alttp', title: 'Legend of Zelda, The - A Link to the Past', file: 'Zelda - A Link to the Past (USA).sfc', folder: 'SNES',
     system: 'SNES', crc: '777AAC2F', size: 1048576, cover: 'has', cheats: 'has', save: true, matched: true,
     c1: '#1f8a5b', c2: '#0a3a26',

@@ -45,12 +45,12 @@ export const DEFAULT_PREFS: Prefs = {
 
 /* ---------------- Library domain ---------------- */
 
-export type System = 'SNES' | 'GB' | 'GBC' | 'SGB' | 'BSX' | 'NES' | 'SMS' | 'A26';
+export type System = 'SNES' | 'GB' | 'GBC' | 'SGB' | 'BSX' | 'NES' | 'SMS' | 'A26' | 'ST';
 
 /** Canonical display order for platforms, the single source of truth for anything that lists
  *  systems (the statbar board, the toolbar's system chips). Ordered by how common they are on a
  *  card, not alphabetically. */
-export const SYSTEM_ORDER: readonly System[] = ['SNES', 'GB', 'GBC', 'SGB', 'BSX', 'NES', 'SMS', 'A26'];
+export const SYSTEM_ORDER: readonly System[] = ['SNES', 'GB', 'GBC', 'SGB', 'BSX', 'NES', 'SMS', 'A26', 'ST'];
 
 /** A menu-theme file (`.thm`/`.skin`) sitting in a visible card folder. Not a ROM, kept in a parallel
  *  list so it shows in the browser and can be "set as menu theme" without touching the ROM pipeline. */
@@ -260,7 +260,7 @@ export interface GameManualMatch {
 export interface GameMatch {
   id: string;
   title: string;
-  platform: 'snes' | 'gb' | 'gbc' | 'bsx' | 'nes' | 'sms' | 'a26';
+  platform: 'snes' | 'gb' | 'gbc' | 'bsx' | 'nes' | 'sms' | 'a26' | 'st';
   developer: string | null;
   publisher: string | null;
   releaseYear: number | null;

@@ -29,7 +29,7 @@ Just browsing? Pick **Try with sample ROMs** on the start screen and the whole i
 
 | | |
 | :------ | :------ |
-| **Identifies your library** | CRC32 of each ROM (headerless, and minus the iNES header on `.nes`) resolves the game against the [GameDB](https://sd2snes.ludufre.com/gamesdb). Handles SNES, Satellaview, Game Boy / Color / Super, NES, Master System and Atari 2600. |
+| **Identifies your library** | CRC32 of each ROM (headerless, and minus the iNES header on `.nes`) resolves the game against the [GameDB](https://sd2snes.ludufre.com/gamesdb). Handles SNES, Satellaview, Game Boy / Color / Super, NES, Master System, Atari 2600 and Sufami Turbo. |
 | **Box art** | Writes `.cov` next to each ROM, encoded in the browser by the same Go encoder the native tool uses, compiled to WebAssembly, so the bytes are identical. Or bring your own image. |
 | **Game info cards** | The screenshot and the animated preview with sound (`.fmv` + `.pcm`) that the console shows before a game boots, plus the `.yml` with developer, year, players, genre, chip and a description in six languages. |
 | **Cheats** | Downloaded per CRC and filed where the firmware expects them, with an editor for toggling and writing codes by hand. |

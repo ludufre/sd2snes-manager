@@ -462,16 +462,24 @@ describe('migration execute — a card that stops accepting writes', () => {
 describe('buildRomIndex', () => {
   it('classifies by extension and flags collisions', () => {
     const ix = buildRomIndex(['Tetris.gb', 'Zelda.sfc', 'Dr Mario.gbc', 'Kirby.sgb', 'Both.gb', 'Both.sfc']);
-    expect(ix.get('tetris')).toBe('gb');
-    expect(ix.get('zelda')).toBe('snes');
-    expect(ix.get('dr mario')).toBe('gb');
-    expect(ix.get('kirby')).toBe('snes');   // .sgb is not Game Boy, see sgb.c:66-71
+    expect(ix.get('tetris')).toBe('sgb');
+    expect(ix.get('zelda')).toBe('');
+    expect(ix.get('dr mario')).toBe('sgb');
+    expect(ix.get('kirby')).toBe('');       // .sgb is not Game Boy, see sgb.c:66-71
     expect(ix.get('both')).toBe('both');
+  });
+
+  it('classifies Sufami Turbo minicarts, and collides them like any other namespace', () => {
+    const ix = buildRomIndex(['Poi Poi.st', 'Gundam.st', 'Both.st', 'Both.sfc']);
+    expect(ix.get('poi poi')).toBe('sft');
+    expect(ix.get('gundam')).toBe('sft');
+    expect(ix.get('both')).toBe('both');    // a .st and a .sfc share one stem -> unattributable
   });
 
   it('does not flag a duplicate of the SAME class as ambiguous', () => {
     // the same game in two folders is common and must not block migration
-    expect(buildRomIndex(['Tetris.gb', 'Tetris.gbc']).get('tetris')).toBe('gb');
+    expect(buildRomIndex(['Tetris.gb', 'Tetris.gbc']).get('tetris')).toBe('sgb');
+    expect(buildRomIndex(['Poi Poi.st', 'Poi Poi.st']).get('poi poi')).toBe('sft');
   });
 });
 

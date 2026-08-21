@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 import {
   bucketOf, bucketKeyForFile, bucketDirForFile, isJunkFile, isJunkDir,
   INFO_ROOT, STATES_ROOT, SAVES_ROOT, CHEATS_ROOT,
-  isGbRom, assetKeyOf, assetIndexKey, classifyRootChild, gbKey, snesKey,
+  isGbRom, isSufamiRom, assetKeyOf, assetIndexKey, classifyRootChild, gbKey, snesKey,
   infoDirFor, cheatsDirFor, savesDirFor, statesDirFor,
   patchExtOf, patchBelongsToRom, patchShadowsRom, patchRenameFor,
 } from './sd-layout';
@@ -141,12 +141,36 @@ describe('asset paths per namespace', () => {
   });
 
   it('strips savestate slots in the GB namespace too', () => {
-    expect(bucketDirForFile(STATES_ROOT, 'A01.state', true)).toBe(`${STATES_ROOT}/sgb/A_`);
+    expect(bucketDirForFile(STATES_ROOT, 'A01.state', 'sgb')).toBe(`${STATES_ROOT}/sgb/A_`);
   });
 
   it('assetKeyOf splits stem and namespace from one filename', () => {
-    expect(assetKeyOf('Tetris.gb', 'buckets')).toEqual({ stem: 'Tetris', sgb: true, mode: 'buckets' });
-    expect(assetKeyOf('Tetris.sgb', 'buckets')).toEqual({ stem: 'Tetris', sgb: false, mode: 'buckets' });
+    expect(assetKeyOf('Tetris.gb', 'buckets')).toEqual({ stem: 'Tetris', ns: 'sgb', mode: 'buckets' });
+    expect(assetKeyOf('Tetris.sgb', 'buckets')).toEqual({ stem: 'Tetris', ns: '', mode: 'buckets' });
+    expect(assetKeyOf('Tetris.st', 'buckets')).toEqual({ stem: 'Tetris', ns: 'sft', mode: 'buckets' });
+  });
+
+  /* Sufami Turbo, mirroring the firmware's tests/host/bucket_cli.c table. THREE letters: FAT is
+     case-insensitive, so a "st/" namespace would BE the "ST" bucket -- the one holding Star Ocean
+     and the ST010 carts. That is the whole reason the segment is not two characters. */
+  it('puts Sufami Turbo minicarts in their own three-letter namespace', () => {
+    expect(savesDirFor(assetKeyOf('Poi Poi.st', 'buckets'))).toBe(`${SAVES_ROOT}/sft/PO`);
+    expect(savesDirFor(assetKeyOf('Poi Poi.sfc', 'buckets'))).toBe(`${SAVES_ROOT}/PO`);
+    expect(savesDirFor(assetKeyOf('Star Ocean.st', 'buckets'))).toBe(`${SAVES_ROOT}/sft/ST`);
+    expect(savesDirFor(assetKeyOf('Star Ocean.sfc', 'buckets'))).toBe(`${SAVES_ROOT}/ST`);
+  });
+
+  it('matches .st exactly -- a prefix rule would swallow .state', () => {
+    expect(isSufamiRom('Poi Poi.st')).toBe(true);
+    expect(isSufamiRom('Poi Poi.ST')).toBe(true);
+    expect(isSufamiRom('Poi Poi.stx')).toBe(false);
+    expect(isSufamiRom('Poi Poi01.state')).toBe(false);
+    expect(isSufamiRom('Poi Poi.s')).toBe(false);
+  });
+
+  it('gives all three namespaces distinct index keys', () => {
+    const k = (f: string) => assetIndexKey(assetKeyOf(f, 'buckets'));
+    expect(new Set([k('Tetris.sfc'), k('Tetris.gb'), k('Tetris.st')]).size).toBe(3);
   });
 
   it('gives the two namespaces distinct index keys', () => {
