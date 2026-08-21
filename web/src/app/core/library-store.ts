@@ -54,8 +54,8 @@ import { parseInfoYml, buildYml, syncTokensFromMatch, SYNC_KEYS, DESC_LANGS, DES
 const DESC_LANG_LIST = DESC_LANGS as readonly DescLang[];
 import { readFwVersion, fwUsesBuckets, hasFirmwareFiles, layoutForFw, type FwVersion } from './fw-version';
 import { SdMigrationService, buildRomIndex, isSweepableJunk, JUNK_GIVE_UP_STREAK, type MigrationResult, type MigrationPlan, type MigrationOptions, type RomIndex, type ScannedName } from './sd-migration.service';
-import { infoDirFor, cheatsDirFor, bucketDirFor, isJunkFile, classifyRootChild, BUCKET_LEN,
-         STATES_ROOT, SAVES_ROOT, CHEATS_ROOT, INFO_ROOT, BUCKETED_ROOTS, SGB_SEG, AMBIGUOUS_SEG, bucketKeyForFile,
+import { infoDirFor, cheatsDirFor, bucketDirFor, isJunkFile, classifyRootChild, BUCKET_LEN, AssetNs, SGB_SEG, SFT_SEG,
+         STATES_ROOT, SAVES_ROOT, CHEATS_ROOT, INFO_ROOT, BUCKETED_ROOTS, AMBIGUOUS_SEG, bucketKeyForFile,
          assetKeyOf, assetIndexKey, type AssetKey, type AssetIndexKey, type LayoutMode } from './sd-layout';
 import { parseManHeader, buildManFromPdf, buildManFromImages, slugIdOfType, guideFileName, GUIDE_SLOTS, USER_GUIDE_SLOTS, MAX_USER_GUIDES } from '../lib/man.js';
 import type {
@@ -813,17 +813,17 @@ export function groupManualBuckets<T extends { id: string }>(
  * `TETRIS.gcv` beside a `Tetris.gb` matched before and must still match. Two stems differing only in
  * case cannot coexist on FAT, so folding cannot merge two real games' assets.
  */
-export function infoIndexKey(k: Pick<AssetKey, 'stem' | 'sgb'>): string {
+export function infoIndexKey(k: Pick<AssetKey, 'stem' | 'ns'>): string {
   return assetIndexKey(k).toLowerCase();
 }
 
 /**
- * Walk a sidecar root once, visiting every file under it. Exactly four shapes are accepted, all
+ * Walk a sidecar root once, visiting every file under it. Only these shapes are accepted, all
  * terminal:
- *     <root>/<file>                 legacy flat
- *     <root>/<B|BB>/<file>          legacy one-char bucket, current bucket
- *     <root>/sgb/<file>
- *     <root>/sgb/<B|BB>/<file>      the Game Boy namespace
+ *     <root>/<file>                     legacy flat
+ *     <root>/<B|BB>/<file>              legacy one-char bucket, current bucket
+ *     <root>/<sgb|sft>/<file>
+ *     <root>/<sgb|sft>/<B|BB>/<file>    the Game Boy and Sufami Turbo namespaces
  * so a half-migrated card still indexes correctly. Which namespace a file was found in is
  * handed to `visit`, because the file's own name cannot tell you: only the ROM's extension can,
  * and that is long gone by the time a .srm sits on the card.
@@ -844,7 +844,7 @@ export function infoIndexKey(k: Pick<AssetKey, 'stem' | 'sgb'>): string {
 export async function indexSidecarRoot(
   root: FileSystemDirectoryHandle,
   path: string,
-  visit: (name: string, text: string, sgb: boolean) => void,
+  visit: (name: string, text: string, ns: AssetNs) => void,
   opts: { withText?: boolean; skipAmbiguous?: boolean } = {},
 ): Promise<void> {
   try {
@@ -852,21 +852,24 @@ export async function indexSidecarRoot(
     if (!dir) return;
     // depth 2 is terminal: a bucket holds files and nothing else. Without that, two-character
     // directories would nest forever (saves/AA/BB/CC/...).
-    const eat = async (d: FileSystemDirectoryHandle, sgb: boolean, depth: 0 | 1 | 2): Promise<void> => {
+    const eat = async (d: FileSystemDirectoryHandle, ns: AssetNs, depth: 0 | 1 | 2): Promise<void> => {
       for await (const [name, h] of d.entries()) {
         if (isJunkFile(name)) continue;
         if (h.kind === 'file') {
-          visit(name, opts.withText ? ((await readTextFile(d, name)) ?? '') : '', sgb);
+          visit(name, opts.withText ? ((await readTextFile(d, name)) ?? '') : '', ns);
           continue;
         }
         if (depth === 2) continue;
         const kind = classifyRootChild(name, depth);
         if (kind === 'unknown') continue;                              // a user folder; never followed
         if (kind === 'ambiguous' && opts.skipAmbiguous) continue;      // quarantine: unreadable by the firmware
-        await eat(h as FileSystemDirectoryHandle, sgb || kind === 'sgb', kind === 'bucket' ? 2 : 1);
+        // a namespace dir only ever appears at depth 0, so this never overwrites a live one
+        await eat(h as FileSystemDirectoryHandle,
+                  kind === 'sgb' ? SGB_SEG : kind === 'sft' ? SFT_SEG : ns,
+                  kind === 'bucket' ? 2 : 1);
       }
     };
-    await eat(dir, false, 0);
+    await eat(dir, '', 0);
   } catch {  }/* root absent -> nothing indexed */
 }
 
@@ -882,16 +885,16 @@ export async function indexInfoRoot(dir: FileSystemDirectoryHandle): Promise<Map
   const idx = new Map<string, InfoSidecars>();
   // bucketKeyForFile, exactly as the other three roots (and the migration planner) use it: it is the
   // one place that knows `<stem>.02.man` belongs to `<stem>`, not to `<stem>.02`.
-  const at = (name: string, sgb: boolean): InfoSidecars => {
-    const k = infoIndexKey({ stem: bucketKeyForFile(name), sgb });
+  const at = (name: string, ns: AssetNs): InfoSidecars => {
+    const k = infoIndexKey({ stem: bucketKeyForFile(name), ns });
     let s = idx.get(k);
     if (!s) { s = { gcv: false, fmv: false, yml: false, gss: false, gd: false, man: new Set<number>() }; idx.set(k, s); }
     return s;
   };
-  await indexSidecarRoot(dir, INFO_ROOT, (name, _text, sgb) => {
+  await indexSidecarRoot(dir, INFO_ROOT, (name, _text, ns) => {
     const f = infoFileKind(name);
     if (!f) return;
-    const s = at(name, sgb);
+    const s = at(name, ns);
     if (f.kind === 'man') s.man.add(f.slot);
     else s[f.kind] = true;
   }, { skipAmbiguous: true });
@@ -914,8 +917,8 @@ export async function indexInfoRoot(dir: FileSystemDirectoryHandle): Promise<Map
  */
 export function infoSidecarsFor(idx: ReadonlyMap<string, InfoSidecars>, key: AssetKey): InfoSidecars | null {
   const own = idx.get(infoIndexKey(key)) ?? null;
-  if (key.mode !== 'legacy' || !key.sgb) return own;
-  const flat = idx.get(infoIndexKey({ stem: key.stem, sgb: false })) ?? null;
+  if (key.mode !== 'legacy' || !key.ns) return own;
+  const flat = idx.get(infoIndexKey({ stem: key.stem, ns: '' })) ?? null;
   if (!own || !flat) return own ?? flat;
   return {
     gcv: own.gcv || flat.gcv,
@@ -2661,14 +2664,14 @@ export class LibraryStore {
     // All three go through bucketKeyForFile: it is the one place that knows a sidecar's name is not
     // its ROM's stem (slot digits, .NN.man, .NN.srm). Hand-rolling that per root is how the index
     // and the migration planner end up disagreeing about which game a file belongs to.
-    await indexSidecarRoot(dir, CHEATS_ROOT, (name, text, sgb) => {
-      if (name.toLowerCase().endsWith('.yml')) this.cheatText.set(assetIndexKey({ stem: bucketKeyForFile(name), sgb }), text);
+    await indexSidecarRoot(dir, CHEATS_ROOT, (name, text, ns) => {
+      if (name.toLowerCase().endsWith('.yml')) this.cheatText.set(assetIndexKey({ stem: bucketKeyForFile(name), ns }), text);
     }, { withText: true });
-    await indexSidecarRoot(dir, SAVES_ROOT, (name, _text, sgb) => {
-      if (name.toLowerCase().endsWith('.srm')) this.saveKeys.add(assetIndexKey({ stem: bucketKeyForFile(name), sgb }));
+    await indexSidecarRoot(dir, SAVES_ROOT, (name, _text, ns) => {
+      if (name.toLowerCase().endsWith('.srm')) this.saveKeys.add(assetIndexKey({ stem: bucketKeyForFile(name), ns }));
     });
-    await indexSidecarRoot(dir, STATES_ROOT, (name, _text, sgb) => {
-      if (name.toLowerCase().endsWith('.state')) this.stateKeys.add(assetIndexKey({ stem: bucketKeyForFile(name), sgb }));
+    await indexSidecarRoot(dir, STATES_ROOT, (name, _text, ns) => {
+      if (name.toLowerCase().endsWith('.state')) this.stateKeys.add(assetIndexKey({ stem: bucketKeyForFile(name), ns }));
     });
   }
 

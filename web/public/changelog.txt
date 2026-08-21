@@ -5,6 +5,24 @@ Every released version, newest first.
 Some releases were published together and reach the repository as a single commit. When that
 happens, the entry says which versions it covers.
 
+## 1.27.0 - 2026-08-21
+
+### Added
+
+- **Sufami Turbo** as a platform: `.st` minicarts are scanned, identified by CRC32 against the
+  GameDB and counted in the scoreboard and the system filters, and they take box art, game info,
+  cheats and guides like every other console. Only the bare `.st` dump is treated as Sufami Turbo —
+  the combined images that also circulate carry the base cartridge's BIOS in front and are plain
+  SNES ROMs to the console, so they keep being listed as SNES.
+- **Sufami Turbo sidecars get a folder of their own**, `sft/`, inside each bucket, the same way
+  Game Boy uses `sgb/`. Without it a `Tetris.st` and a `Tetris.sfc` would share one save, one set of
+  cheats and one info card. Cards already organised are migrated on the next Organizar, and a
+  sidecar whose stem matches games in two different systems is left where it is instead of being
+  guessed at.
+- **`stbios.bin` in the BIOS list.** The Sufami Turbo base cartridge is what actually boots a
+  minicart, so it is identified and installed like the DSP, BS-X and Super Game Boy images, by CRC32
+  and with a headered copy accepted too.
+
 ## 1.26.0 - 2026-08-17
 
 ### Added

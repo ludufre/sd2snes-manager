@@ -66,6 +66,7 @@ export class DetailPanel {
       case 'NES': return 'Nintendo Entertainment System';
       case 'SMS': return 'Master System';
       case 'A26': return 'Atari 2600';
+      case 'ST': return 'Sufami Turbo';
       default: return '';
     }
   });

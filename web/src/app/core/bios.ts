@@ -1,6 +1,6 @@
 /**
  * Chip-BIOS files the sd2snes/FXPak Pro firmware needs for special-chip games
- * (DSP, S-DD1/BS-X, Super Game Boy, ST-010). They can't be distributed (legal),
+ * (DSP, S-DD1/BS-X, Super Game Boy, ST-010, Sufami Turbo). They can't be distributed (legal),
  * so the user supplies their own, they go in the card's `/sd2snes/` folder.
  *
  * Validation rules taken from the firmware source (sd2snes/_repo):
@@ -42,6 +42,8 @@ export const BIOS_FILES: BiosFile[] = [
   // BS-X BIOS: 1 MiB, optionally with a 512-byte copier header (firmware auto-skips); headered dump
   // has a different CRC, so it's accepted by size.
   { id: 'bsxbios', file: 'bsxbios.bin', chip: 'BS-X / Satellaview', crc32: ['8ECC1963'], size: [1048576, 1049088] },
+  // Sufami Turbo base cartridge: 256 KiB, optionally headered (firmware auto-skips).
+  { id: 'stbios', file: 'stbios.bin', chip: 'Sufami Turbo', crc32: ['9B4CA911'], size: [262144, 262656] },
   // Super Game Boy, CRC-validated by the firmware. Boot ROM differs per version; the SNES-side image
   // differs too (v1 ≈ 256 KiB, v2 ≈ 512 KiB). Both original and SameBoy boot builds are accepted.
   { id: 'sgb1boot', file: 'sgb1_boot.bin', chip: 'Super Game Boy v1 (boot)', crc32: ['EC8A83B9', 'EDAC680E'], sgbPair: 'v1' },

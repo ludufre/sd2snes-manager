@@ -169,7 +169,7 @@ export function matchesStatus(g: Entry, status: StatusFilter): boolean {
  * plus an aggregate total row (`system: null`) whenever there's more than one system to add up.
  *
  * Single pass on purpose. The naive shape, one `filter().length` per number, as `tally()` does for
- * the flat statbar. Would be 48 full walks of the list here (8 systems x 6 columns).
+ * the flat statbar. Would be 54 full walks of the list here (9 systems x 6 columns).
  */
 export function tallyBoard(entries: readonly Entry[]): BoardRow[] {
   const cols = BOARD_COLS.map((c) => c.key);
