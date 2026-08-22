@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 import {
   bucketOf, bucketKeyForFile, bucketDirForFile, isJunkFile, isJunkDir,
   INFO_ROOT, STATES_ROOT, SAVES_ROOT, CHEATS_ROOT,
-  isGbRom, isSufamiRom, assetKeyOf, assetIndexKey, classifyRootChild, gbKey, snesKey,
+  isGbRom, isSufamiRom, nsOf, nsForMode, BUCKET_LEN, assetKeyOf, assetIndexKey, classifyRootChild, gbKey, snesKey,
   infoDirFor, cheatsDirFor, savesDirFor, statesDirFor,
   patchExtOf, patchBelongsToRom, patchShadowsRom, patchRenameFor,
 } from './sd-layout';
@@ -71,7 +71,7 @@ describe('bucketKeyForFile — the sidecar-vs-ROM stem trap', () => {
     expect(bucketKeyForFile('Super Mario World (USA)01.state')).toBe('Super Mario World (USA)');
     // the case that breaks a naive romStem(): ROM "A.sfc" -> "A_", so its state must too
     expect(bucketKeyForFile('A01.state')).toBe('A');
-    expect(bucketDirForFile(STATES_ROOT, 'A01.state', false)).toBe(`${STATES_ROOT}/A_`);
+    expect(bucketDirForFile(STATES_ROOT, 'A01.state', '', 'namespaces')).toBe(`${STATES_ROOT}/A_`);
   });
 
   it('strips extra guide and SRM slot numbers', () => {
@@ -81,12 +81,12 @@ describe('bucketKeyForFile — the sidecar-vs-ROM stem trap', () => {
 
   it('otherwise just drops the extension', () => {
     expect(bucketKeyForFile('Super Mario World (USA).yml')).toBe('Super Mario World (USA)');
-    expect(bucketDirForFile(INFO_ROOT, 'Super Mario World (USA).gcv', false)).toBe(`${INFO_ROOT}/SU`);
+    expect(bucketDirForFile(INFO_ROOT, 'Super Mario World (USA).gcv', '', 'namespaces')).toBe(`${INFO_ROOT}/SU`);
   });
 
   it('puts every sidecar of one ROM in the SAME bucket', () => {
     const files = ['Foo.yml', 'Foo.gcv', 'Foo.gss', 'Foo.fmv', 'Foo.pcm', 'Foo.man', 'Foo.02.man'];
-    const dirs = new Set(files.map((f) => bucketDirForFile(INFO_ROOT, f, false)));
+    const dirs = new Set(files.map((f) => bucketDirForFile(INFO_ROOT, f, '', 'namespaces')));
     expect(dirs.size).toBe(1);
   });
 });
@@ -130,9 +130,45 @@ describe('asset paths per namespace', () => {
     expect(savesDirFor(assetKeyOf('Tetris.sfc', 'buckets'))).toBe(`${SAVES_ROOT}/TE`);
     // ...and .sgb goes with the SNES one, because that is what the device does
     expect(savesDirFor(assetKeyOf('Tetris.sgb', 'buckets'))).toBe(`${SAVES_ROOT}/TE`);
-    // as do the other consoles: path_is_gb() in fileops.c only ever answers for "gb*"
+    // ...and on a 2.15 card the other consoles do too: that firmware knows sgb/ and nothing else
     expect(savesDirFor(assetKeyOf('Tetris.nes', 'buckets'))).toBe(`${SAVES_ROOT}/TE`);
     expect(savesDirFor(assetKeyOf('Tetris.a26', 'buckets'))).toBe(`${SAVES_ROOT}/TE`);
+  });
+
+  it('gives each console its own namespace under 2.16', () => {
+    expect(savesDirFor(assetKeyOf('Tetris (USA).nes', 'namespaces'))).toBe(`${SAVES_ROOT}/nes/TE`);
+    expect(savesDirFor(assetKeyOf('Tetris (USA).sfc', 'namespaces'))).toBe(`${SAVES_ROOT}/TE`);
+    expect(savesDirFor(assetKeyOf('Sonic.sms', 'namespaces'))).toBe(`${SAVES_ROOT}/sms/SO`);
+    expect(savesDirFor(assetKeyOf('Pitfall!.a26', 'namespaces'))).toBe(`${SAVES_ROOT}/a26/PI`);
+    expect(savesDirFor(assetKeyOf('Tetris.gb', 'namespaces'))).toBe(`${SAVES_ROOT}/sgb/TE`);
+  });
+
+  it('matches the namespace extensions case-insensitively', () => {
+    expect(savesDirFor(assetKeyOf('Tetris (USA).NES', 'namespaces'))).toBe(`${SAVES_ROOT}/nes/TE`);
+    expect(savesDirFor(assetKeyOf('Sonic.SMS', 'namespaces'))).toBe(`${SAVES_ROOT}/sms/SO`);
+    expect(savesDirFor(assetKeyOf('Pitfall!.A26', 'namespaces'))).toBe(`${SAVES_ROOT}/a26/PI`);
+    expect(savesDirFor(assetKeyOf('Poi Poi.ST', 'namespaces'))).toBe(`${SAVES_ROOT}/sft/PO`);
+  });
+
+  it('never lets .smc fall into sms/', () => {
+    expect(nsOf('Sonic.smc')).toBe('');
+    expect(nsOf('Sonic.sms')).toBe('sms');
+    expect(nsOf('Sonic.smsx')).toBe('');
+    expect(nsOf('Doom.nesx')).toBe('');
+    expect(nsOf('Combat.a2')).toBe('');
+    expect(nsOf('Combat.a260')).toBe('');
+    expect(nsOf('Doom.ne')).toBe('');
+    expect(nsOf('Nesting.sfc')).toBe('');
+    expect(nsOf('Smash.sfc')).toBe('');
+  });
+
+  it('honours the layout mode: only 2.16 spreads the consoles out', () => {
+    for (const f of ['Tetris.nes', 'Sonic.sms', 'Pitfall!.a26', 'Poi Poi.st']) {
+      expect(savesDirFor(assetKeyOf(f, 'buckets'))).not.toContain(`/${nsOf(f)}/`);
+      expect(savesDirFor(assetKeyOf(f, 'namespaces'))).toContain(`/${nsOf(f)}/`);
+    }
+    expect(savesDirFor(assetKeyOf('Tetris.gb', 'buckets'))).toBe(`${SAVES_ROOT}/sgb/TE`);
+    expect(savesDirFor(assetKeyOf('Tetris.gb', 'namespaces'))).toBe(`${SAVES_ROOT}/sgb/TE`);
   });
 
   it('keeps the two-letter bucket INSIDE sgb/, padding just the same', () => {
@@ -141,23 +177,27 @@ describe('asset paths per namespace', () => {
   });
 
   it('strips savestate slots in the GB namespace too', () => {
-    expect(bucketDirForFile(STATES_ROOT, 'A01.state', 'sgb')).toBe(`${STATES_ROOT}/sgb/A_`);
+    expect(bucketDirForFile(STATES_ROOT, 'A01.state', 'sgb', 'namespaces')).toBe(`${STATES_ROOT}/sgb/A_`);
   });
 
   it('assetKeyOf splits stem and namespace from one filename', () => {
     expect(assetKeyOf('Tetris.gb', 'buckets')).toEqual({ stem: 'Tetris', ns: 'sgb', mode: 'buckets' });
     expect(assetKeyOf('Tetris.sgb', 'buckets')).toEqual({ stem: 'Tetris', ns: '', mode: 'buckets' });
-    expect(assetKeyOf('Tetris.st', 'buckets')).toEqual({ stem: 'Tetris', ns: 'sft', mode: 'buckets' });
+    expect(assetKeyOf('Tetris.st', 'namespaces')).toEqual({ stem: 'Tetris', ns: 'sft', mode: 'namespaces' });
+    expect(assetKeyOf('Tetris.nes', 'namespaces')).toEqual({ stem: 'Tetris', ns: 'nes', mode: 'namespaces' });
+    expect(assetKeyOf('Tetris.nes', 'buckets')).toEqual({ stem: 'Tetris', ns: '', mode: 'buckets' });
+    expect(assetKeyOf('Tetris.st', 'buckets')).toEqual({ stem: 'Tetris', ns: '', mode: 'buckets' });
+    expect(assetKeyOf('Tetris.gb', 'legacy')).toEqual({ stem: 'Tetris', ns: '', mode: 'legacy' });
   });
 
   /* Sufami Turbo, mirroring the firmware's tests/host/bucket_cli.c table. THREE letters: FAT is
      case-insensitive, so a "st/" namespace would BE the "ST" bucket -- the one holding Star Ocean
      and the ST010 carts. That is the whole reason the segment is not two characters. */
   it('puts Sufami Turbo minicarts in their own three-letter namespace', () => {
-    expect(savesDirFor(assetKeyOf('Poi Poi.st', 'buckets'))).toBe(`${SAVES_ROOT}/sft/PO`);
-    expect(savesDirFor(assetKeyOf('Poi Poi.sfc', 'buckets'))).toBe(`${SAVES_ROOT}/PO`);
-    expect(savesDirFor(assetKeyOf('Star Ocean.st', 'buckets'))).toBe(`${SAVES_ROOT}/sft/ST`);
-    expect(savesDirFor(assetKeyOf('Star Ocean.sfc', 'buckets'))).toBe(`${SAVES_ROOT}/ST`);
+    expect(savesDirFor(assetKeyOf('Poi Poi.st', 'namespaces'))).toBe(`${SAVES_ROOT}/sft/PO`);
+    expect(savesDirFor(assetKeyOf('Poi Poi.sfc', 'namespaces'))).toBe(`${SAVES_ROOT}/PO`);
+    expect(savesDirFor(assetKeyOf('Star Ocean.st', 'namespaces'))).toBe(`${SAVES_ROOT}/sft/ST`);
+    expect(savesDirFor(assetKeyOf('Star Ocean.sfc', 'namespaces'))).toBe(`${SAVES_ROOT}/ST`);
   });
 
   it('matches .st exactly -- a prefix rule would swallow .state', () => {
@@ -168,9 +208,21 @@ describe('asset paths per namespace', () => {
     expect(isSufamiRom('Poi Poi.s')).toBe(false);
   });
 
-  it('gives all three namespaces distinct index keys', () => {
-    const k = (f: string) => assetIndexKey(assetKeyOf(f, 'buckets'));
-    expect(new Set([k('Tetris.sfc'), k('Tetris.gb'), k('Tetris.st')]).size).toBe(3);
+  it('keys the index the same way the card index will, per layout', () => {
+    for (const f of ['Tetris (USA).nes', 'Sonic.sms', 'Poi Poi.st', 'Tetris.gb']) {
+      for (const mode of ['legacy', 'buckets', 'namespaces'] as const) {
+        const k = assetKeyOf(f, mode);
+        const dir = savesDirFor(k);        const seg = dir.slice(SAVES_ROOT.length + 1).split('/')[0];
+        const nsInPath = seg.length > BUCKET_LEN ? seg : '';
+        expect(assetIndexKey(k)).toBe(nsInPath ? `${nsInPath}/${k.stem}` : k.stem);
+      }
+    }
+  });
+
+  it('gives every namespace a distinct index key', () => {
+    const k = (f: string) => assetIndexKey(assetKeyOf(f, 'namespaces'));
+    const keys = ['Tetris.sfc', 'Tetris.gb', 'Tetris.st', 'Tetris.nes', 'Tetris.sms', 'Tetris.a26'].map(k);
+    expect(new Set(keys).size).toBe(keys.length);
   });
 
   it('gives the two namespaces distinct index keys', () => {

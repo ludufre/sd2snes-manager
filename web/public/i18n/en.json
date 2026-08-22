@@ -344,7 +344,7 @@
   },
   "migrate": {
     "aborted": "Stopped — {{moved}} files had already been moved.",
-    "ambiguous": "{{count}} file(s) match a name that exists as BOTH a Game Boy and a SNES game, so there is no way to tell which one they belong to. Rather than guess, they sit in an <b>_ambiguous</b> folder inside the affected root — here is exactly where each group is:",
+    "ambiguous": "{{count}} file(s) match a name that exists on TWO different systems, so there is no way to tell which one they belong to. Rather than guess, they sit in an <b>_ambiguous</b> folder inside the affected root — here is exactly where each group is:",
     "ambiguousAlready": "{{count}} of them are already in that folder from an earlier run — this run will not touch them.",
     "ambiguousHint": "Rename one of the two games so they can be told apart, then organize again — the files leave _ambiguous on their own.",
     "ambiguousOnly": "Nothing could be moved — the only files left need a name conflict resolved first.",
@@ -410,9 +410,11 @@
     "sysDirsHint": "Off by default on purpose: $RECYCLE.BIN can still hold files you think you have. Ticked, they are deleted whole — contents included. Windows sometimes refuses System Volume Information; if it does, that one stays and the rest of the run carries on.",
     "title": "Organize the card",
     "unwritable": "The card stopped accepting writes after {{moved}} files — it may be full, write-protected, or have been remounted read-only. Nothing was lost: files are moved one at a time. Re-seat the card and organize again to finish. ({{error}})",
-    "warn": "This card still uses the <b>old layout</b>, but the firmware on it is <b>2.15 or later</b>, which only reads the new one. Your saves, cheats and covers are still on the card — the console just is not looking where they are. Organizing puts them back in view. Game Boy games also move into their own <b>sgb</b> folder, so a <b>.gb</b> and a <b>.sfc</b> with the same name stop sharing one save.",
-    "warnPartial": "This card is already on the <b>new layout</b>, but <b>{{count}}</b> files are still in the wrong place — the console will not find them there. They are usually saves and covers for <b>Game Boy</b> games, which now live in their own <b>sgb</b> folder so a <b>.gb</b> and a <b>.sfc</b> with the same name stop sharing one save. Organizing puts each one where it belongs.",
-    "why": "Firmware 2.15+ groups files into <b>two-letter folders</b> so the console finds them faster. Organizing also removes the macOS <b>._</b> files, which double every folder scan. Game Boy games get their own <b>sgb</b> folder inside each of those, so a <b>.gb</b> and a <b>.sfc</b> with the same name stop sharing one save."
+    "warn": "This card still uses the <b>old layout</b>, but the firmware on it is <b>2.15 or later</b>, which only reads the new one. Your saves, cheats and covers are still on the card — the console just is not looking where they are. Organizing puts them back in view.",
+    "warnPartial": "This card is already on the <b>new layout</b>, but <b>{{count}}</b> files are still in the wrong place — the console will not find them there. Organizing puts each one where it belongs.",
+    "why": "Firmware 2.15+ groups files into <b>two-letter folders</b> so the console finds them faster. Organizing also removes the macOS <b>._</b> files, which double every folder scan.",
+    "whySgb": "Game Boy games get their own <b>sgb</b> folder inside each of those, so a <b>.gb</b> and a <b>.sfc</b> with the same name stop sharing one save.",
+    "whyNs": "From 2.16 on, every console gets a folder of its own inside those — <b>sgb</b>, <b>nes</b>, <b>sms</b>, <b>a26</b> and <b>sft</b> — so a <b>.gb</b>, a <b>.nes</b> and a <b>.sfc</b> with the same name stop sharing one save, one cover and one set of cheats."
   },
   "move": {
     "copyTitleMany": "Copy {{count}} games to…",

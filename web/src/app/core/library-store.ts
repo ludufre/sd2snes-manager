@@ -54,7 +54,7 @@ import { parseInfoYml, buildYml, syncTokensFromMatch, SYNC_KEYS, DESC_LANGS, DES
 const DESC_LANG_LIST = DESC_LANGS as readonly DescLang[];
 import { readFwVersion, fwUsesBuckets, hasFirmwareFiles, layoutForFw, type FwVersion } from './fw-version';
 import { SdMigrationService, buildRomIndex, isSweepableJunk, JUNK_GIVE_UP_STREAK, type MigrationResult, type MigrationPlan, type MigrationOptions, type RomIndex, type ScannedName } from './sd-migration.service';
-import { infoDirFor, cheatsDirFor, bucketDirFor, isJunkFile, classifyRootChild, BUCKET_LEN, AssetNs, SGB_SEG, SFT_SEG,
+import { infoDirFor, cheatsDirFor, bucketDirFor, isJunkFile, classifyRootChild, nsOfRootChild, isNsSeg, BUCKET_LEN, AssetNs, SGB_SEG, NS_SEGS,
          STATES_ROOT, SAVES_ROOT, CHEATS_ROOT, INFO_ROOT, BUCKETED_ROOTS, AMBIGUOUS_SEG, bucketKeyForFile,
          assetKeyOf, assetIndexKey, type AssetKey, type AssetIndexKey, type LayoutMode } from './sd-layout';
 import { parseManHeader, buildManFromPdf, buildManFromImages, slugIdOfType, guideFileName, GUIDE_SLOTS, USER_GUIDE_SLOTS, MAX_USER_GUIDES } from '../lib/man.js';
@@ -863,10 +863,9 @@ export async function indexSidecarRoot(
         const kind = classifyRootChild(name, depth);
         if (kind === 'unknown') continue;                              // a user folder; never followed
         if (kind === 'ambiguous' && opts.skipAmbiguous) continue;      // quarantine: unreadable by the firmware
-        // a namespace dir only ever appears at depth 0, so this never overwrites a live one
-        await eat(h as FileSystemDirectoryHandle,
-                  kind === 'sgb' ? SGB_SEG : kind === 'sft' ? SFT_SEG : ns,
-                  kind === 'bucket' ? 2 : 1);
+        /* Same two questions the migration planner asks, through the same helpers, so the indexer
+           and the planner can never disagree about where a file lives. */
+        await eat(h as FileSystemDirectoryHandle, nsOfRootChild(kind, ns), isNsSeg(kind) ? 1 : 2);
       }
     };
     await eat(dir, '', 0);
@@ -910,24 +909,31 @@ export async function indexInfoRoot(dir: FileSystemDirectoryHandle): Promise<Map
  * `sgb/tetris`. Keyed strictly, that is a permanent miss, every badge reads 'none' on a legacy card
  * and "Completar" rewrites every Game Boy game's assets on every session.
  *
- * So in legacy mode a Game Boy game consults both keys and merges. That is not a widening: it is
- * exactly what the `fileExists(infoDirFor(key), ...)` it replaces did, because `infoDirFor` on a legacy
- * key resolves to the un-namespaced `info/<B>` for GB and SNES alike. The two colliding on one stem is
- * the very ambiguity the 2.15 layout introduced `sgb/` to end, and `_ambiguous/` to quarantine.
+ * So in legacy mode the lookup consults every namespace variant of the stem and merges. That is not
+ * a widening: it is exactly what the `fileExists(infoDirFor(key), ...)` it replaces did, because
+ * `infoDirFor` on a legacy key resolves to the un-namespaced `info/<B>` for every system alike. The
+ * two colliding on one stem is the very ambiguity 2.15 introduced `sgb/` to end.
+ *
+ * It cannot key off `key.ns`: assetKeyOf folds the namespace through nsForMode, and legacy folds
+ * EVERY system to '', so the key no longer remembers which console the ROM was. Keying off it made
+ * this whole merge unreachable -- and a card already organised into sgb/ whose firmware reads as
+ * legacy then indexed under `sgb/<stem>` while being looked up as `<stem>`, so every Game Boy
+ * sidecar read as absent and Auto-fill rewrote them every session.
  */
 export function infoSidecarsFor(idx: ReadonlyMap<string, InfoSidecars>, key: AssetKey): InfoSidecars | null {
   const own = idx.get(infoIndexKey(key)) ?? null;
-  if (key.mode !== 'legacy' || !key.ns) return own;
-  const flat = idx.get(infoIndexKey({ stem: key.stem, ns: '' })) ?? null;
-  if (!own || !flat) return own ?? flat;
-  return {
-    gcv: own.gcv || flat.gcv,
-    fmv: own.fmv || flat.fmv,
-    yml: own.yml || flat.yml,
-    gss: own.gss || flat.gss,
-    gd: own.gd || flat.gd,
-    man: new Set([...own.man, ...flat.man]),
-  };
+  if (key.mode !== 'legacy') return own;
+  const found = [own, ...NS_SEGS.map((ns) => idx.get(infoIndexKey({ stem: key.stem, ns })) ?? null)]
+    .filter((x): x is InfoSidecars => !!x);
+  if (found.length < 2) return found[0] ?? null;
+  return found.reduce((a, b) => ({
+    gcv: a.gcv || b.gcv,
+    fmv: a.fmv || b.fmv,
+    yml: a.yml || b.yml,
+    gss: a.gss || b.gss,
+    gd: a.gd || b.gd,
+    man: new Set([...a.man, ...b.man]),
+  }));
 }
 
 /**
@@ -1315,10 +1321,14 @@ export class LibraryStore {
    */
   readonly layoutMode = computed<LayoutMode>(() => layoutForFw(this._fw(), this._cardLayout(), this._fwAssume()));
 
-  /** Does the firmware this card will run read the two-letter layout? Either it says so itself, or
-   *  the user told us because it could not be read. This (not `fwUsesBuckets` alone) is what
-   *  decides whether moving files is safe. */
-  readonly readsBuckets = computed(() => this.fwUsesBuckets() || this._fwAssume() === 'buckets');
+  /** Does the firmware this card will run read the bucket layout at all? Either it says so itself,
+   *  or the user told us because it could not be read. This (not `fwUsesBuckets` alone) is what
+   *  decides whether moving files is safe. Any generation but 'legacy' qualifies -- WHICH one it is
+   *  only decides the destination, and that is `layoutMode`'s job. */
+  readonly readsBuckets = computed(() => {
+    const a = this._fwAssume();
+    return this.fwUsesBuckets() || (a !== null && a !== 'legacy');
+  });
 
   /** `assetKeyOf` with the card's layout injected. Every write path goes through this. It is the
    *  single point where the mode enters, which is why adding it touched no call site. */
@@ -1356,7 +1366,7 @@ export class LibraryStore {
     /* Say which layout we settled on when the version is a guess, otherwise the only way to find
        out is to look at where a downloaded cover landed. */
     const a = this._fwAssume();
-    return a ? `${head} ${this.i18n.translate(a === 'buckets' ? 'migrate.fwAssumedNew' : 'migrate.fwAssumedOld')}` : head;
+    return a ? `${head} ${this.i18n.translate(a === 'legacy' ? 'migrate.fwAssumedOld' : 'migrate.fwAssumedNew')}` : head;
   });
 
   /* The card is actively broken: the firmware reads only buckets and this card is not bucketed.
@@ -2206,7 +2216,7 @@ export class LibraryStore {
    *  that can tell a GB game's Tetris.srm from a SNES game's. One accessor so the three plan()
    *  call sites below cannot drift apart. */
   private romIndex(): RomIndex {
-    return buildRomIndex(this._entries().map((e) => e.file));
+    return buildRomIndex(this._entries().map((e) => e.file), this.layoutMode());
   }
 
   /** Every `.ips`/`.bps` on the card, from the last scan. Not a signal: nothing renders it, it
@@ -2271,7 +2281,7 @@ export class LibraryStore {
     if (this._fw().kind === 'release') return;
 
     const stored = await loadCardFwAssume(dir);
-    if (stored) { this._fwAssume.set(stored); return; }
+    if (stored) { this._fwAssume.set(stored === 'legacy' ? 'legacy' : 'namespaces'); return; }
     if (this._cardLayout()) return;
     if (!interactive) return;
 
@@ -2287,7 +2297,7 @@ export class LibraryStore {
       confirmLabel: this.i18n.translate('store.fwAssumeNew'),
       cancelLabel: this.i18n.translate('store.fwAssumeOld'),
     });
-    this._fwAssume.set(r.ok ? 'buckets' : 'legacy');
+    this._fwAssume.set(r.ok ? 'namespaces' : 'legacy');
   }
 
   /**
@@ -2304,9 +2314,11 @@ export class LibraryStore {
     for await (const [name, child] of h.entries()) {
       if (isJunkFile(name)) continue;
       if (child.kind === 'file') return root === INFO_ROOT ? null : 'legacy'; // info never held loose files
-      if (name === SGB_SEG) return 'buckets';                                 // new layout only
-      if (name === AMBIGUOUS_SEG) continue;                                   // migration quarantine, says nothing
-      if (name.length === BUCKET_LEN) return 'buckets';
+      const kind = classifyRootChild(name, 0);
+      if (kind === SGB_SEG) return 'buckets';
+      if (isNsSeg(kind)) return 'namespaces';
+      if (kind === 'ambiguous') continue;                                     // migration quarantine, says nothing
+      if (kind === 'bucket' && name.length === BUCKET_LEN) return 'buckets';
       if (root === INFO_ROOT && name.length === 1) return 'legacy';
     }
     return null;
@@ -2318,7 +2330,7 @@ export class LibraryStore {
     if (!this.rootHandle) return;
     try {
       this._fw.set(await readFwVersion(this.rootHandle, getDirByPath));
-      const plan = await this.migration.plan(this.rootHandle, this.romIndex(), this.libraryFiles());
+      const plan = await this.migration.plan(this.rootHandle, this.romIndex(), this.libraryFiles(), this.layoutMode());
       /* Renames count too: they are files the Organizer will fix, and the badge is the only thing
          that tells a user there is anything to fix. What they must not do is drive the dialog's
          "this card uses the old layout" warning -- a stranded patch says nothing about the layout,
@@ -2339,7 +2351,7 @@ export class LibraryStore {
 
   /** Plan the migration without touching anything (the dialog's preview). */
   async planMigration(): Promise<MigrationPlan | null> {
-    return this.rootHandle ? this.migration.plan(this.rootHandle, this.romIndex(), this.libraryFiles()) : null;
+    return this.rootHandle ? this.migration.plan(this.rootHandle, this.romIndex(), this.libraryFiles(), this.layoutMode()) : null;
   }
 
   /** Run the migration. Driven through bulkBegin so it inherits the existing beforeunload guard
@@ -2359,7 +2371,7 @@ export class LibraryStore {
     this.bulkBegin(0, this.i18n.translate('migrate.scanning'), false);
     let plan: MigrationPlan;
     try {
-      const full = await this.migration.plan(this.rootHandle, this.romIndex(), this.libraryFiles());
+      const full = await this.migration.plan(this.rootHandle, this.romIndex(), this.libraryFiles(), this.layoutMode());
       /* Never move files on a card whose firmware is not confirmed to read the new layout -- that
          would hide the user's saves from their own console. Sweeping junk stays available: it is
          safe under every firmware, and it is half the directory-scan cost on its own.

@@ -5,6 +5,27 @@ Every released version, newest first.
 Some releases were published together and reach the repository as a single commit. When that
 happens, the entry says which versions it covers.
 
+## 1.28.0 - 2026-08-21
+
+### Added
+
+- **Every console gets a folder of its own on the card**, the way Game Boy already had `sgb/`:
+  `nes/`, `sms/`, `a26/` and `sft/`, inside each two-letter bucket. Sidecars are named from the
+  ROM's stem with the extension dropped, so before this a `Tetris (USA).nes` and a
+  `Tetris (USA).sfc` — both real No-Intro names — shared one cover, one game-info card and one set
+  of cheats, and whichever was written last won. Firmware 2.16 reads the new folders; the Organizer
+  moves what is already on the card.
+- **The Organizer handles both steps at once.** A card still on the 2.14 layout goes straight to
+  the 2.16 one in a single run, without stopping at 2.15 on the way.
+
+### Fixed
+
+- **The Organizer now tidies into the layout your card's firmware actually reads.** It used to
+  always target the newest one it knew. On a 2.15 console — which runs NES and Master System but
+  only ever looks inside `sgb/` — that would have moved those sidecars somewhere it never opens.
+  The firmware version read off the card decides the destination, so a 2.15 card is organized as
+  2.15 and a 2.16 card as 2.16.
+
 ## 1.27.0 - 2026-08-21
 
 ### Added

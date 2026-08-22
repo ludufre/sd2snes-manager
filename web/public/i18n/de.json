@@ -344,7 +344,7 @@
   },
   "migrate": {
     "aborted": "Abgebrochen — {{moved}} Dateien waren bereits verschoben.",
-    "ambiguous": "{{count}} Datei(en) tragen einen Namen, den es SOWOHL als Game-Boy- als auch als SNES-Spiel gibt — welchem der beiden sie gehören, lässt sich nicht feststellen. Statt zu raten, liegen sie in einem Ordner <b>_ambiguous</b> im betroffenen Stammverzeichnis — unten steht, wo genau jede Gruppe liegt:",
+    "ambiguous": "{{count}} Datei(en) tragen einen Namen, den es auf ZWEI verschiedenen Systemen gibt — welchem sie gehören, lässt sich nicht feststellen. Statt zu raten, liegen sie in einem Ordner <b>_ambiguous</b> im betroffenen Stammverzeichnis — unten steht, wo genau jede Gruppe liegt:",
     "ambiguousAlready": "{{count}} davon liegen schon seit einem früheren Lauf dort — dieser Lauf rührt sie nicht an.",
     "ambiguousHint": "Benenne eines der beiden Spiele um, damit sie unterscheidbar sind, und ordne erneut — die Dateien verlassen _ambiguous von selbst.",
     "ambiguousOnly": "Es konnte nichts verschoben werden — die verbleibenden Dateien brauchen zuerst einen gelösten Namenskonflikt.",
@@ -410,9 +410,11 @@
     "sysDirsHint": "Absichtlich nicht vorausgewählt: In $RECYCLE.BIN können noch Dateien liegen, die du für vorhanden hältst. Aktiviert werden die Ordner komplett gelöscht – samt Inhalt. Windows verweigert System Volume Information manchmal; dann bleibt dieser Ordner stehen und der Rest läuft normal weiter.",
     "title": "Karte ordnen",
     "unwritable": "Die Karte nimmt nach {{moved}} Dateien keine Schreibvorgänge mehr an — evtl. voll, schreibgeschützt oder schreibgeschützt neu eingebunden. Nichts ging verloren: Dateien werden einzeln verschoben. Karte neu einsetzen und erneut ordnen, um fertigzustellen. ({{error}})",
-    "warn": "Diese Karte nutzt noch die <b>alte Struktur</b>, die Firmware darauf ist aber <b>2.15 oder neuer</b> und liest nur die neue. Spielstände, Cheats und Cover sind weiterhin auf der Karte — die Konsole schaut nur nicht dort nach. Ordnen holt sie zurück. Game-Boy-Spiele wandern zudem in einen eigenen <b>sgb</b>-Ordner, damit eine <b>.gb</b> und eine <b>.sfc</b> mit gleichem Namen nicht mehr denselben Spielstand teilen.",
-    "warnPartial": "Diese Karte nutzt bereits die <b>neue Struktur</b>, aber <b>{{count}}</b> Dateien liegen noch am falschen Platz — dort findet die Konsole sie nicht. Meist sind es Spielstände und Cover von <b>Game-Boy</b>-Spielen, die jetzt in einem eigenen <b>sgb</b>-Ordner liegen, damit eine <b>.gb</b> und eine <b>.sfc</b> mit gleichem Namen nicht mehr denselben Spielstand teilen. Ordnen legt jede Datei an ihren Platz.",
-    "why": "Firmware 2.15+ gruppiert Dateien in <b>Ordner mit zwei Buchstaben</b>, damit die Konsole sie schneller findet. Beim Ordnen werden auch die <b>._</b>-Dateien von macOS entfernt, die jede Suche verdoppeln. Game-Boy-Spiele bekommen darin einen eigenen <b>sgb</b>-Ordner, damit eine <b>.gb</b> und eine <b>.sfc</b> mit gleichem Namen nicht mehr denselben Spielstand teilen."
+    "warn": "Diese Karte nutzt noch die <b>alte Struktur</b>, die Firmware darauf ist aber <b>2.15 oder neuer</b> und liest nur die neue. Spielstände, Cheats und Cover sind weiterhin auf der Karte — die Konsole schaut nur nicht dort nach. Ordnen holt sie zurück.",
+    "warnPartial": "Diese Karte nutzt bereits die <b>neue Struktur</b>, aber <b>{{count}}</b> Dateien liegen noch am falschen Platz — dort findet die Konsole sie nicht. Meist sind es Spielstände und Cover von <b>Game-Boy</b>-Spielen, die Ordnen legt jede Datei an ihren Platz.",
+    "why": "Firmware 2.15+ gruppiert Dateien in <b>Ordner mit zwei Buchstaben</b>, damit die Konsole sie schneller findet. Beim Ordnen werden auch die <b>._</b>-Dateien von macOS entfernt, die jede Suche verdoppeln.",
+    "whySgb": "Game-Boy-Spiele bekommen darin einen eigenen <b>sgb</b>-Ordner, damit eine <b>.gb</b> und eine <b>.sfc</b> mit gleichem Namen nicht mehr denselben Spielstand teilen.",
+    "whyNs": "Ab 2.16 bekommt jede Konsole darin einen eigenen Ordner — <b>sgb</b>, <b>nes</b>, <b>sms</b>, <b>a26</b> und <b>sft</b> —, damit eine <b>.gb</b>, eine <b>.nes</b> und eine <b>.sfc</b> mit gleichem Namen nicht mehr denselben Spielstand, dasselbe Cover und dieselben Cheats teilen."
   },
   "move": {
     "copyTitleMany": "{{count}} Spiele kopieren nach…",

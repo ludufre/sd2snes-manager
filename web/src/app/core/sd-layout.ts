@@ -92,9 +92,15 @@ export const SGB_SEG = 'sgb';
  */
 export const SFT_SEG = 'sft';
 
+export const NES_SEG = 'nes';
+export const SMS_SEG = 'sms';
+export const A26_SEG = 'a26';
+
+export const NS_SEGS = [SGB_SEG, SFT_SEG, NES_SEG, SMS_SEG, A26_SEG] as const;
+
 /**
- * Quarantine for sidecars whose ROM cannot be identified: the stem matches both a Game Boy and a
- * SNES game on the card, so nothing can say which one the file belongs to.
+ * Quarantine for sidecars whose ROM cannot be identified: the stem matches games on two systems
+ * that this card's layout files apart, so nothing can say which one the file belongs to.
  *
  * They go here rather than staying loose in the root because the firmware cannot read them in
  * Either place, but loose in the root they also slow down every directory scan and look like the
@@ -133,14 +139,23 @@ export function isSufamiRom(filename: string): boolean {
   return i >= 0 && filename.slice(i + 1).toLowerCase() === 'st';
 }
 
-/** Which namespace a ROM's sidecars live under, '' for the ordinary SNES case. One function so
- *  the two predicates above can never both win at a call site. */
-export type AssetNs = '' | typeof SGB_SEG | typeof SFT_SEG;
+/**
+ * Which namespace a ROM's sidecars live under, '' for the ordinary SNES case.
+ *
+ * Mirrors path_ns() in _repo/src/fileops.c, table and all. Extensions match EXACTLY here; Game Boy
+ * is the single prefix rule. The ".sms"/".smc" pair is why exactness is not negotiable -- ".smc"
+ * is a SNES ROM and must never land in sms/.
+ *
+ * One function so the predicates can never both win at a call site.
+ */
+export type AssetNs = '' | (typeof NS_SEGS)[number];
+
+const NS_BY_EXT: Readonly<Record<string, AssetNs>> = { st: SFT_SEG, nes: NES_SEG, sms: SMS_SEG, a26: A26_SEG };
 
 export function nsOf(filename: string): AssetNs {
   if (isGbRom(filename)) return SGB_SEG;
-  if (isSufamiRom(filename)) return SFT_SEG;
-  return '';
+  const i = filename.lastIndexOf('.');
+  return (i >= 0 && NS_BY_EXT[filename.slice(i + 1).toLowerCase()]) || '';
 }
 
 /**
@@ -152,14 +167,19 @@ export function nsOf(filename: string): AssetNs {
  * card's own firmware reads, or a 2.14 user who just opens the page finds newly-downloaded covers
  * and cheats invisible on the console.
  *
- *   'legacy'. Firmware < 2.15: only /sd2snes/info was bucketed, by one character;
+ *   'legacy', firmware < 2.15: only /sd2snes/info was bucketed, by one character;
  *               cheats/saves/states were flat. No Game Boy namespace existed.
- *   'buckets', firmware >= 2.15: two-letter buckets everywhere, plus sgb/ for Game Boy.
+ *   'buckets', firmware 2.15: two-letter buckets everywhere, plus sgb/ for Game Boy -- the ONLY
+ *               namespace that firmware knows. Writing a NES sidecar into nes/ on such a card
+ *               hides it, and NES is a system 2.15 actually runs, so the mode has to be honoured
+ *               rather than treated as an older spelling of the same thing.
+ *   'namespaces', firmware >= 2.16: a namespace per system (sgb/ sft/ nes/ sms/ a26/), so a stem
+ *               shared across consoles stops sharing one cover, one .yml and one cheat file.
  *
- * Reading tolerates both regardless (see library-store's indexSidecarRoot), this only governs
- * where new files are written.
+ * Reading tolerates all of them regardless (see library-store's indexSidecarRoot), this only
+ * governs where new files are written.
  */
-export type LayoutMode = 'legacy' | 'buckets';
+export type LayoutMode = 'legacy' | 'buckets' | 'namespaces';
 
 /**
  * A ROM's identity for asset paths: the stem sidecars are named from, which namespace it lives in,
@@ -177,15 +197,29 @@ export interface AssetKey {
   readonly mode: LayoutMode;
 }
 
-/** The asset key for a ROM filename. Extension included, since that is what decides `ns`. */
+/**
+ * The asset key for a ROM filename. Extension included, since that is what decides `ns`.
+ *
+ * The namespace is folded through `nsForMode` HERE, once, so `k.ns` is the EFFECTIVE one for this
+ * card rather than the ROM's ideal one. That is not a detail: `assetIndexKey` derives the lookup
+ * key from `k.ns` while the card index derives it from the directory a file was actually found in.
+ * Fold only at the destination and the two disagree -- on a 2.15 card a Tetris (USA).nes sidecar is
+ * WRITTEN to info/TE/ and then looked up under nes/, so every save, cheat and cover of a NES or
+ * Master System game reads as missing and gets downloaded again.
+ */
 export function assetKeyOf(romFilename: string, mode: LayoutMode): AssetKey {
-  return { stem: romStem(romFilename), ns: nsOf(romFilename), mode };
+  return { stem: romStem(romFilename), ns: nsForMode(nsOf(romFilename), mode), mode };
 }
 
-/** Explicit escape hatches for the few places that genuinely only have a stem. */
+/** Explicit escape hatches for the few places that genuinely only have a stem. Folded like above. */
 export const snesKey = (stem: string, mode: LayoutMode): AssetKey => ({ stem, ns: '', mode });
-export const gbKey = (stem: string, mode: LayoutMode): AssetKey => ({ stem, ns: SGB_SEG, mode });
-export const sufamiKey = (stem: string, mode: LayoutMode): AssetKey => ({ stem, ns: SFT_SEG, mode });
+export const gbKey = (stem: string, mode: LayoutMode): AssetKey => ({ stem, ns: nsForMode(SGB_SEG, mode), mode });
+export const sufamiKey = (stem: string, mode: LayoutMode): AssetKey => ({ stem, ns: nsForMode(SFT_SEG, mode), mode });
+
+export function nsForMode(ns: AssetNs, mode: LayoutMode): AssetNs {
+  if (mode === 'legacy') return '';          // pre-2.15 had no namespace at all, not even sgb/
+  return mode === 'namespaces' ? ns : ns === SGB_SEG ? SGB_SEG : '';
+}
 
 export function bucketDirFor(root: BucketedRoot | string, k: AssetKey): string {
   if (k.mode === 'legacy') {
@@ -193,7 +227,8 @@ export function bucketDirFor(root: BucketedRoot | string, k: AssetKey): string {
     // and sgb/ did not exist. A firmware that old would not look inside it.
     return root === INFO_ROOT ? `${root}/${legacyBucketOf(k.stem)}` : `${root}`;
   }
-  return k.ns ? `${root}/${k.ns}/${bucketOf(k.stem)}` : `${root}/${bucketOf(k.stem)}`;
+  const ns = nsForMode(k.ns, k.mode);
+  return ns ? `${root}/${ns}/${bucketOf(k.stem)}` : `${root}/${bucketOf(k.stem)}`;
 }
 
 export const infoDirFor = (k: AssetKey) => bucketDirFor(INFO_ROOT, k);
@@ -229,12 +264,23 @@ export function assetIndexKey(k: Pick<AssetKey, 'stem' | 'ns'>): AssetIndexKey {
  *
  * `sgb`/`sft` are recognised only at depth 0, so a stray saves/SG/sgb/ is never followed.
  */
-export type RootChild = 'sgb' | 'sft' | 'ambiguous' | 'bucket' | 'unknown';
+export type RootChild = (typeof NS_SEGS)[number] | 'ambiguous' | 'bucket' | 'unknown';
+
+export function isNsSeg(kind: RootChild): kind is (typeof NS_SEGS)[number] {
+  return kind !== 'ambiguous' && kind !== 'bucket' && kind !== 'unknown';
+}
+
+export function nsOfRootChild(kind: RootChild, parent: AssetNs): AssetNs {
+  return isNsSeg(kind) ? kind : parent;
+}
 
 export function classifyRootChild(name: string, depth: 0 | 1): RootChild {
-  if (depth === 0 && name.toLowerCase() === SGB_SEG) return 'sgb';
-  if (depth === 0 && name.toLowerCase() === SFT_SEG) return 'sft';
-  if (depth === 0 && name.toLowerCase() === AMBIGUOUS_SEG) return 'ambiguous';
+  const lower = name.toLowerCase();
+  if (depth === 0) {
+    const ns = NS_SEGS.find((n) => n === lower);
+    if (ns) return ns;
+    if (lower === AMBIGUOUS_SEG) return 'ambiguous';
+  }
   return name.length > 0 && name.length <= BUCKET_LEN ? 'bucket' : 'unknown';
 }
 
@@ -267,9 +313,8 @@ export function bucketKeyForFile(filename: string): string {
  * nothing about whether its ROM is Game Boy. Only the ROM library can answer that, see
  * buildRomIndex() in sd-migration.service.ts.
  */
-export function bucketDirForFile(root: BucketedRoot | string, filename: string, ns: AssetNs): string {
-  // Always the new layout: the only caller is the migration, whose whole job is to produce it.
-  return bucketDirFor(root, { stem: bucketKeyForFile(filename), ns, mode: 'buckets' });
+export function bucketDirForFile(root: BucketedRoot | string, filename: string, ns: AssetNs, mode: LayoutMode): string {
+  return bucketDirFor(root, { stem: bucketKeyForFile(filename), ns, mode });
 }
 
 /**

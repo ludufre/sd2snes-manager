@@ -759,7 +759,7 @@ describe('electGameInfoOwners — who speaks for a shared gameInfo', () => {
 });
 
 describe('gameInfoKeyOf — two ROMs share a gameInfo exactly when the card cannot tell them apart', () => {
-  const k = (stem: string, sgb = false) => gameInfoKeyOf({ stem, sgb, mode: 'buckets' });
+  const k = (stem: string, sgb = false) => gameInfoKeyOf({ stem, ns: sgb ? 'sgb' : '', mode: 'buckets' });
 
   it('is the same for two ROMs with the same filename (this is the sharing itself)', () => {
     expect(k('Chou Aniki (Japan)')).toBe(k('Chou Aniki (Japan)'));

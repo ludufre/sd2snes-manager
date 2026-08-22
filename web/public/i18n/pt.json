@@ -344,7 +344,7 @@
   },
   "migrate": {
     "aborted": "Interrompido — {{moved}} arquivos já tinham sido movidos.",
-    "ambiguous": "{{count}} arquivo(s) têm um nome que existe TANTO como jogo de Game Boy quanto de SNES, então não há como saber a qual dos dois pertencem. Em vez de chutar, eles ficam numa pasta <b>_ambiguous</b> dentro da raiz afetada — abaixo, o lugar exato de cada grupo:",
+    "ambiguous": "{{count}} arquivo(s) têm um nome que existe em jogos de DOIS sistemas diferentes, então não há como saber a qual deles pertencem. Em vez de chutar, eles ficam numa pasta <b>_ambiguous</b> dentro da raiz afetada — abaixo, o lugar exato de cada grupo:",
     "ambiguousAlready": "{{count}} deles já estão nessa pasta desde uma organização anterior — esta execução não vai mexer neles.",
     "ambiguousHint": "Renomeie um dos dois jogos para diferenciá-los e organize de novo — os arquivos saem da _ambiguous sozinhos.",
     "ambiguousOnly": "Nada pôde ser movido — os únicos arquivos restantes dependem de resolver um conflito de nome.",
@@ -410,9 +410,11 @@
     "sysDirsHint": "Desmarcado de propósito: a $RECYCLE.BIN pode guardar arquivos que você ainda acha que tem. Marcando, elas são apagadas inteiras — com tudo dentro. O Windows às vezes recusa a System Volume Information; nesse caso ela fica e o resto da organização segue normal.",
     "title": "Organizar o cartão",
     "unwritable": "O cartão parou de aceitar gravações após {{moved}} arquivos — pode estar cheio, protegido contra escrita ou remontado como somente-leitura. Nada foi perdido: os arquivos são movidos um a um. Reencaixe o cartão e organize de novo para terminar. ({{error}})",
-    "warn": "Este cartão ainda usa a <b>organização antiga</b>, mas a firmware nele é <b>2.15 ou mais nova</b>, que só lê a nova. Seus saves, cheats e capas continuam no cartão — o console só não está olhando onde eles estão. Organizar traz tudo de volta. Jogos de Game Boy também vão para uma pasta <b>sgb</b> própria, para que um <b>.gb</b> e um <b>.sfc</b> de mesmo nome parem de compartilhar o mesmo save.",
-    "warnPartial": "Este cartão já está na <b>organização nova</b>, mas <b>{{count}}</b> arquivos ainda estão fora do lugar — o console não vai encontrá-los onde estão. Costumam ser saves e capas de jogos de <b>Game Boy</b>, que agora ficam numa pasta <b>sgb</b> própria, para que um <b>.gb</b> e um <b>.sfc</b> de mesmo nome parem de compartilhar o mesmo save. Organizar põe cada um no seu lugar.",
-    "why": "A firmware 2.15+ agrupa os arquivos em <b>pastas de duas letras</b> para o console encontrá-los mais rápido. Organizar também apaga os arquivos <b>._</b> do macOS, que dobram o custo de cada busca. Jogos de Game Boy ganham uma pasta <b>sgb</b> própria dentro de cada uma delas, para que um <b>.gb</b> e um <b>.sfc</b> de mesmo nome parem de compartilhar o mesmo save."
+    "warn": "Este cartão ainda usa a <b>organização antiga</b>, mas a firmware nele é <b>2.15 ou mais nova</b>, que só lê a nova. Seus saves, cheats e capas continuam no cartão — o console só não está olhando onde eles estão. Organizar traz tudo de volta.",
+    "warnPartial": "Este cartão já está na <b>organização nova</b>, mas <b>{{count}}</b> arquivos ainda estão fora do lugar — o console não vai encontrá-los onde estão. Costumam ser saves e capas de jogos de Organizar põe cada um no seu lugar.",
+    "why": "A firmware 2.15+ agrupa os arquivos em <b>pastas de duas letras</b> para o console encontrá-los mais rápido. Organizar também apaga os arquivos <b>._</b> do macOS, que dobram o custo de cada busca.",
+    "whySgb": "Jogos de Game Boy ganham uma pasta <b>sgb</b> própria dentro de cada uma delas, para que um <b>.gb</b> e um <b>.sfc</b> de mesmo nome parem de compartilhar o mesmo save.",
+    "whyNs": "A partir da 2.16, cada console ganha uma pasta própria dentro delas — <b>sgb</b>, <b>nes</b>, <b>sms</b>, <b>a26</b> e <b>sft</b> — para que um <b>.gb</b>, um <b>.nes</b> e um <b>.sfc</b> de mesmo nome parem de compartilhar o mesmo save, a mesma capa e os mesmos cheats."
   },
   "move": {
     "copyTitleMany": "Copiar {{count}} jogos para…",

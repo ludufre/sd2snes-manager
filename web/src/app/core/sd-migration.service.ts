@@ -2,8 +2,8 @@ import { Injectable } from '@angular/core';
 import { CardWriter } from './card-writer.service';
 import {
   BUCKETED_ROOTS, SD_ROOT, BUCKET_LEN, PATCH_BASENAME_MAX, PATCH_PATH_MAX, PATCH_EXTS,
-  bucketDirFor, ambiguousDirFor, bucketKeyForFile, isJunkFile, isJunkDir, nsOf, romStem, classifyRootChild,
-  AssetNs, SGB_SEG, SFT_SEG,
+  bucketDirFor, ambiguousDirFor, bucketKeyForFile, isJunkFile, isJunkDir, nsOf, nsForMode, romStem, classifyRootChild,
+  AssetNs, SGB_SEG, nsOfRootChild, isNsSeg,
   patchExtOf, patchStemOf, patchBelongsToRom, patchShadowsRom, patchRenameFor, type LayoutMode,
 } from './sd-layout';
 
@@ -34,12 +34,17 @@ export type StemClass = AssetNs | 'both';
 export type RomIndex = ReadonlyMap<string, StemClass>;
 
 /** Build the stem -> namespace map from the scanned ROM filenames. Keys are lowercased: FAT long
- *  names are case-insensitive, so TETRIS.srm must match Tetris.gb. */
-export function buildRomIndex(romFilenames: Iterable<string>): Map<string, StemClass> {
+ *  names are case-insensitive, so TETRIS.srm must match Tetris.gb.
+ *
+ *  `mode` matters and is not cosmetic: it decides what counts as a COLLISION. On a 2.15 card a
+ *  Tetris.nes and a Tetris.sfc both belong in the plain TE bucket -- sharing it is that firmware's
+ *  actual behaviour, not an ambiguity to quarantine. Only a layout that would have filed them
+ *  apart can call the pair unattributable. */
+export function buildRomIndex(romFilenames: Iterable<string>, mode: LayoutMode): Map<string, StemClass> {
   const out = new Map<string, StemClass>();
   for (const f of romFilenames) {
     const k = romStem(f).toLowerCase();
-    const c: StemClass = nsOf(f);      // '' | 'sgb' | 'sft'
+    const c: StemClass = nsForMode(nsOf(f), mode);
     const prev = out.get(k);
     out.set(k, prev === undefined || prev === c ? c : 'both');
   }
@@ -47,10 +52,10 @@ export function buildRomIndex(romFilenames: Iterable<string>): Map<string, StemC
 }
 
 /**
- * A file whose stem matches ROMs in two different namespaces (a .gb and a .sfc, or a .st and a
- * .sfc) -- the exact collision the namespaces exist to prevent, seen from the other side. We
- * cannot know which game the file belongs to, and guessing wrong hands one game's save to the
- * other, so it is left untouched and
+ * A file whose stem matches ROMs in two different namespaces (a .gb and a .sfc, a .nes and a .sfc,
+ * a .st and a .sfc) -- the exact collision the namespaces exist to prevent, seen from the other
+ * side. We cannot know which game the file belongs to, and guessing wrong hands one game's save to
+ * the other, so it is left untouched and
  * reported. Distinct from `skipped` ("did not recognise this") and `conflicts` ("destination taken").
  */
 export interface AmbiguousFile {
@@ -369,13 +374,14 @@ export class SdMigrationService {
   async plan(
     root: FileSystemDirectoryHandle,
     roms: RomIndex,
-    library?: { roms: readonly ScannedName[]; patches: readonly ScannedName[] },
+    library: { roms: readonly ScannedName[]; patches: readonly ScannedName[] } | undefined,
+    target: LayoutMode,
   ): Promise<MigrationPlan> {
     const plan = EMPTY_PLAN();
     /* Tally where files actually sit, so `observed` can answer "which layout is this card in?"
        when the firmware version is unreadable. Counted per file, not per directory: one stray
        hand-made folder should not outvote a fully organized card. */
-    let seenNew = 0, seenOld = 0;
+    let seenNew = 0, seenOld = 0, seenNs = 0;
     const cache = new Map<string, FileSystemDirectoryHandle | null>();
 
     for (const rootPath of BUCKETED_ROOTS) {
@@ -392,18 +398,19 @@ export class SdMigrationService {
         if (isJunkFile(name)) return;      // collected by scanJunk() below, across the whole tree
         /* Which layout does this file's own position vote for? A two-letter holder (or anything
            under sgb/) is the new layout; the bare root or a one-letter holder is the old one. */
-        const holder = holderPath.slice(rootPath.length + 1);   // '' | 'S' | 'su' | 'sgb' | 'sft/SU'
+        const holder = holderPath.slice(rootPath.length + 1);   // '' | 'S' | 'su' | 'nes' | 'sft/SU'
         if (nsHere || (holder.length === BUCKET_LEN)) seenNew++; else seenOld++;
+        if (nsHere && nsHere !== SGB_SEG) seenNs++;
         const stem = bucketKeyForFile(name);
         const cls = roms.get(stem.toLowerCase());
         /* Where does this file belong? In order of how much the evidence is worth:
-             library says gb / snes  -> that wins outright, and self-heals a file put in the wrong
+             library knows the ROM   -> that wins outright, and self-heals a file put in the wrong
                                         namespace by hand or by an older rule;
-             library says both       -> the stem matches a .gb and a SNES ROM, so the name proves
+             library says both       -> the stem matches ROMs on two systems, so the name proves
                                         nothing -- but the file's own position may. Under the new
                                         layout the two games live in different places, and only the
-                                        firmware that loaded a ROM writes there: sgb/<BB> is the
-                                        Game Boy one, a plain <BB> bucket is the SNES one. Either
+                                        firmware that loaded a ROM writes there: <ns>/<BB> is that
+                                        console's, a plain <BB> bucket is the SNES one. Either
                                         way the question is already answered and the file stays put.
                                         Only a file with no namespace to its name -- loose in the
                                         root, or in a one-character legacy bucket that both games
@@ -416,6 +423,7 @@ export class SdMigrationService {
            Getting this wrong is expensive in a way a unit test would not have shown: on a real
            card 259 already-filed info sidecars would have been yanked out into quarantine,
            breaking game info that works today for the SNES half of each pair. */
+        if (target === 'legacy') return;
         const placed = !!nsHere || holder.length === BUCKET_LEN;
         let want: string;
         if (cls === 'both' && !placed) {
@@ -424,7 +432,7 @@ export class SdMigrationService {
         } else {
           // library wins outright; 'both' or orphan keeps whatever namespace it is already in
           const ns: AssetNs = cls !== undefined && cls !== 'both' ? cls : nsHere;
-          want = bucketDirFor(rootPath, { stem, ns, mode: 'buckets' });
+          want = bucketDirFor(rootPath, { stem, ns, mode: target });
         }
         if (want === holderPath) return;                      // already where it belongs
         const size = await (h as FileSystemFileHandle).getFile().then((f) => f.size).catch(() => 0);
@@ -449,10 +457,10 @@ export class SdMigrationService {
           if (kind === 'unknown') { plan.skipped.push(`${dPath}/${name}`); continue; }
           /* The quarantine is walked like any other holder -- that is what lets a file leave it
              once the user resolves the name clash. It is flat (depth 2 = files only) and never
-             counts as a namespace. */
-          const childNs: AssetNs = kind === 'sgb' ? SGB_SEG : kind === 'sft' ? SFT_SEG : ns;
-          await walk(h as FileSystemDirectoryHandle, `${dPath}/${name}`, childNs,
-                     kind === 'sgb' || kind === 'sft' ? 1 : 2);
+             counts as a namespace.
+             classifyRootChild returns the namespace SEGMENT itself, so adding a console is one
+             entry in NS_SEGS and nothing here changes. */
+          await walk(h as FileSystemDirectoryHandle, `${dPath}/${name}`, nsOfRootChild(kind, ns), isNsSeg(kind) ? 1 : 2);
         }
       };
       await walk(dir, rootPath, '', 0);
@@ -469,7 +477,7 @@ export class SdMigrationService {
     /* Out in the ROM tree, not under /sd2snes, and free, because it reasons over the scan the
        library already holds instead of walking the card again. */
     if (library) plan.renames = planPatchRenames(library.roms, library.patches);
-    if (seenNew || seenOld) plan.observed = seenNew >= seenOld ? 'buckets' : 'legacy';
+    if (seenNew || seenOld) plan.observed = seenNs ? 'namespaces' : seenNew >= seenOld ? 'buckets' : 'legacy';
     /* Counted after the walk but reported as work to do, so a card whose only remaining problem is
        32 dead one-character folders still offers a run. Note this is the state before the moves --
        execute() prunes again at the end, once its own moves have emptied more. */
@@ -605,7 +613,12 @@ export class SdMigrationService {
    *     even when empty -- `classifyRootChild` calls it 'unknown' and we do not touch those;
    *   - names are collected before removing, never mutated mid-iteration.
    */
-  /** Read-only twin of pruneEmptyHolders, for the dry run. */
+  /** Read-only twin of pruneEmptyHolders, for the dry run.
+   *
+   *  It has to descend into a namespace exactly as the pruner does. A namespace emptied by a
+   *  migration is NOT itself empty -- it still holds its two-letter buckets -- so counting only
+   *  depth 0 reports "nothing to do", the run early-outs, and the pruner that would have cleaned
+   *  them never gets to execute. The two must stay symmetric or the work is unreachable. */
   private async countEmptyHolders(root: FileSystemDirectoryHandle): Promise<number> {
     let n = 0;
     for (const rootPath of BUCKETED_ROOTS) {
@@ -613,8 +626,21 @@ export class SdMigrationService {
       if (!dir) continue;
       for await (const [name, h] of dir.entries()) {
         if (h.kind !== 'directory') continue;
-        if (classifyRootChild(name, 0) === 'unknown') continue;
-        if (await isEmptyDir(h as FileSystemDirectoryHandle)) n++;
+        const kind = classifyRootChild(name, 0);
+        if (kind === 'unknown') continue;
+        const d = h as FileSystemDirectoryHandle;
+        if (isNsSeg(kind)) {
+          let inner = 0, other = 0;
+          for await (const [n2, h2] of d.entries()) {
+            const empty = h2.kind === 'directory' && classifyRootChild(n2, 1) !== 'unknown'
+                       && await isEmptyDir(h2 as FileSystemDirectoryHandle);
+            if (empty) inner++; else other++;
+          }
+          n += inner;
+          if (inner && !other) n++;
+          continue;
+        }
+        if (await isEmptyDir(d)) n++;
       }
     }
     return n;
@@ -632,7 +658,7 @@ export class SdMigrationService {
       for (const [name, h] of children) {
         const kind = classifyRootChild(name, 0);
         if (kind === 'unknown') continue;
-        if (kind === 'sgb') {                       // prune its buckets first, then sgb/ itself
+        if (isNsSeg(kind)) {                        // prune its buckets first, then the namespace itself
           const inner: string[] = [];
           for await (const [n2, h2] of h.entries()) {
             if (h2.kind === 'directory' && classifyRootChild(n2, 1) !== 'unknown'

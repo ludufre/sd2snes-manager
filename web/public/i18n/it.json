@@ -344,7 +344,7 @@
   },
   "migrate": {
     "aborted": "Interrotto — {{moved}} file erano già stati spostati.",
-    "ambiguous": "{{count}} file corrispondono a un nome che esiste SIA come gioco Game Boy SIA come gioco SNES, quindi non c'è modo di sapere a quale appartengano. Invece di indovinare, restano in una cartella <b>_ambiguous</b> dentro la radice interessata; qui sotto il punto esatto di ogni gruppo:",
+    "ambiguous": "{{count}} file corrispondono a un nome che esiste su DUE sistemi diversi, quindi non c'è modo di sapere a quale appartengano. Invece di indovinare, restano in una cartella <b>_ambiguous</b> dentro la radice interessata; qui sotto il punto esatto di ogni gruppo:",
     "ambiguousAlready": "{{count}} di questi sono già in quella cartella da un riordino precedente: questa esecuzione non li toccherà.",
     "ambiguousHint": "Rinomina uno dei due giochi per distinguerli e riordina di nuovo — i file escono da _ambiguous da soli.",
     "ambiguousOnly": "Non è stato possibile spostare nulla — gli unici file rimasti dipendono dalla risoluzione di un conflitto di nomi.",
@@ -410,9 +410,11 @@
     "sysDirsHint": "Deselezionato di proposito: il $RECYCLE.BIN può contenere ancora file che credi di avere. Se lo selezioni, le cartelle vengono eliminate per intero, contenuto compreso. Windows a volte rifiuta System Volume Information; in quel caso resta lì e il resto dell'organizzazione prosegue.",
     "title": "Riordina la scheda",
     "unwritable": "La scheda ha smesso di accettare scritture dopo {{moved}} file — potrebbe essere piena, protetta da scrittura o rimontata in sola lettura. Non è andato perso nulla: i file vengono spostati uno alla volta. Reinserisci la scheda e riordina di nuovo per completare. ({{error}})",
-    "warn": "Questa scheda usa ancora la <b>vecchia organizzazione</b>, ma il firmware che ha è <b>2.15 o successivo</b>, che legge solo quella nuova. I tuoi salvataggi, trucchi e copertine sono ancora sulla scheda — la console semplicemente non guarda dove sono. Riordinare li riporta in vista. Anche i giochi Game Boy passano nella loro cartella <b>sgb</b>, così un <b>.gb</b> e un <b>.sfc</b> con lo stesso nome smettono di condividere lo stesso salvataggio.",
-    "warnPartial": "Questa scheda è già nella <b>nuova organizzazione</b>, ma <b>{{count}}</b> file sono ancora fuori posto — lì la console non li troverà. Di solito sono salvataggi e copertine di giochi <b>Game Boy</b>, che ora stanno in una cartella <b>sgb</b> tutta loro, così un <b>.gb</b> e un <b>.sfc</b> con lo stesso nome smettono di condividere lo stesso salvataggio. Riordinare mette ognuno al suo posto.",
-    "why": "Il firmware 2.15+ raggruppa i file in <b>cartelle di due lettere</b> perché la console li trovi più in fretta. Il riordino elimina anche i file <b>._</b> di macOS, che raddoppiano ogni ricerca. I giochi Game Boy hanno la loro cartella <b>sgb</b> dentro ciascuna, così un <b>.gb</b> e un <b>.sfc</b> con lo stesso nome smettono di condividere lo stesso salvataggio."
+    "warn": "Questa scheda usa ancora la <b>vecchia organizzazione</b>, ma il firmware che ha è <b>2.15 o successivo</b>, che legge solo quella nuova. I tuoi salvataggi, trucchi e copertine sono ancora sulla scheda — la console semplicemente non guarda dove sono. Riordinare li riporta in vista.",
+    "warnPartial": "Questa scheda è già nella <b>nuova organizzazione</b>, ma <b>{{count}}</b> file sono ancora fuori posto — lì la console non li troverà. Di solito sono salvataggi e copertine di giochi <b>Game Boy</b>, che Riordinare mette ognuno al suo posto.",
+    "why": "Il firmware 2.15+ raggruppa i file in <b>cartelle di due lettere</b> perché la console li trovi più in fretta. Il riordino elimina anche i file <b>._</b> di macOS, che raddoppiano ogni ricerca.",
+    "whySgb": "I giochi Game Boy hanno la loro cartella <b>sgb</b> dentro ciascuna, così un <b>.gb</b> e un <b>.sfc</b> con lo stesso nome smettono di condividere lo stesso salvataggio.",
+    "whyNs": "Dalla 2.16 ogni console ha una cartella propria al loro interno — <b>sgb</b>, <b>nes</b>, <b>sms</b>, <b>a26</b> e <b>sft</b> — così un <b>.gb</b>, un <b>.nes</b> e un <b>.sfc</b> con lo stesso nome smettono di condividere lo stesso salvataggio, la stessa copertina e gli stessi trucchi."
   },
   "move": {
     "copyTitleMany": "Copia {{count}} giochi in…",

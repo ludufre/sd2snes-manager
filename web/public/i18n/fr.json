@@ -344,7 +344,7 @@
   },
   "migrate": {
     "aborted": "Interrompu — {{moved}} fichiers avaient déjà été déplacés.",
-    "ambiguous": "{{count}} fichier(s) portent un nom qui existe À LA FOIS comme jeu Game Boy et comme jeu SNES : impossible de savoir auquel ils appartiennent. Plutôt que de deviner, ils restent dans un dossier <b>_ambiguous</b> à la racine concernée — voici l'emplacement exact de chaque groupe :",
+    "ambiguous": "{{count}} fichier(s) portent un nom qui existe sur DEUX systèmes différents : impossible de savoir auquel ils appartiennent. Plutôt que de deviner, ils restent dans un dossier <b>_ambiguous</b> à la racine concernée — voici l'emplacement exact de chaque groupe :",
     "ambiguousAlready": "{{count}} d'entre eux y sont déjà depuis une organisation précédente — cette exécution n'y touchera pas.",
     "ambiguousHint": "Renommez l'un des deux jeux pour les distinguer, puis relancez — les fichiers quittent _ambiguous d'eux-mêmes.",
     "ambiguousOnly": "Rien n'a pu être déplacé — les seuls fichiers restants nécessitent de résoudre un conflit de noms.",
@@ -410,9 +410,11 @@
     "sysDirsHint": "Décoché exprès : la $RECYCLE.BIN peut encore contenir des fichiers que vous croyez avoir. Si vous cochez, ces dossiers sont supprimés entièrement, contenu compris. Windows refuse parfois System Volume Information ; dans ce cas il reste en place et le reste de l'organisation continue.",
     "title": "Organiser la carte",
     "unwritable": "La carte a cessé d'accepter les écritures après {{moved}} fichiers — elle est peut-être pleine, protégée en écriture ou remontée en lecture seule. Rien n'est perdu : les fichiers sont déplacés un par un. Réinsérez la carte et relancez pour terminer. ({{error}})",
-    "warn": "Cette carte utilise encore l'<b>ancienne organisation</b>, alors que son firmware est en <b>2.15 ou plus</b>, qui ne lit que la nouvelle. Vos sauvegardes, codes et jaquettes sont toujours sur la carte — la console ne regarde simplement pas au bon endroit. Organiser les remet en vue. Les jeux Game Boy passent aussi dans leur propre dossier <b>sgb</b>, pour qu'un <b>.gb</b> et un <b>.sfc</b> du même nom cessent de partager une seule sauvegarde.",
-    "warnPartial": "Cette carte est déjà à la <b>nouvelle organisation</b>, mais <b>{{count}}</b> fichiers sont encore au mauvais endroit — la console ne les y trouvera pas. Ce sont généralement des sauvegardes et des jaquettes de jeux <b>Game Boy</b>, qui vivent désormais dans leur propre dossier <b>sgb</b>, pour qu'un <b>.gb</b> et un <b>.sfc</b> du même nom cessent de partager une seule sauvegarde. Organiser remet chacun à sa place.",
-    "why": "Le firmware 2.15+ regroupe les fichiers dans des <b>dossiers de deux lettres</b> pour que la console les trouve plus vite. Organiser supprime aussi les fichiers <b>._</b> de macOS, qui doublent chaque recherche. Les jeux Game Boy ont leur propre dossier <b>sgb</b> dans chacun d'eux, pour qu'un <b>.gb</b> et un <b>.sfc</b> du même nom cessent de partager une seule sauvegarde."
+    "warn": "Cette carte utilise encore l'<b>ancienne organisation</b>, alors que son firmware est en <b>2.15 ou plus</b>, qui ne lit que la nouvelle. Vos sauvegardes, codes et jaquettes sont toujours sur la carte — la console ne regarde simplement pas au bon endroit. Organiser les remet en vue.",
+    "warnPartial": "Cette carte est déjà à la <b>nouvelle organisation</b>, mais <b>{{count}}</b> fichiers sont encore au mauvais endroit — la console ne les y trouvera pas. Ce sont généralement des sauvegardes et des jaquettes de jeux <b>Game Boy</b>, Organiser remet chacun à sa place.",
+    "why": "Le firmware 2.15+ regroupe les fichiers dans des <b>dossiers de deux lettres</b> pour que la console les trouve plus vite. Organiser supprime aussi les fichiers <b>._</b> de macOS, qui doublent chaque recherche.",
+    "whySgb": "Les jeux Game Boy ont leur propre dossier <b>sgb</b> dans chacun d'eux, pour qu'un <b>.gb</b> et un <b>.sfc</b> du même nom cessent de partager une seule sauvegarde.",
+    "whyNs": "À partir de la 2.16, chaque console a son propre dossier à l'intérieur — <b>sgb</b>, <b>nes</b>, <b>sms</b>, <b>a26</b> et <b>sft</b> — pour qu'un <b>.gb</b>, un <b>.nes</b> et un <b>.sfc</b> du même nom cessent de partager une seule sauvegarde, une seule jaquette et les mêmes codes."
   },
   "move": {
     "copyTitleMany": "Copier {{count}} jeux vers…",

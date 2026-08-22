@@ -64,7 +64,7 @@ describe('migration planner', () => {
   /** `roms` is the ROM library the card is judged against. Defaulting to [] here means every
    *  existing test runs with orphan sidecars, which keeps their expectations meaningful: an
    *  orphan outside sgb/ must still land in the plain bucket, exactly as before this feature. */
-  const plan = (roms: string[] = []) => svc().plan(root as unknown as FileSystemDirectoryHandle, buildRomIndex(roms));
+  const plan = (roms: string[] = []) => svc().plan(root as unknown as FileSystemDirectoryHandle, buildRomIndex(roms, 'namespaces'), undefined, 'namespaces');
 
   it('moves legacy FLAT files into their bucket', async () => {
     root.put('sd2snes/saves', 'Super Mario World (USA).srm');
@@ -178,7 +178,7 @@ describe('migration planner', () => {
 describe('migration planner — sgb/ namespace', () => {
   let root: FakeDir;
   beforeEach(() => { root = new FakeDir('root'); });
-  const plan = (roms: string[] = []) => svc().plan(root as unknown as FileSystemDirectoryHandle, buildRomIndex(roms));
+  const plan = (roms: string[] = []) => svc().plan(root as unknown as FileSystemDirectoryHandle, buildRomIndex(roms, 'namespaces'), undefined, 'namespaces');
 
   it('pulls a Game Boy game\'s save into sgb/', async () => {
     root.put('sd2snes/saves', 'Tetris.srm');
@@ -385,7 +385,7 @@ describe('migration execute — a card that stops accepting writes', () => {
     root.put('sd2snes/saves', 'Tetris.srm', '._Tetris.srm');
     const { card, state } = latchingCard();
     const svc = new SdMigrationService(card);
-    const plan = await svc.plan(root as unknown as FileSystemDirectoryHandle, buildRomIndex(['Tetris.sfc']));
+    const plan = await svc.plan(root as unknown as FileSystemDirectoryHandle, buildRomIndex(['Tetris.sfc'], 'namespaces'), undefined, 'namespaces');
     expect(plan.moves.length).toBe(1);
     expect(plan.junk.length).toBe(1);
 
@@ -410,7 +410,7 @@ describe('migration execute — a card that stops accepting writes', () => {
       async moveFile() { moved.push('x'); },
     } as unknown as CardWriter;
     const svc = new SdMigrationService(card);
-    const plan = await svc.plan(root as unknown as FileSystemDirectoryHandle, buildRomIndex(['A.sfc', 'B.sfc']));
+    const plan = await svc.plan(root as unknown as FileSystemDirectoryHandle, buildRomIndex(['A.sfc', 'B.sfc'], 'namespaces'), undefined, 'namespaces');
 
     const stages: string[] = [];
     await svc.execute(root as unknown as FileSystemDirectoryHandle, plan, (p) => {
@@ -442,7 +442,7 @@ describe('migration execute — a card that stops accepting writes', () => {
         { folder: 'Games', name: 'Metroid - Patch 1.ips' },
       ],
     };
-    const plan = await svc.plan(root as unknown as FileSystemDirectoryHandle, buildRomIndex([]), library);
+    const plan = await svc.plan(root as unknown as FileSystemDirectoryHandle, buildRomIndex([], 'namespaces'), library, 'namespaces');
     // Metroid skips the taken "Patch 1"; the already-suffixed one is visible and left alone
     expect(plan.renames.map((r) => `${r.name} -> ${r.to}`).sort()).toEqual([
       'Metroid.ips -> Metroid - Patch 2.ips',
@@ -459,9 +459,23 @@ describe('migration execute — a card that stops accepting writes', () => {
   });
 });
 
+describe('legacy target', () => {
+    it('plans no moves when the card firmware predates the bucket layout', async () => {
+    const root = new FakeDir('root');
+    root.put('sd2snes/info/SU', 'Super Mario World.gcv');
+    root.put('sd2snes/saves/TE', 'Tetris.srm');
+    const plan = await svc().plan(
+      root as unknown as FileSystemDirectoryHandle,
+      buildRomIndex(['Super Mario World.sfc', 'Tetris.sfc'], 'legacy'), undefined, 'legacy');
+    expect(plan.moves).toEqual([]);
+    expect(plan.ambiguous).toEqual([]);
+    expect(plan.observed).toBe('buckets');
+  });
+});
+
 describe('buildRomIndex', () => {
   it('classifies by extension and flags collisions', () => {
-    const ix = buildRomIndex(['Tetris.gb', 'Zelda.sfc', 'Dr Mario.gbc', 'Kirby.sgb', 'Both.gb', 'Both.sfc']);
+    const ix = buildRomIndex(['Tetris.gb', 'Zelda.sfc', 'Dr Mario.gbc', 'Kirby.sgb', 'Both.gb', 'Both.sfc'], 'namespaces');
     expect(ix.get('tetris')).toBe('sgb');
     expect(ix.get('zelda')).toBe('');
     expect(ix.get('dr mario')).toBe('sgb');
@@ -470,16 +484,29 @@ describe('buildRomIndex', () => {
   });
 
   it('classifies Sufami Turbo minicarts, and collides them like any other namespace', () => {
-    const ix = buildRomIndex(['Poi Poi.st', 'Gundam.st', 'Both.st', 'Both.sfc']);
+    const ix = buildRomIndex(['Poi Poi.st', 'Gundam.st', 'Both.st', 'Both.sfc'], 'namespaces');
     expect(ix.get('poi poi')).toBe('sft');
     expect(ix.get('gundam')).toBe('sft');
     expect(ix.get('both')).toBe('both');    // a .st and a .sfc share one stem -> unattributable
   });
 
+  it('only calls a pair ambiguous when the target layout would separate them', () => {
+    const roms = ['Tetris (USA).nes', 'Tetris (USA).sfc'];
+    expect(buildRomIndex(roms, 'buckets').get('tetris (usa)')).toBe('');
+    expect(buildRomIndex(roms, 'namespaces').get('tetris (usa)')).toBe('both');
+
+    const gb = ['Tetris.gb', 'Tetris.sfc'];
+    expect(buildRomIndex(gb, 'buckets').get('tetris')).toBe('both');
+    expect(buildRomIndex(gb, 'namespaces').get('tetris')).toBe('both');
+
+    expect(buildRomIndex(['A.nes', 'A.sms'], 'buckets').get('a')).toBe('');
+    expect(buildRomIndex(['A.nes', 'A.sms'], 'namespaces').get('a')).toBe('both');
+  });
+
   it('does not flag a duplicate of the SAME class as ambiguous', () => {
     // the same game in two folders is common and must not block migration
-    expect(buildRomIndex(['Tetris.gb', 'Tetris.gbc']).get('tetris')).toBe('sgb');
-    expect(buildRomIndex(['Poi Poi.st', 'Poi Poi.st']).get('poi poi')).toBe('sft');
+    expect(buildRomIndex(['Tetris.gb', 'Tetris.gbc'], 'namespaces').get('tetris')).toBe('sgb');
+    expect(buildRomIndex(['Poi Poi.st', 'Poi Poi.st'], 'namespaces').get('poi poi')).toBe('sft');
   });
 });
 
@@ -715,7 +742,7 @@ describe('optional system-folder removal', () => {
   } as unknown as CardWriter);
 
   const planned = async (card: CardWriter, root: FakeDir) =>
-    new SdMigrationService(card).plan(root as unknown as FileSystemDirectoryHandle, buildRomIndex([]));
+    new SdMigrationService(card).plan(root as unknown as FileSystemDirectoryHandle, buildRomIndex([], 'namespaces'), undefined, 'namespaces');
 
   it('leaves the system folders alone unless asked — the default is OFF', async () => {
     const root = new FakeDir('root');

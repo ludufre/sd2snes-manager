@@ -344,7 +344,7 @@
   },
   "migrate": {
     "aborted": "Detenido — {{moved}} archivos ya se habían movido.",
-    "ambiguous": "{{count}} archivo(s) coinciden con un nombre que existe TANTO como juego de Game Boy como de SNES, así que no hay forma de saber a cuál pertenecen. En vez de adivinar, se quedan en una carpeta <b>_ambiguous</b> dentro de la raíz afectada; abajo, el lugar exacto de cada grupo:",
+    "ambiguous": "{{count}} archivo(s) coinciden con un nombre que existe en juegos de DOS sistemas distintos, así que no hay forma de saber a cuál pertenecen. En vez de adivinar, se quedan en una carpeta <b>_ambiguous</b> dentro de la raíz afectada; abajo, el lugar exacto de cada grupo:",
     "ambiguousAlready": "{{count}} de ellos ya están en esa carpeta desde una organización anterior: esta ejecución no los tocará.",
     "ambiguousHint": "Renombra uno de los dos juegos para distinguirlos y organiza de nuevo — los archivos salen de _ambiguous solos.",
     "ambiguousOnly": "No se pudo mover nada — los únicos archivos restantes dependen de resolver un conflicto de nombres.",
@@ -410,9 +410,11 @@
     "sysDirsHint": "Desmarcado a propósito: la $RECYCLE.BIN puede contener archivos que crees tener todavía. Si lo marcas, se eliminan enteras, con todo lo que hay dentro. Windows a veces se niega a borrar System Volume Information; si pasa, esa se queda y el resto sigue igual.",
     "title": "Organizar la tarjeta",
     "unwritable": "La tarjeta dejó de aceptar escrituras tras {{moved}} archivos — puede estar llena, protegida contra escritura o remontada como solo lectura. No se perdió nada: los archivos se mueven de uno en uno. Vuelve a insertar la tarjeta y organiza otra vez para terminar. ({{error}})",
-    "warn": "Esta tarjeta todavía usa la <b>organización antigua</b>, pero el firmware que tiene es <b>2.15 o posterior</b>, que solo lee la nueva. Tus partidas, trucos y carátulas siguen en la tarjeta — la consola simplemente no mira donde están. Organizar los devuelve a la vista. Los juegos de Game Boy también pasan a su propia carpeta <b>sgb</b>, para que un <b>.gb</b> y un <b>.sfc</b> con el mismo nombre dejen de compartir la misma partida.",
-    "warnPartial": "Esta tarjeta ya está en la <b>organización nueva</b>, pero <b>{{count}}</b> archivos siguen fuera de sitio — la consola no los encontrará ahí. Suelen ser partidas y carátulas de juegos de <b>Game Boy</b>, que ahora viven en su propia carpeta <b>sgb</b>, para que un <b>.gb</b> y un <b>.sfc</b> con el mismo nombre dejen de compartir la misma partida. Organizar pone cada uno en su lugar.",
-    "why": "El firmware 2.15+ agrupa los archivos en <b>carpetas de dos letras</b> para que la consola los encuentre más rápido. Organizar también borra los archivos <b>._</b> de macOS, que duplican cada búsqueda. Los juegos de Game Boy tienen su propia carpeta <b>sgb</b> dentro de cada una, para que un <b>.gb</b> y un <b>.sfc</b> con el mismo nombre dejen de compartir la misma partida."
+    "warn": "Esta tarjeta todavía usa la <b>organización antigua</b>, pero el firmware que tiene es <b>2.15 o posterior</b>, que solo lee la nueva. Tus partidas, trucos y carátulas siguen en la tarjeta — la consola simplemente no mira donde están. Organizar los devuelve a la vista.",
+    "warnPartial": "Esta tarjeta ya está en la <b>organización nueva</b>, pero <b>{{count}}</b> archivos siguen fuera de sitio — la consola no los encontrará ahí. Suelen ser partidas y carátulas de juegos de Organizar pone cada uno en su lugar.",
+    "why": "El firmware 2.15+ agrupa los archivos en <b>carpetas de dos letras</b> para que la consola los encuentre más rápido. Organizar también borra los archivos <b>._</b> de macOS, que duplican cada búsqueda.",
+    "whySgb": "Los juegos de Game Boy tienen su propia carpeta <b>sgb</b> dentro de cada una, para que un <b>.gb</b> y un <b>.sfc</b> con el mismo nombre dejen de compartir la misma partida.",
+    "whyNs": "Desde la 2.16, cada consola tiene su propia carpeta dentro de ellas — <b>sgb</b>, <b>nes</b>, <b>sms</b>, <b>a26</b> y <b>sft</b> — para que un <b>.gb</b>, un <b>.nes</b> y un <b>.sfc</b> con el mismo nombre dejen de compartir la misma partida, la misma carátula y los mismos trucos."
   },
   "move": {
     "copyTitleMany": "Copiar {{count}} juegos a…",

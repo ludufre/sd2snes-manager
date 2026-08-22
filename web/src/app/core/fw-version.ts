@@ -19,6 +19,7 @@ import type { LayoutMode } from './sd-layout';
 
 /** The fork version at which the card layout changed. */
 export const BUCKET_LAYOUT_FW = '2.15.0';
+export const NS_LAYOUT_FW = '2.16.0';
 
 /**
  * The files that prove /sd2snes/ is a real firmware folder and not just a directory with that name.
@@ -105,6 +106,9 @@ export function normalizeFork(fork: string): string {
 export function fwUsesBuckets(v: FwVersion): boolean {
   return v.kind === 'release' && compareVersions(normalizeFork(v.fork), BUCKET_LAYOUT_FW) >= 0;
 }
+export function fwUsesNamespaces(v: FwVersion): boolean {
+  return v.kind === 'release' && compareVersions(normalizeFork(v.fork), NS_LAYOUT_FW) >= 0;
+}
 
 /**
  * Which layout to write, in order of how much the evidence is worth.
@@ -119,7 +123,7 @@ export function fwUsesBuckets(v: FwVersion): boolean {
  *      routinely flashed over USB, leaving the stock image in place), and a card already organized in
  *      buckets must not start scattering new files into the old layout. It still lands on 'legacy'
  *      below when nobody knows better, just not over the user's answer;
- *   4. nothing at all. A snapshot is a development build of this fork, so it reads buckets.
+ *   4. nothing at all. A snapshot is a development build of this fork, so it reads the newest layout.
  *      'absent'/'unknown' covers the original sd2snes card (firmware.img + menu.bin, which the parser
  *      above cannot read), where assuming buckets would write covers and saves into two-letter folders
  *      a 2.14 console never opens. Legacy is the safer wrong answer: the files land in the old layout
@@ -128,10 +132,10 @@ export function fwUsesBuckets(v: FwVersion): boolean {
  * (4) is only reached when nobody could be asked, such as a reload-resume of an unanswered card.
  */
 export function layoutForFw(fw: FwVersion, observed: LayoutMode | null, assumed: LayoutMode | null = null): LayoutMode {
-  if (fw.kind === 'release') return fwUsesBuckets(fw) ? 'buckets' : 'legacy';
+  if (fw.kind === 'release') return fwUsesNamespaces(fw) ? 'namespaces' : fwUsesBuckets(fw) ? 'buckets' : 'legacy';
   if (assumed) return assumed;
   if (observed) return observed;
-  return fw.kind === 'snapshot' ? 'buckets' : 'legacy';
+  return fw.kind === 'snapshot' ? 'namespaces' : 'legacy';
 }
 
 /**

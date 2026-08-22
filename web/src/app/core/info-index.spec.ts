@@ -14,7 +14,7 @@ import { guideFileName, GUIDE_SLOTS } from '../lib/man.js';
 import { covKey, scanTree } from '../lib/scan.js';
 
 /** The index's own key for a file found under /sd2snes/info. The one line indexInfoRoot runs. */
-const keyOfSidecar = (name: string, sgb: boolean): string => infoIndexKey({ stem: bucketKeyForFile(name), sgb });
+const keyOfSidecar = (name: string, sgb: boolean): string => infoIndexKey({ stem: bucketKeyForFile(name), ns: sgb ? 'sgb' : '' });
 /** The key probeOnCard looks that game up under. */
 const keyOfRom = (rom: string): string => infoIndexKey(assetKeyOf(rom, 'buckets'));
 

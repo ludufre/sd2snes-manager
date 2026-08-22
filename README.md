@@ -37,7 +37,7 @@ Just browsing? Pick **Try with sample ROMs** on the start screen and the whole i
 | **Themes** | Lists the `.thm` on the card with a rendered preview, sets or deletes the active one, and installs new themes from the gallery. |
 | **Firmware and chip BIOS** | Lists sd2snes+ releases with their changelog and installs Core or Full, touching only `/sd2snes/`. For chip BIOS, drop any file in and the slot is identified by name, then CRC32, then size. |
 | **File management** | Import, move, copy, delete and rename to No-Intro, always carrying the game's sidecar files along. |
-| **Organizes the card** | Firmware 2.15 moved to two-letter folders. **Organize** detects the old layout, shows exactly what will move before touching anything, rescues stranded `.ips`/`.bps` patches and sweeps system junk. |
+| **Organizes the card** | Firmware 2.15 moved to two-letter folders, 2.16 gave every console one of its own inside them. **Organize** reads the firmware version off the card, organises for the layout *that* console reads, shows exactly what will move before touching anything, rescues stranded `.ips`/`.bps` patches and sweeps system junk. |
 
 Interface in Portuguese, English, Spanish, German, French, Italian and Russian, following your browser's language.
 
@@ -53,7 +53,7 @@ From firmware 2.15 on, per-game files live in two-letter folders derived from th
 | saves and states | `/sd2snes/saves/<XX>/`, `/sd2snes/states/<XX>/` |
 | chip BIOS | `/sd2snes/` |
 
-Game Boy ROMs get their own namespace inside each root (`/sd2snes/saves/sgb/TE/…`), otherwise a `Tetris.gb` and a `Tetris.sfc` would fight over one save file.
+From firmware 2.16 on, every non-SNES console gets a namespace inside each root — `sgb`, `nes`, `sms`, `a26`, `sft` (`/sd2snes/saves/sgb/TE/…`). A sidecar is named from the ROM's stem with the extension dropped, so without it a `Tetris.gb`, a `Tetris (USA).nes` and a `Tetris (USA).sfc` would fight over one save, one cover and one cheat file. A 2.15 card keeps `sgb` only: that firmware runs NES and Master System but never looks inside `nes/`.
 
 ## Build from source
 

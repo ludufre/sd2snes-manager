@@ -28,12 +28,18 @@ import { Icon } from '../../../ui/icon/icon';
       </div>
 
       @switch (outOfLayout()) {
-        @case ('legacy') { <div class="warn" [innerHTML]="'migrate.warn' | transloco"></div> }
-        @case ('partial') { <div class="warn" [innerHTML]="'migrate.warnPartial' | transloco: { count: strayCount() }"></div> }
+        @case ('legacy') { <div class="warn"><span [innerHTML]="'migrate.warn' | transloco"></span> <span [innerHTML]="nsSentence() | transloco"></span></div> }
+        @case ('partial') { <div class="warn"><span [innerHTML]="'migrate.warnPartial' | transloco: { count: strayCount() }"></span> <span [innerHTML]="nsSentence() | transloco"></span></div> }
         @default {
+          <!-- The second sentence describes what THIS card gets: a 2.15 console runs NES and Master
+               System but only ever looks inside sgb/, so promising it a folder per console would be
+               describing a layout the plan is (correctly) not going to produce. -->
           <div class="tip">
             <app-icon name="download" [size]="13" />
-            <span [innerHTML]="'migrate.why' | transloco"></span>
+            <p>
+              <span [innerHTML]="'migrate.why' | transloco"></span>
+              <span [innerHTML]="nsSentence() | transloco"></span>
+            </p>
           </div>
         }
       }
@@ -52,7 +58,7 @@ import { Icon } from '../../../ui/icon/icon';
         <!-- the version could not be read, but the user answered which firmware this card runs —
              say so, because that answer is what decides everything below. -->
         @if (lib.fwAssumed(); as a) {
-          <div class="assumed">{{ (a === 'buckets' ? 'migrate.fwAssumedNew' : 'migrate.fwAssumedOld') | transloco }}</div>
+          <div class="assumed">{{ (a === 'legacy' ? 'migrate.fwAssumedOld' : 'migrate.fwAssumedNew') | transloco }}</div>
         }
       </div>
 
@@ -227,6 +233,8 @@ import { Icon } from '../../../ui/icon/icon';
       display: flex; align-items: center; gap: 8px;
     }
     .tip app-icon { color: var(--accent); flex: 0 0 auto; }
+    .tip p { margin: 0; }
+    .tip p span + span::before { content: ' '; }
     .fw { margin: 8px 14px 0; font-size: 11.5px; color: var(--tx-low); font-family: var(--mono); }
     .fw .assumed { margin-top: 3px; font-family: inherit; }
     .blist { overflow: auto; padding: 8px 14px 4px; display: flex; flex-direction: column; gap: 6px; }
@@ -348,6 +356,8 @@ export class MigrateDialog {
    * "<stem>.yml", so a flat list of names cannot say which of the two roots is still stuck --
    * and the natural reading ("it must be the game info files") is the wrong one as often as not.
    */
+  readonly nsSentence = computed(() => (this.lib.layoutMode() === 'namespaces' ? 'migrate.whyNs' : 'migrate.whySgb'));
+
   readonly ambiguousGroups = computed(() => {
     const byPath = new Map<string, { root: string; path: string; names: string[] }>();
     for (const a of this._plan()?.ambiguous ?? []) {

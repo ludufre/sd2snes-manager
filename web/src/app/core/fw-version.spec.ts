@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { classifyFwString, normalizeFork, fwUsesBuckets, layoutForFw, hasFirmwareFiles, FIRMWARE_FILES, type FwVersion } from './fw-version';
+import { classifyFwString, normalizeFork, fwUsesBuckets, fwUsesNamespaces, layoutForFw, hasFirmwareFiles, FIRMWARE_FILES, type FwVersion } from './fw-version';
 
 describe('classifyFwString', () => {
   it('parses a release build', () => {
@@ -43,6 +43,22 @@ describe('fwUsesBuckets', () => {
     expect(fwUsesBuckets(rel('2.15b3'))).toBe(true);
   });
 
+  it('separates the per-console namespaces (2.16) from the buckets (2.15)', () => {
+    expect(fwUsesNamespaces(rel('2.16'))).toBe(true);
+    expect(fwUsesNamespaces(rel('2.16b1'))).toBe(true);
+    expect(fwUsesNamespaces(rel('2.15b3'))).toBe(false);
+    expect(fwUsesNamespaces(rel('2.15'))).toBe(false);
+    expect(fwUsesNamespaces(rel('2.14'))).toBe(false);
+    expect(fwUsesBuckets(rel('2.16'))).toBe(true);
+  });
+
+  it('layoutForFw picks the generation the card will actually run', () => {
+    expect(layoutForFw(rel('2.16b1'), null)).toBe('namespaces');
+    expect(layoutForFw(rel('2.15b3'), null)).toBe('buckets');
+    expect(layoutForFw(rel('2.14'), null)).toBe('legacy');
+    expect(layoutForFw(rel('2.15b3'), 'namespaces')).toBe('buckets');
+  });
+
   it('accepts 2.15 and later, rejects earlier', () => {
     expect(fwUsesBuckets(rel('2.15'))).toBe(true);
     expect(fwUsesBuckets(rel('2.16'))).toBe(true);
@@ -79,8 +95,9 @@ describe('layoutForFw', () => {
     // buckets there put covers and saves where a 2.14 console never looks -- silently.
     expect(layoutForFw({ kind: 'absent' }, null)).toBe('legacy');
     expect(layoutForFw({ kind: 'unknown' }, null)).toBe('legacy');
-    // A snapshot is a build of this fork, which is past 2.15. Legacy would regress dev cards.
-    expect(layoutForFw({ kind: 'snapshot', raw: '20260718231602' }, null)).toBe('buckets');
+    // A snapshot is a build of this fork, so it writes whatever HEAD writes -- today, the
+    // per-console namespaces. Anything older would regress dev cards.
+    expect(layoutForFw({ kind: 'snapshot', raw: '20260718231602' }, null)).toBe('namespaces');
   });
 
   it("the user's answer beats what the card looks like, and the default", () => {
