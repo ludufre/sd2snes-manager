@@ -26,3 +26,11 @@
 .btn.sm { padding: 5px 9px; font-size: 12px; }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn:disabled:active { transform: none; }
+
+// Touch: `.btn.sm` is ~26px tall with a mouse, which is fine to aim at with a cursor and much too
+// small for a fingertip. Grown by padding (not a min-height) so the icon-only variants stay square.
+@media (pointer: coarse) {
+  .btn { padding: 10px 14px; }
+  .btn.sm { padding: 8px 12px; }
+  .btn.ghost.icon { padding: 10px; }
+}

@@ -1,12 +1,15 @@
-:host { display: block; height: 100vh; }
+:host { display: block; height: 100dvh; }
 
-.app { display: flex; flex-direction: column; height: 100vh; }
+.app { display: flex; flex-direction: column; height: 100dvh; }
 
 /* ---------- content area ---------- */
 /* position: relative anchors the sidebar when it becomes an overlay under 860px (see sidebar.ts). */
 .content { flex: 1; min-height: 0; display: flex; position: relative; }
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; position: relative; }
 .main.import-hot { outline: 2px dashed var(--accent); outline-offset: -6px; }
+/* Under the sidebar (z-index 20) and over everything else in .content. */
+.sb-scrim { position: absolute; inset: 0; z-index: 19; background: rgba(0, 0, 0, 0.45); animation: sbfade 0.18s ease; }
+@keyframes sbfade { from { opacity: 0; } }
 .import-overlay {
   position: absolute; inset: 0; z-index: 30; pointer-events: none;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
@@ -67,3 +70,30 @@
 /* the blocking one is louder than the informational one */
 .fwbanner.block { border-color: rgba(245, 177, 58, 0.45); background: rgba(245, 177, 58, 0.09); }
 .fwbanner.block app-icon { color: #f5b13a; }
+/* Phone: side by side, the button held ~150px and squeezed the explanation into a column about ten
+   characters wide — eleven wrapped lines, more than half the screen, for a banner. The button takes
+   a row of its own instead and the text gets the width back. */
+@media (max-width: 640px) {
+  .fwbanner { flex-wrap: wrap; align-items: flex-start; margin: 10px 12px 0; padding: 10px 12px; row-gap: 10px; }
+  .fwbanner app-icon { margin-top: 2px; }
+  .fwbanner .btn { flex: 1 0 100%; justify-content: center; }
+
+  /* The shell stops being a fixed-height column with one scrolling pane (see styles/_base.scss):
+     the whole page scrolls, so the banner, stats, toolbar and filters travel up and out of the way
+     instead of permanently occupying two thirds of the screen. */
+  :host { height: auto; }
+  .app { height: auto; min-height: 100dvh; }
+  .viewscroll { overflow: visible; }
+  /* The gear is the only route to the card actions and the language picker now, and the connection
+     dot is what tells you a long write is still going. 60px is worth keeping on screen. */
+  app-topbar { position: sticky; top: 0; z-index: 25; }
+  /* Pinned to the viewport, not to .content — which is now as tall as the whole library, so an
+     absolutely-positioned drawer would have been thousands of pixels long. */
+  .sb-scrim { position: fixed; z-index: 44; }
+
+  /* The card is sized in vw but sits inside 40px of padding, so 92vw + 80px overflowed the screen
+     by ~60px. It never showed because body{overflow:hidden} clipped it; now that the page scrolls,
+     it would have been a real sideways scroll on the very first screen. */
+  .empty { padding: 24px 12px; }
+  .connect-card { width: 100%; padding: 36px 20px; }
+}

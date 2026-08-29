@@ -56,7 +56,7 @@ import { Icon } from '../../../ui/icon/icon';
     .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 58; }
     .cl {
       position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 59;
-      width: min(820px, 94vw); height: min(620px, 88vh); display: flex; flex-direction: column;
+      width: min(820px, 94vw); height: min(620px, 88dvh); display: flex; flex-direction: column;
       background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
       box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55); overflow: hidden;
     }

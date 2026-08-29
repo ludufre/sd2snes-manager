@@ -51,6 +51,14 @@ import { TranslocoModule } from '@jsverse/transloco';
         box-shadow: 14px 0 34px rgba(0, 0, 0, 0.45);
       }
     }
+    /* Phone: 224px of a 360px screen is 62% of it, leaving a sliver of list behind the overlay
+       that is too narrow to read and too narrow to aim at. Give the tree a little more and still
+       leave a real edge to tap on — library.ts puts a scrim there to close it. */
+    @media (max-width: 640px) {
+      /* Fixed, not absolute: on a phone the page scrolls as a document, so .content is as tall as
+         the whole library and an absolute drawer would stretch to match it. */
+      .sidebar { position: fixed; top: 0; bottom: 0; z-index: 45; width: min(280px, 82vw); flex-basis: auto; }
+    }
     .sb-head {
       display: flex; align-items: center; justify-content: space-between;
       padding: 11px 12px 9px 16px; font-size: 10px; text-transform: uppercase; letter-spacing: 1.4px;

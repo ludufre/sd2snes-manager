@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, signal, viewChild } from '@angular/core';
 import { LibraryStore } from '../../../core/library-store';
+import { ViewportService } from '../../../core/viewport.service';
 import type { FolderNode } from '../../../core/models';
 import { Icon } from '../../../ui/icon/icon';
 import { DropFolder } from '../../../ui/drop-folder.directive';
@@ -15,7 +16,7 @@ import { TranslocoModule } from '@jsverse/transloco';
     @let n = node();
     <div
       class="tnode" [class.active]="active()" [appDropFolder]="n.path"
-      [draggable]="!isRoot() && !editing()"
+      [draggable]="!isRoot() && !editing() && !vp.coarse()"
       (dragstart)="onDragStart($event)"
       (dragend)="lib.endDrag()"
       [style.paddingLeft.px]="8 + depth() * 15" (click)="lib.navTo(n.path)">
@@ -85,6 +86,11 @@ import { TranslocoModule } from '@jsverse/transloco';
       color: var(--tx-low); padding: 0; border-radius: 4px; cursor: pointer; opacity: 0; transition: 0.1s;
     }
     .tnode:hover .menu-btn, .menu-btn.on { opacity: 1; }
+    /* Rename/delete a folder live ONLY behind this button, so hiding it until hover hid them
+       outright on touch. With a coarse pointer it stays out. */
+    @media (hover: none) {
+      .menu-btn { opacity: 1; }
+    }
     .menu-btn:hover { background: var(--line); color: var(--tx); }
     .rename {
       flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--accent-line); border-radius: 5px;
@@ -107,6 +113,7 @@ import { TranslocoModule } from '@jsverse/transloco';
 })
 export class TreeNode {
   protected readonly lib = inject(LibraryStore);
+  protected readonly vp = inject(ViewportService);
   readonly node = input.required<FolderNode>();
   readonly depth = input(0);
 

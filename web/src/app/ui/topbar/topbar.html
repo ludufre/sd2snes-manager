@@ -24,14 +24,14 @@
         <span class="fw" [class.warn]="lib.cardFwMissing()" [title]="lib.cardFwDetail()">{{ lib.cardFwLabel() }}</span>
       </span>
     </div>
-    <button class="btn ghost sm" type="button" [title]="'topbar.firmwareTitle' | transloco" (click)="openFirmware.emit()">
+    <button class="btn ghost sm cardbtn" type="button" [title]="'topbar.firmwareTitle' | transloco" (click)="openFirmware.emit()">
       <app-icon name="download" [size]="14" /><span class="lbl">{{ 'topbar.firmware' | transloco }}</span>
     </button>
-    <button class="btn ghost sm" type="button" [title]="'topbar.themesTitle' | transloco" (click)="openThemes.emit()">
+    <button class="btn ghost sm cardbtn" type="button" [title]="'topbar.themesTitle' | transloco" (click)="openThemes.emit()">
       <app-icon name="palette" [size]="14" /><span class="lbl">{{ 'topbar.themes' | transloco }}</span>
     </button>
     <button
-      class="btn ghost sm bios" type="button" [title]="'topbar.biosTitle' | transloco"
+      class="btn ghost sm cardbtn bios" type="button" [title]="'topbar.biosTitle' | transloco"
       [class.warn]="lib.biosMissing() > 0" (click)="openBios.emit()">
       <app-icon name="sd" [size]="14" /><span class="lbl">{{ 'topbar.bios' | transloco }}</span>
       @if (lib.biosMissing() > 0) { <span class="biosdot">{{ lib.biosMissing() }}</span> }
@@ -43,16 +43,16 @@
          only appears when files actually need moving. -->
     @if (lib.readsBuckets()) {
       <button
-        class="btn ghost sm bios" type="button" [title]="'topbar.migrateTitle' | transloco"
+        class="btn ghost sm cardbtn bios" type="button" [title]="'topbar.migrateTitle' | transloco"
         [class.warn]="lib.migrationRequired()" (click)="openMigrate.emit()">
         <app-icon name="folder" [size]="14" /><span class="lbl">{{ 'topbar.migrate' | transloco }}</span>
         @if (lib.migrationRequired()) { <span class="biosdot">{{ lib.migrateCount() }}</span> }
       </button>
     }
-    <button class="btn ghost sm" type="button" [title]="'topbar.configTitle' | transloco" (click)="openConfig.emit()">
+    <button class="btn ghost sm cardbtn" type="button" [title]="'topbar.configTitle' | transloco" (click)="openConfig.emit()">
       <app-icon name="sliders" [size]="14" /><span class="lbl">{{ 'topbar.config' | transloco }}</span>
     </button>
-    <button class="btn ghost sm" type="button" [title]="'topbar.ejectTitle' | transloco" (click)="lib.eject()">
+    <button class="btn ghost sm cardbtn" type="button" [title]="'topbar.ejectTitle' | transloco" (click)="lib.eject()">
       <app-icon name="eject" [size]="14" /><span class="lbl">{{ 'topbar.eject' | transloco }}</span>
     </button>
   }

@@ -89,7 +89,7 @@ function descField(tab: DescTab): keyof GameInfo {
     .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 58; }
     .ed {
       position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 59;
-      width: min(560px, 95vw); max-height: 88vh; display: flex; flex-direction: column;
+      width: min(560px, 95vw); max-height: 88dvh; display: flex; flex-direction: column;
       background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
       box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55); overflow: hidden;
     }
@@ -97,6 +97,7 @@ function descField(tab: DescTab): keyof GameInfo {
     .eh h3 { margin: 0; font-size: 15px; }
     .ebody { overflow: auto; padding: 16px 18px; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 12px; }
+    @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
     .fl { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
     .fl.full { grid-column: 1 / -1; }
     .fl > span { font-size: 11.5px; color: var(--tx-mid); }

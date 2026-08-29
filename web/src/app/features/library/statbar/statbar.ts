@@ -85,6 +85,7 @@ import { GAMEDB_WEB } from '../../../core/env';
     /* Below this the CTA would drop to a line of its own (margin-left:auto in a wrapping flex),
        costing height for a non-critical nudge. It comes back when there's room. */
     @media (max-width: 1040px) { .info { display: none; } }
+
     .cta {
       display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--tx-mid);
       text-decoration: none; padding: 7px 11px; border: 1px solid var(--line); border-radius: var(--radius-control);
@@ -105,6 +106,30 @@ import { GAMEDB_WEB } from '../../../core/env';
     .board-toggle.on .cv { transform: rotate(180deg); }
     /* The board is a full-width child of the wrapping statbar — it always lands on its own line. */
     app-system-board { flex: 1 0 100%; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line-soft); }
+    /* Phone: seven stat blocks wrapping is ~5 stacked rows, a quarter of the screen spent on
+       counters before the list it is counting even appears. One scrolling strip instead, with the
+       label beside the number rather than under it — same facts, ~44px instead of ~250px. */
+    @media (max-width: 640px) {
+      .statbar {
+        gap: 0; padding: 8px max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left));
+      }
+      /* One scrolling row — but only while the board is closed. The board is flex: 1 0 100% and
+         relies on wrapping to claim a row of its own, so nowrap would drag it into the strip. */
+      .statbar:not(:has(app-system-board)) {
+        flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+      }
+      .statbar::-webkit-scrollbar { display: none; }
+      /* Shrunk, but still a number stacked ON its label. Putting the label beside the number saved
+         nothing and broke the reading: every stat ends in "/ 6449", so the total sat right against
+         the NEXT stat's label and "0 / 6449 Capas" scanned as "6449 covers" — the opposite of what
+         it says. Scrolled a little, it literally read "6449 Guias e manuais". */
+      .stat { flex: 0 0 auto; padding: 0 12px; }
+      .stat .num { font-size: 15px; gap: 5px; }
+      .stat.card .num { font-size: 13px; }
+      .stat .num .sub { font-size: 11px; }
+      .stat .lbl { margin-top: 3px; font-size: 9.5px; letter-spacing: 0.6px; }
+      .board-toggle { flex: 0 0 auto; margin-left: 6px; }
+    }
   `,
 })
 export class StatBar {

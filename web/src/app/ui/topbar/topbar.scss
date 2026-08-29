@@ -169,3 +169,19 @@
   .topbar { gap: 10px; padding: 0 12px; }
   .brand .name { display: none; }
 }
+/* Phone. Shedding labels took the floor to ~600px and there it stops: the six card buttons, the
+   language picker (7 codes that must not shrink) and the gear still need ~620px between them, and
+   `body { overflow: hidden }` means the overflow is amputated, not scrollable — the gear itself was
+   going off the right edge, taking the only way back with it.
+   So below 640px the bar keeps just what identifies the session (logo + which card is mounted) plus
+   the gear, and everything it drops reappears inside the settings sheet, which has room to be a
+   list instead of a row. Floor: ~200px. */
+@media (max-width: 640px) {
+  .topbar {
+    gap: 8px;
+    padding: 0 max(10px, env(safe-area-inset-left)) 0 max(10px, env(safe-area-inset-right));
+  }
+  .cardbtn,
+  .brand .chlog,
+  .lang { display: none; }
+}

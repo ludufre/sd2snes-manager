@@ -80,7 +80,7 @@ const REASON_KEYS: Record<string, string> = {
     :host { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; }
     .scrim { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.55); }
     .card {
-      position: relative; width: min(680px, 92vw); max-height: 82vh; display: flex; flex-direction: column;
+      position: relative; width: min(680px, 92vw); max-height: 82dvh; display: flex; flex-direction: column;
       background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-lg, 0 20px 60px rgba(0,0,0,.5));
       padding: 18px 20px;
     }
@@ -96,10 +96,17 @@ const REASON_KEYS: Record<string, string> = {
       padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: 12px;
     }
     .row:last-child { border-bottom: none; }
+
     .row .g { color: var(--tx); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .row .f { color: var(--tx-low); font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .row .r { color: var(--warn, #e0a52b); white-space: nowrap; }
     .foot { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+    /* game / file / reason side by side needs room the phone does not have; stacked, each keeps a
+       full line and stops ellipsising to nothing. */
+    @media (max-width: 640px) {
+      .row { grid-template-columns: 1fr; gap: 3px; }
+      .row .g, .row .f { white-space: normal; overflow-wrap: anywhere; }
+    }
   `,
 })
 export class AutofillReport {

@@ -1,7 +1,9 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { LibraryStore } from '../../../core/library-store';
-import type { FolderNode } from '../../../core/models';
+import type { Entry, FolderNode, ThemeFile } from '../../../core/models';
+import { ViewportService } from '../../../core/viewport.service';
+import { ContextMenuService } from '../../../core/context-menu.service';
 import { Icon } from '../../../ui/icon/icon';
 import { Checkbox } from '../../../ui/checkbox/checkbox';
 import { CoverArt } from '../../../ui/cover-art/cover-art';
@@ -69,7 +71,7 @@ import { ContextTheme } from '../../../ui/context-theme.directive';
           </div>
           <div class="crc">{{ g.crc }}</div>
           <div class="ast"><app-asset-icons [entry]="g" /></div>
-          <div class="chev"><app-icon name="chevron" [size]="16" /></div>
+          <div class="chev" [class.tap]="vp.coarse()" (click)="menu($event, g)"><app-icon [name]="vp.coarse() ? 'moreHorizontal' : 'chevron'" [size]="16" /></div>
         </div>
       }
 
@@ -92,7 +94,9 @@ import { ContextTheme } from '../../../ui/context-theme.directive';
               <app-status-badge kind="info" [dot]="false">{{ 'views.themeBadge' | transloco }}</app-status-badge>
             }
           </div>
-          <div class="chev"></div>
+          <div class="chev" [class.tap]="vp.coarse()" (click)="themeMenu($event, t)">
+            @if (vp.coarse()) { <app-icon name="moreHorizontal" [size]="16" /> }
+          </div>
         </div>
       }
     </div>
@@ -118,6 +122,19 @@ import { ContextTheme } from '../../../ui/context-theme.directive';
     @container list (max-width: 620px) {
       .lrow { grid-template-columns: 34px 40px 1fr 108px 28px; gap: 10px; padding: 0 12px; }
     }
+    /* Phone. At 620px the name column is down to ~86px on a 360px screen — narrower than most game
+       titles, so every row ellipsises to nothing and the list stops being readable at a glance. The
+       status icons are the cheapest thing left to drop: the detail panel shows them all for the
+       selected game, and the toolbar's status chips filter by them.
+       After the 620px rule, not before: both match here and the later one has to win. */
+    @container list (max-width: 420px) {
+      .lrow { grid-template-columns: 34px 40px 1fr 28px; }
+      .lrow > .ast { display: none; }
+    }
+    /* On touch the chevron cell becomes the context-menu button: the menu holds Identify, Move and
+       every delete, and long-press is a gesture nobody is told about. It costs no column — the cell
+       was already there, only decorative. */
+    .chev.tap { display: grid; place-items: center; color: var(--tx-mid); cursor: pointer; }
     .lrow:hover { background: var(--panel); }
     .lrow.sel { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
     .lrow.checked { background: color-mix(in oklab, var(--accent) 9%, transparent); }
@@ -151,6 +168,20 @@ import { ContextTheme } from '../../../ui/context-theme.directive';
 })
 export class ListView {
   protected readonly lib = inject(LibraryStore);
+  protected readonly vp = inject(ViewportService);
+  private readonly ctx = inject(ContextMenuService);
+
+  /** Touch-only: desktop keeps right-click, where the chevron is pure decoration. */
+  protected menu(e: MouseEvent, g: Entry): void {
+    if (!this.vp.coarse()) return;
+    e.stopPropagation();
+    this.ctx.open(e.clientX, e.clientY, g);
+  }
+  protected themeMenu(e: MouseEvent, t: ThemeFile): void {
+    if (!this.vp.coarse()) return;
+    e.stopPropagation();
+    this.ctx.openTheme(e.clientX, e.clientY, t);
+  }
   private readonly i18n = inject(TranslocoService);
 
   protected folderSub(f: FolderNode): string {

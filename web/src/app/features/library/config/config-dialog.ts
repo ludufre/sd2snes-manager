@@ -67,13 +67,18 @@ const normalizeCombo = (value: string): string => { const result = new Set<strin
     }
   `,
   styles: `
-    .config-pop { width:min(760px,calc(100vw - 32px)) !important; max-height:calc(100vh - 48px); display:flex; flex-direction:column; }
+    .config-pop { width:min(760px,calc(100vw - 32px)) !important; max-height:calc(100dvh - 48px); display:flex; flex-direction:column; }
     .formscroll { overflow:auto; margin:10px -6px 0; padding:0 6px 10px; }
     .setting-group { border-top:1px solid var(--line); }
     .group-head { display:flex; align-items:center; justify-content:space-between; width:100%; padding:14px 4px; border:0; background:none; color:var(--tx-mid); cursor:pointer; font:600 11px var(--sans); text-transform:uppercase; letter-spacing:1px; text-align:left; }
     .group-head:hover { color:var(--tx); }.group-head app-icon { transition:transform .15s ease; }.setting-group.open .group-head app-icon { transform:rotate(90deg); }.group-body { padding:0 4px 12px; }
     .setting-group h4 { margin:0 0 10px; color:var(--tx-low); text-transform:uppercase; letter-spacing:1px; font-size:11px; }
     .setting { display:grid; grid-template-columns:minmax(220px,1fr) minmax(180px,280px); align-items:center; gap:16px; min-height:38px; color:var(--tx-mid); font-size:12px; }
+    /* 220 + 180 + 16 of gap is a 416px floor, wider than the phone it has to fit in. Label over
+       control instead of beside it. */
+    @media (max-width: 640px) {
+      .setting { grid-template-columns:1fr; gap:6px; align-items:start; padding:4px 0; }
+    }
     .setting input:not([type=checkbox]),.setting select { box-sizing:border-box; width:100%; padding:7px 9px; color:var(--tx); background:var(--bg); border:1px solid var(--line); border-radius:7px; font:12px var(--sans); }
     .setting input[type=checkbox] { justify-self:end; width:18px; height:18px; accent-color:var(--accent); }
     .config-scrim { position: fixed; inset: 0; z-index: 49; }

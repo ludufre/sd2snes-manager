@@ -4,6 +4,7 @@ import { LibraryStore } from '../../../core/library-store';
 import { PrefsStore } from '../../../core/prefs-store';
 import { BOARD_COLS, type StatusFilter, type View } from '../../../core/models';
 import { Icon } from '../../../ui/icon/icon';
+import { ViewportService } from '../../../core/viewport.service';
 
 /** Folder-tree toggle · search · system chips · status chips · view segmented. */
 @Component({
@@ -68,7 +69,9 @@ import { Icon } from '../../../ui/icon/icon';
 
       <div class="seg">
         @for (v of views; track v.id) {
-          <button [class.on]="prefs.view() === v.id" [title]="v.title | transloco" (click)="prefs.setView(v.id)">
+          <button
+            [class.on]="shownView() === v.id" [class.split-view]="v.id === 'split'"
+            [title]="v.title | transloco" (click)="prefs.setView(v.id)">
             <app-icon [name]="v.icon" [size]="16" />
           </button>
         }
@@ -135,11 +138,23 @@ import { Icon } from '../../../ui/icon/icon';
       .chip:has(.short) .full { display: none; }
       .chip .short { display: inline; }
     }
+    /* Phone. The first row was ~370px of hard minimums against a 360px screen; dropping the split
+       button buys back ~34px and costs nothing, since library.ts already forces the drawer below
+       860px — the button was offering a layout the app refuses to enter. */
+    @media (max-width: 640px) {
+      .toolbar { padding: 10px 12px; gap: 8px; }
+      .chipbar { gap: 8px; }
+      .seg button.split-view { display: none; }
+      /* :last-child is still the hidden split button, so the new visual last one would keep its
+         divider and draw a stray line against the group's rounded edge. */
+      .seg button:nth-last-child(2) { border-right: none; }
+    }
   `,
 })
 export class Toolbar {
   protected readonly lib = inject(LibraryStore);
   protected readonly prefs = inject(PrefsStore);
+  private readonly vp = inject(ViewportService);
 
   /** Immediate input value (keeps typing snappy), decoupled from the expensive library filter, which
    *  only re-runs after a short debounce so a big card doesn't re-filter on every keystroke. */
@@ -167,7 +182,7 @@ export class Toolbar {
     this.lib.setQuery('');
   }
 
-  /** `l` is the full label; `s` the short one shown when the bar runs out of room, omitted when the
+  /** l is the full label; s the short one shown when the bar runs out of room, omitted when the
    *  label is already short (the system chips need neither. A platform's name is its short form,
    *  and they come from the card). */
   protected readonly statChips: Array<{ v: StatusFilter; l: string; s?: string }> = [
@@ -185,6 +200,14 @@ export class Toolbar {
   protected readonly hasChip = computed(
     () => BOARD_COLS.find((c) => c.statusHas === this.lib.statusFilter()) ?? null,
   );
+
+  /** Which button lights up. On a phone the split button is hidden, and a card whose saved pref is
+   *  still 'split' renders the list — so without this the group would show nothing selected and
+   *  leave the user unable to tell which view they are looking at. */
+  protected readonly shownView = computed(() => {
+    const v = this.prefs.view();
+    return v === 'split' && this.vp.phone() ? ('list' as View) : v;
+  });
 
   protected readonly views: Array<{ id: View; icon: 'list' | 'grid' | 'split'; title: string }> = [
     { id: 'list', icon: 'list', title: 'toolbar.viewList' },

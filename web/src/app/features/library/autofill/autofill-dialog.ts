@@ -129,6 +129,25 @@ const MODES: readonly { v: FillMode; lKey: string; hKey: string }[] = [
     }
     .seg button.on { background: var(--elevated); color: var(--tx); }
     .seg button:disabled { opacity: 0.3; cursor: default; }
+
+    /* Phone: icon + label + count + a four-way segmented control on one 338px row left the segments
+       wrapping into a ragged 2x2 that no longer read as one control, and the rows stopped lining up
+       with each other. The control gets a line of its own, indented under the label it belongs to. */
+    @media (max-width: 640px) {
+      .row {
+        grid-template-columns: 20px 1fr auto;
+        grid-template-areas: 'ico lbl cnt' '. seg seg';
+        row-gap: 7px;
+      }
+      .row .ico { grid-area: ico; }
+      .row .lbl { grid-area: lbl; }
+      .row .cnt { grid-area: cnt; }
+      .row .seg { grid-area: seg; }
+      /* A tidy 2x2 rather than whatever 3+1 the words happen to produce: the four modes are one
+         choice, and a ragged last row reads as a separate control. */
+      .seg { display: grid; grid-template-columns: 1fr 1fr; }
+      .seg button { text-align: center; }
+    }
     .plan { margin: 16px 0 14px; font-size: 12px; color: var(--tx-mid); line-height: 1.5; min-height: 1.2em; }
     .actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
   `,

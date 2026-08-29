@@ -60,7 +60,7 @@ const codesOf = (text: string): string[] => text.split(/[\s,]+/).filter(Boolean)
     .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 58; }
     .ed {
       position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 59;
-      width: min(640px, 95vw); height: min(640px, 88vh); display: flex; flex-direction: column;
+      width: min(640px, 95vw); height: min(640px, 88dvh); display: flex; flex-direction: column;
       background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
       box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55); overflow: hidden;
     }
@@ -74,6 +74,22 @@ const codesOf = (text: string): string[] => text.split(/[\s,]+/).filter(Boolean)
     }
     .elist { overflow: auto; padding: 4px 18px 8px; display: flex; flex-direction: column; gap: 6px; }
     .crow { display: grid; grid-template-columns: 40px 1fr 200px 34px; gap: 10px; align-items: center; }
+    /* 40 + 200 + 34 + 30 of gaps is 304px fixed, leaving ~40px for the name on a phone. The code
+       drops to its own line under the name, keeping the toggle and the delete button on the first
+       so a row still reads as one unit. The .cols header no longer lines up with anything, so it
+       goes — the two inputs carry their own placeholders. */
+    @media (max-width: 640px) {
+      .cols { display: none; }
+      .crow {
+        grid-template-columns: 40px 1fr 34px;
+        grid-template-areas: 'tg name del' '.  code code';
+        gap: 6px 10px;
+      }
+      .crow app-toggle { grid-area: tg; }
+      .crow .cn { grid-area: name; }
+      .crow .cc { grid-area: code; }
+      .crow .del { grid-area: del; }
+    }
     .crow input {
       background: var(--bg); border: 1px solid var(--line); border-radius: 7px; color: var(--tx);
       font-family: var(--sans); font-size: 13px; padding: 7px 9px; outline: none; min-width: 0;

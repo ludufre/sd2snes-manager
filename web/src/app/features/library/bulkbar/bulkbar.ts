@@ -98,6 +98,22 @@ import { Icon } from '../../../ui/icon/icon';
     .prog .ptxt { font-family: var(--mono); font-size: 12px; color: var(--tx-mid); white-space: nowrap; transition: color 0.12s; }
     .prog .ptxt.rate { color: var(--tx-low); }
     .bar { display: block; height: 6px; background: var(--elevated); border-radius: 99px; overflow: hidden; }
+    /* Phone: the tip is a long mono sentence that wraps onto a row of its own, doubling the bar's
+       height for a restatement of numbers the statbar directly above is already showing. */
+    @media (max-width: 640px) {
+      .bulkbar { padding: 8px 12px; gap: 10px; }
+      .bulkbar .tip { display: none; }
+
+      /* The progress row is four nowrap items on one line — phase, bar, count, rate — about 425px
+         of hard minimums in 336px. Nothing could shrink, so it ran off the screen and dragged the
+         whole document into a sideways scroll. Two rows now: text, then a full-width bar. The rate
+         goes; it is in the progress modal this bar opens. */
+      .prog { flex-wrap: wrap; gap: 6px 10px; }
+      .prog .bar { flex: 1 0 100%; max-width: 100%; order: 1; }
+      .prog .ptxt { font-size: 11px; }
+      .prog .ptxt.rate { display: none; }
+      .prog .ptxt:first-of-type { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    }
     .bar > i { display: block; height: 100%; background: var(--accent); border-radius: 99px; transition: width 0.25s; }
     /* indeterminate (download phase, total unknown): a sliding stripe instead of a stuck "0 / 0" bar */
     .bar.indet > i { transition: none; animation: indet 1.15s ease-in-out infinite; }

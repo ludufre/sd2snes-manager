@@ -76,6 +76,11 @@
     <app-bulkbar />
 
     <div class="content">
+      <!-- Narrow: the tree floats over the list, so it needs somewhere to tap to dismiss it. On a
+           desktop it is a column that pushes the list aside and nothing is covered. -->
+      @if (lib.sidebarOpen() && vp.narrow()) {
+        <div class="sb-scrim" (click)="lib.toggleSidebar()"></div>
+      }
       @if (lib.sidebarOpen()) { <app-sidebar /> }
 
       <div
@@ -106,7 +111,16 @@
   }
 
   @if (showDrawer()) { <app-detail-panel [drawer]="true" /> }
-  @if (settingsOpen()) { <app-settings-pop (close)="settingsOpen.set(false)" (openChangelog)="openChangelog()" /> }
+  @if (settingsOpen()) {
+    <app-settings-pop
+      (close)="settingsOpen.set(false)"
+      (openChangelog)="openChangelog()"
+      (openFirmware)="firmwareOpen.set(true)"
+      (openThemes)="themesOpen.set(true)"
+      (openBios)="biosOpen.set(true)"
+      (openMigrate)="migrateOpen.set(true)"
+      (openConfig)="configOpen.set(true)" />
+  }
   @if (changelogOpen()) { <app-changelog-dialog (close)="changelogOpen.set(false)" /> }
   @if (firmwareOpen()) { <app-firmware-dialog (close)="firmwareOpen.set(false)" /> }
   @if (themesOpen()) { <app-themes-dialog (close)="themesOpen.set(false)" /> }

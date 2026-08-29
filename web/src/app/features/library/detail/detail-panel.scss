@@ -5,7 +5,7 @@
   display: flex; flex-direction: column; min-height: 0; position: relative;
 }
 .detail.drawer {
-  position: fixed; top: 0; right: 0; height: 100vh; z-index: 40;
+  position: fixed; top: 0; right: 0; height: 100dvh; z-index: 40;
   box-shadow: -24px 0 60px rgba(0, 0, 0, 0.5); animation: slidein 0.18s ease;
 }
 /* Split mode's hard floor was 224 (sidebar) + 480 (this) = 704px, at which point `.main` hit zero
@@ -107,9 +107,15 @@
 /* replace/delete controls, only on hover over an existing media */
 .tile-actions {
   position: absolute; top: 6px; right: 6px; z-index: 3; display: flex; gap: 5px;
-  opacity: 0; transform: translateY(-2px); transition: 0.12s; pointer-events: none;
+  transition: 0.12s;
 }
-.media-tile:hover .tile-actions, .media-tile:focus-within .tile-actions { opacity: 1; transform: none; pointer-events: auto; }
+/* Only where there IS a hover. :focus-within alone is not a substitute on touch: it needs the
+   button to already be reachable to be focused, and these are the only way to replace or delete
+   a cover, snapshot or preview. With a coarse pointer they just stay visible. */
+@media (hover: hover) {
+  .tile-actions { opacity: 0; transform: translateY(-2px); pointer-events: none; }
+  .media-tile:hover .tile-actions, .media-tile:focus-within .tile-actions { opacity: 1; transform: none; pointer-events: auto; }
+}
 .ta {
   width: 28px; height: 28px; display: grid; place-items: center; border-radius: 7px;
   background: rgba(12, 14, 16, 0.78); border: 1px solid rgba(255, 255, 255, 0.14); color: #fff; backdrop-filter: blur(3px);
@@ -214,3 +220,19 @@
   font-size: 13px; color: var(--tx-mid); text-decoration: none;
 }
 .report .rmenu a:hover { background: var(--elevated); color: var(--accent); }
+
+/* Phone: the 8% sliver of list left behind the drawer is not readable and not worth the width, so
+   the drawer takes the screen. The showcase shrinks with it — the cover is aspect-ratio 3/4 off a
+   fixed HEIGHT, so at 300px it alone claimed 225px of a 360px row and the snapshot/preview tiles
+   beside it were left with ~90px.
+   Last in the file on purpose: .showcase and .kv are defined further down, and an equal-specificity
+   rule placed above them would simply lose. */
+@media (max-width: 640px) {
+  .detail.drawer { width: 100vw; }
+  .showcase { --mh: 200px; }
+  /* Key/value rows are space-between with nowrap on both halves: a long path and its label cannot
+     share 336px, so they stack instead of colliding. */
+  .kv { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .kv .v { text-align: left; }
+  .kv .v.ell { max-width: 100%; }
+}

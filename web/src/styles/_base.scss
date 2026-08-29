@@ -19,12 +19,33 @@ body {
   overflow: hidden;
 }
 
-app-root { display: block; height: 100vh; }
+// dvh, not vh: Chrome on Android reports 100vh as the viewport with the URL bar RETRACTED, so a
+// 100vh shell is taller than what is actually on screen. With `overflow: hidden` above, the excess
+// is clipped rather than scrollable — the bottom of the app becomes permanently unreachable.
+app-root { display: block; height: 100dvh; }
+
+// Phone: the desktop shell is a fixed-height column of bars with ONE scrolling pane inside it. On a
+// 740px screen that pinned ~490px of chrome above a 240px window onto the library. Here the page
+// scrolls as a document instead — the bars scroll away with the list and the ROMs get the screen.
+// (The topbar stays put; see library.scss.)
+@media (max-width: 640px) {
+  html, body { height: auto; }
+  body { overflow: visible; }
+  app-root { height: auto; min-height: 100dvh; }
+}
 
 button {
   font-family: inherit;
   cursor: pointer;
   color: inherit;
+}
+
+// Touch: kill the blue flash on tap and the 300ms wait for a double-tap that will never come.
+@media (pointer: coarse) {
+  button, a, label, [role='button'] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
 }
 
 input, select, textarea { font-family: inherit; }

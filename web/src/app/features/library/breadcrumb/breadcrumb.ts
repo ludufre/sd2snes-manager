@@ -12,22 +12,25 @@ import { TranslocoModule } from '@jsverse/transloco';
   template: `
     @let searching = !!lib.query();
     <div class="crumbs">
-      <button class="crumb" [class.here]="lib.cwd() === '' && !searching" [appDropFolder]="''" (click)="lib.navTo('')">
-        <app-icon name="folderOpen" [size]="14" />{{ lib.rootName() }}
-      </button>
+      <!-- The path scrolls; the toggle does not. Sharing one scroll container meant a deep path
+           pushed "include subfolders" off the right edge, where body{overflow:hidden} made it
+           unreachable rather than merely out of view. -->
+      <div class="trail">
+        <button class="crumb" [class.here]="lib.cwd() === '' && !searching" [appDropFolder]="''" (click)="lib.navTo('')">
+          <app-icon name="folderOpen" [size]="14" />{{ lib.rootName() }}
+        </button>
 
-      <!-- Only a text search spans the whole card; status/system filters stay scoped to the folder
-           path, so keep the breadcrumb (and the subfolder toggle) visible for them. -->
-      @if (!searching) {
-        @for (p of parts(); track p.path; let last = $last) {
-          <span class="csep"><app-icon name="chevron" [size]="13" /></span>
-          <button class="crumb" [class.here]="last" [appDropFolder]="p.path" (click)="lib.navTo(p.path)">{{ p.name }}</button>
+        <!-- Only a text search spans the whole card; status/system filters stay scoped to the folder
+             path, so keep the breadcrumb (and the subfolder toggle) visible for them. -->
+        @if (!searching) {
+          @for (p of parts(); track p.path; let last = $last) {
+            <span class="csep"><app-icon name="chevron" [size]="13" /></span>
+            <button class="crumb" [class.here]="last" [appDropFolder]="p.path" (click)="lib.navTo(p.path)">{{ p.name }}</button>
+          }
+        } @else {
+          <span class="crumb-flat">{{ 'breadcrumb.resultsAllCard' | transloco }}</span>
         }
-      } @else {
-        <span class="crumb-flat">{{ 'breadcrumb.resultsAllCard' | transloco }}</span>
-      }
-
-      <div class="grow"></div>
+      </div>
 
       @if (!searching) {
         <button
@@ -41,13 +44,17 @@ import { TranslocoModule } from '@jsverse/transloco';
   `,
   styles: `
     .crumbs {
-      display: flex; align-items: center; gap: 4px; padding: 9px 20px; flex: 0 0 auto;
+      display: flex; align-items: center; gap: 8px; padding: 9px 20px; flex: 0 0 auto;
       border-bottom: 1px solid var(--line-soft); background: var(--bg); min-height: 42px;
-      /* deep paths scroll instead of being clipped by body{overflow:hidden} */
+    }
+    /* deep paths scroll instead of being clipped by body{overflow:hidden} */
+    .trail {
+      flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 4px;
       overflow-x: auto; scrollbar-width: none;
     }
-    .crumbs::-webkit-scrollbar { display: none; }
-    .grow { flex: 1; }
+    .trail::-webkit-scrollbar { display: none; }
+    .subfold { flex: 0 0 auto; }
+    @media (max-width: 640px) { .crumbs { padding: 9px 12px; } }
     .crumb {
       display: inline-flex; align-items: center; gap: 6px; border: none; background: none; white-space: nowrap;
       color: var(--tx-mid); font-family: var(--sans); font-size: 13px; font-weight: 500;

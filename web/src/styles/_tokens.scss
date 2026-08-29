@@ -1,6 +1,22 @@
 // Design tokens, single source of truth for the visual language.
 // Matches prototype/styles.css. Runtime theming (accent + density) is applied
 // by PrefsStore, which sets `--accent` and `data-density` on <html>.
+//
+// ---------- breakpoint ladder ----------
+// Media queries are written out literally at each site (with a comment saying why the number is
+// what it is there) rather than behind a mixin — but the VALUES come from this ladder, so a layout
+// only ever changes shape at five places instead of at fifteen arbitrary ones:
+//
+//   1280px  button labels are shed, the toolbar wraps to two rows
+//   1040px  the detail panel starts shrinking, the GameDB CTA goes
+//    860px  the sidebar floats over the list, split degrades to the drawer
+//    640px  PHONE: one column, card actions move into the settings sheet
+//   (pointer: coarse) / (hover: none)
+//           touch affordances. NOT a width — a tablet is coarse and wide, and anything revealed
+//           only by :hover is unreachable there no matter how much room the screen has.
+//
+// The widths mirror ViewportService (core/viewport.service.ts), which carries the same thresholds
+// for the decisions CSS cannot make. Change one, change the other.
 
 :root {
   // surfaces

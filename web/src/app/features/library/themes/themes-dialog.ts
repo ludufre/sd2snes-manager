@@ -95,7 +95,7 @@ interface FlatFolder { path: string; name: string; total: number; depth: number;
     .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 58; }
     .tw {
       position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 59;
-      width: min(920px, 95vw); height: min(660px, 90vh); display: flex; flex-direction: column;
+      width: min(920px, 95vw); height: min(660px, 90dvh); display: flex; flex-direction: column;
       background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
       box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55); overflow: hidden;
     }
@@ -133,6 +133,13 @@ interface FlatFolder { path: string; name: string; total: number; depth: number;
     .card .nm { font-size: 13px; font-weight: 500; color: var(--tx); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .card .br { font-family: var(--mono); font-size: 10.5px; color: var(--tx-low); margin-top: 2px; }
     .card .dl { margin: 8px 11px 11px; justify-content: center; }
+    /* 210px cards + 28px of padding need 448px for two across; on a phone that meant one card per
+       screenful of scrolling. */
+    @media (max-width: 640px) {
+      .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; padding: 10px; }
+      .tbar { padding: 10px; gap: 8px; }
+      .th { padding: 12px 10px 11px 14px; }
+    }
 
     /* destination picker overlay (choose where to save the .thm) */
     .destwrap { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.45); display: grid; place-items: center; z-index: 2; }

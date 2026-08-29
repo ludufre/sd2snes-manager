@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { TranslocoModule } from '@jsverse/transloco';
 import { ContextMenuService, type ContextTarget } from '../../core/context-menu.service';
 import { LibraryStore } from '../../core/library-store';
+import { ViewportService } from '../../core/viewport.service';
 import type { Entry, ThemeFile } from '../../core/models';
 import { Icon } from '../icon/icon';
 
@@ -14,7 +15,7 @@ import { Icon } from '../icon/icon';
     @let s = ctx.state();
     @if (s) {
       <div class="scrim" (click)="ctx.close()" (contextmenu)="$event.preventDefault(); ctx.close()"></div>
-      <div class="menu" [style.left.px]="pos().x" [style.top.px]="pos().y">
+      <div class="menu" [class.sheet]="vp.phone()" [style.left.px]="pos().x" [style.top.px]="pos().y">
         @if (entryOf(s); as g) {
         <button (click)="open(g)"><app-icon name="split" [size]="14" />{{ 'ctxmenu.openDetails' | transloco }}</button>
         @if (g.fileHandle && !g.identified) {
@@ -79,19 +80,39 @@ import { Icon } from '../icon/icon';
     .menu button.danger { color: var(--danger); }
     .menu button.danger:hover { background: var(--danger-soft); }
     .sep { height: 1px; background: var(--line); margin: 4px 2px; }
+    /* The menu can carry a dozen rows (one per deletable asset). Without a ceiling it simply ran off
+       the bottom of a short viewport, and the clamp in pos() cannot help once the content is taller
+       than the screen. */
+    .menu { max-height: min(70dvh, 460px); overflow-y: auto; }
+
+    /* Phone: anchoring a 190px menu to a fingertip near an edge is a losing game, and the result
+       lands under the thumb that opened it. A bottom sheet instead — pos() is ignored, so there is
+       nothing left to clamp. */
+    .menu.sheet {
+      left: 0 !important; right: 0; top: auto !important; bottom: 0;
+      min-width: 0; max-height: 70dvh;
+      border-radius: 14px 14px 0 0; border-bottom: none;
+      padding: 6px 6px max(10px, env(safe-area-inset-bottom));
+      animation: ctxsheet 0.16s ease;
+    }
+    @keyframes ctxsheet { from { transform: translateY(14px); opacity: 0; } }
+    .menu.sheet button { padding: 12px 12px; font-size: 14px; }
+    .menu.sheet .sep { margin: 5px 2px; }
   `,
 })
 export class ContextMenu {
   protected readonly ctx = inject(ContextMenuService);
   protected readonly lib = inject(LibraryStore);
+  protected readonly vp = inject(ViewportService);
 
   protected readonly pos = computed(() => {
     const s = this.ctx.state();
     if (!s) return { x: 0, y: 0 };
+    if (this.vp.phone()) return { x: 0, y: 0 }; // the sheet is pinned by CSS; nothing to anchor
     const w = 200, h = 460; // tall enough for all the per-asset delete rows near the screen edge
     return {
       x: Math.min(s.x, window.innerWidth - w - 8),
-      y: Math.min(s.y, window.innerHeight - h - 8),
+      y: Math.max(8, Math.min(s.y, window.innerHeight - h - 8)),
     };
   });
 

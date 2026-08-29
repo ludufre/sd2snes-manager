@@ -1,7 +1,9 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { LibraryStore } from '../../../core/library-store';
-import type { FolderNode } from '../../../core/models';
+import type { Entry, FolderNode, ThemeFile } from '../../../core/models';
+import { ViewportService } from '../../../core/viewport.service';
+import { ContextMenuService } from '../../../core/context-menu.service';
 import { Icon } from '../../../ui/icon/icon';
 import { Checkbox } from '../../../ui/checkbox/checkbox';
 import { CoverArt } from '../../../ui/cover-art/cover-art';
@@ -54,6 +56,11 @@ import { ContextTheme } from '../../../ui/context-theme.directive';
               <app-checkbox [checked]="lib.selected().has(g.id)" [overlay]="true" (changed)="lib.toggleSel(g.id)" />
             </div>
             <app-cover-art [entry]="g" [showFmt]="true" />
+            @if (vp.coarse()) {
+              <button class="gmenu" type="button" [title]="'ctxmenu.openDetails' | transloco" (click)="menu($event, g)">
+                <app-icon name="moreHorizontal" [size]="16" />
+              </button>
+            }
           </div>
           <div class="meta">
             <div class="t">{{ g.title }}</div>
@@ -69,6 +76,11 @@ import { ContextTheme } from '../../../ui/context-theme.directive';
           <div class="cv themeico">
             @if (lib.themePreviewUrl(t); as url) { <img referrerpolicy="no-referrer" [src]="url" [alt]="t.stem" /> }
             @else { <app-icon name="palette" [size]="44" /> }
+            @if (vp.coarse()) {
+              <button class="gmenu" type="button" [title]="'views.themeHint' | transloco" (click)="themeMenu($event, t)">
+                <app-icon name="moreHorizontal" [size]="16" />
+              </button>
+            }
           </div>
           <div class="meta">
             <div class="t">{{ t.stem }}</div>
@@ -105,8 +117,21 @@ import { ContextTheme } from '../../../ui/context-theme.directive';
     /* Hidden until hover/checked — pointer-events:none so its hit area doesn't swallow corner clicks
        meant to open the detail panel. When visible, padding gives a generous click target (the whole
        div toggles selection; the checkbox itself is purely visual). */
-    .gck { position: absolute; top: 0; left: 0; z-index: 4; opacity: 0; pointer-events: none; padding: 8px 14px 14px 8px; cursor: pointer; transition: opacity 0.12s; }
-    .gcard:hover .gck, .gcard.checked .gck { opacity: 1; pointer-events: auto; }
+    .gck { position: absolute; top: 0; left: 0; z-index: 4; padding: 8px 14px 14px 8px; cursor: pointer; transition: opacity 0.12s; }
+    /* Reveal-on-hover only where there IS a hover. On touch it made multi-select in the gallery
+       flatly impossible: no pointer ever rests on a card, so the box never appeared and there was
+       no way to check anything. With a coarse pointer it is simply always there. */
+    @media (hover: hover) {
+      .gck { opacity: 0; pointer-events: none; }
+      .gcard:hover .gck, .gcard.checked .gck { opacity: 1; pointer-events: auto; }
+    }
+    /* Touch: the card's only route to Identify / Move / delete, since there is no right-click and
+       long-press is undiscoverable. Mirrors .gck in the opposite corner. */
+    .gmenu {
+      position: absolute; top: 6px; right: 6px; z-index: 4; display: grid; place-items: center;
+      width: 30px; height: 30px; padding: 0; border: none; border-radius: 8px; cursor: pointer;
+      color: var(--tx); background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(2px);
+    }
     /* folder card */
     .gcard.folder .cv.folderico {
       aspect-ratio: 4 / 3; display: grid; place-items: center; position: relative; color: var(--accent);
@@ -123,10 +148,29 @@ import { ContextTheme } from '../../../ui/context-theme.directive';
     }
     .gcard.theme .cv.themeico img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .gcard.theme.active { border-color: var(--ok, #3ecf6b); box-shadow: 0 0 0 1px var(--ok, #3ecf6b); }
+
+    /* Phone: 170px cards plus 40px of padding need 380px to fit two across, so a 360px screen got
+       exactly one enormous card per row and the grid stopped being a grid. */
+    @media (max-width: 640px) {
+      .gallery { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; padding: 12px; }
+      .gcard .meta { padding: 9px 10px; gap: 6px; }
+      .gcard .meta .t { font-size: 12.5px; }
+    }
   `,
 })
 export class GalleryView {
   protected readonly lib = inject(LibraryStore);
+  protected readonly vp = inject(ViewportService);
+  private readonly ctx = inject(ContextMenuService);
+
+  protected menu(e: MouseEvent, g: Entry): void {
+    e.stopPropagation();
+    this.ctx.open(e.clientX, e.clientY, g);
+  }
+  protected themeMenu(e: MouseEvent, t: ThemeFile): void {
+    e.stopPropagation();
+    this.ctx.openTheme(e.clientX, e.clientY, t);
+  }
   private readonly i18n = inject(TranslocoService);
 
   protected folderSub(f: FolderNode): string {

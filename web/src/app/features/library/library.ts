@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { TranslocoModule } from '@jsverse/transloco';
 import { LibraryStore } from '../../core/library-store';
 import { PrefsStore } from '../../core/prefs-store';
+import { ViewportService } from '../../core/viewport.service';
 import { Icon } from '../../ui/icon/icon';
 import { Topbar } from '../../ui/topbar/topbar';
 import { StatBar } from './statbar/statbar';
@@ -52,6 +53,7 @@ import { ConfigDialog } from './config/config-dialog';
 export class Library {
   protected readonly lib = inject(LibraryStore);
   protected readonly prefs = inject(PrefsStore);
+  protected readonly vp = inject(ViewportService);
 
   constructor() {
     // Warn before unload/refresh while a card-writing operation is in progress.
@@ -62,8 +64,18 @@ export class Library {
       }
     });
 
-    const narrow = window.matchMedia('(max-width: 860px)');
-    narrow.addEventListener('change', (e) => this.tooNarrowForSplit.set(e.matches));
+    // A phone opens with the tree closed regardless of the saved pref (which defaults to open and
+    // is shared with the desktop): as an overlay it would be sitting on top of the library before
+    // the user has asked for it. Done once, at boot, so toggling it afterwards still sticks.
+    if (this.vp.phone()) this.prefs.setSidebarOpen(false);
+
+    // Navigating is the whole point of the tree, so on a narrow window it gets out of the way once
+    // it has been used, instead of leaving the folder you just opened hidden behind it.
+    effect(() => {
+      this.lib.cwd();
+      if (this.vp.narrow() && untracked(() => this.lib.sidebarOpen())) this.prefs.setSidebarOpen(false);
+    });
+
     // The chip-BIOS warning is opened manually from the topbar (openBios), never auto-shown.
     //
     // The SD-layout migration is the one exception, deliberately. Missing BIOS is a partial
@@ -125,15 +137,10 @@ export class Library {
       this.lib.visibleFolders().length === 0 &&
       this.lib.themesInCwd().length === 0,
   );
-  /** True while the window is too narrow to host the split layout. Backed by matchMedia rather than
-   *  a resize listener: it fires only when the threshold is actually crossed, not on every pixel.
-   *  860px is where the sidebar becomes an overlay (see sidebar.ts), below it the inline detail
-   *  panel would leave the list with almost nothing. */
-  private readonly tooNarrowForSplit = signal(window.matchMedia('(max-width: 860px)').matches);
-
   /** Split degrades to the drawer on a narrow window, the panel then floats over the list instead
-   *  of competing with it for width. */
-  protected readonly splitLive = computed(() => this.prefs.view() === 'split' && !this.tooNarrowForSplit());
+   *  of competing with it for width. 860px is where the sidebar becomes an overlay (see
+   *  sidebar.ts); below it the inline detail panel would leave the list with almost nothing. */
+  protected readonly splitLive = computed(() => this.prefs.view() === 'split' && !this.vp.narrow());
 
   /** Drawer detail (list/gallery, or a squeezed split) when a game is selected. */
   protected readonly showDrawer = computed(() => !this.splitLive() && !!this.lib.sel());

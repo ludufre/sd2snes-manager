@@ -65,6 +65,9 @@ import { Checkbox } from '../checkbox/checkbox';
       position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 71;
       width: min(420px, 92vw); background: var(--panel); border: 1px solid var(--line);
       border-radius: 16px; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6); padding: 22px; animation: pop 0.16s ease;
+      /* A delete confirm can list a checkbox per asset. Without a ceiling that list ran past the
+         viewport and body{overflow:hidden} clipped it — taking the confirm button with it. */
+      max-height: 85dvh; overflow-y: auto;
     }
     @keyframes pop { from { transform: translate(-50%, -46%); opacity: 0; } }
     .card.danger { border-color: color-mix(in oklab, var(--danger) 45%, transparent); }

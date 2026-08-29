@@ -12,7 +12,7 @@ You do not need this repository to use the Manager. It is a web app: open the li
 
 ## Get it running
 
-1. Open the **[Web Manager](https://sd2snes.ludufre.com/manager/)** in Chrome or Edge, with the SD card plugged into your computer.
+1. Open the **[Web Manager](https://sd2snes.ludufre.com/manager/)** in Chrome or Edge, with the SD card plugged into your computer — or in Chrome on Android, with the card in the phone.
 2. Hit **Select folder…** and pick the card (or drag the folder onto the page). Nothing is uploaded; the browser grants access to that one folder and everything is read locally.
 3. Run **Auto-fill**. It analyses what is already on the card and asks, category by category, whether to *Don't touch*, *Complete* only what is missing, *Update* what is outdated, or *Replace* everything.
 4. Put the card back in the console.
@@ -23,7 +23,9 @@ Just browsing? Pick **Try with sample ROMs** on the start screen and the whole i
 > Nothing is uploaded, ever. ROMs are read locally and identified by CRC32, and only the checksum goes to the server. The card is read and written directly through the File System Access API.
 
 > [!IMPORTANT]
-> Chrome or Edge only, over `https` or `http://localhost`. Firefox and Safari have no write support in the File System Access API, which is the whole basis of the app.
+> Chrome or Edge only, over `https` or `http://localhost`. Firefox and Safari have no write support in
+> the File System Access API, which is the whole basis of the app. Chrome on **Android** works; **iOS does
+> not**, and no iPhone or iPad browser will, because every one of them is Safari underneath.
 
 ## What it does
 

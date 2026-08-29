@@ -5,6 +5,33 @@ Every released version, newest first.
 Some releases were published together and reach the repository as a single commit. When that
 happens, the entry says which versions it covers.
 
+## 1.29.0 - 2026-08-29
+
+### Added
+
+- **The Manager now works on an Android phone.** Below 640px the page scrolls as a whole instead of
+  pinning six bars above a sliver of list, the card actions and the language picker move into the
+  settings sheet behind the gear, and the scoreboard, the gallery, the detail panel and the dialogs
+  all fit a 360px screen. Android only: iPhones and iPads cannot run this app at all, because every
+  browser there is Safari underneath and Safari has no File System Access API.
+- **Everything is reachable by touch.** Selecting in the gallery, renaming a folder, and the context
+  menu that holds Identificar, Mover and the deletes were all mouse-only. Rows are no longer
+  draggable on a touch screen, which frees the long press, and every row and card also carries a
+  menu button.
+
+### Changed
+
+- **The card's firmware is read, never asked.** The old question was a guess most people could not
+  make, and a wrong answer silently wrote covers and saves where that console never looks. A card
+  whose firmware cannot be identified is now read-only until you install one, which the Manager does
+  itself.
+
+### Fixed
+
+- **The browser no longer offers to translate the page.** `index.html` said `lang="en"` while the app
+  opened in Portuguese, and a document claiming one language while showing another is exactly what
+  raises Chrome's translation bar — over an interface that already ships seven languages.
+
 ## 1.28.0 - 2026-08-21
 
 ### Added

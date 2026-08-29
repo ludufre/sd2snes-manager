@@ -68,7 +68,7 @@ import { Icon } from '../../../ui/icon/icon';
     .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 58; }
     .fw {
       position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 59;
-      width: min(820px, 94vw); height: min(620px, 88vh); display: flex; flex-direction: column;
+      width: min(820px, 94vw); height: min(620px, 88dvh); display: flex; flex-direction: column;
       background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
       box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55); overflow: hidden;
     }
@@ -94,6 +94,7 @@ import { Icon } from '../../../ui/icon/icon';
     }
     .ritem .rmeta { font-family: var(--mono); font-size: 10.5px; color: var(--tx-low); }
     .rnotes { flex: 1; min-width: 0; overflow: auto; padding: 16px 20px; }
+
     .fwfoot { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--panel-2); }
     .fwfoot .dest { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; color: var(--tx-mid); }
     .fwfoot .ghfall { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px; color: var(--tx-low); padding-left: 14px; border-left: 1px solid var(--line); }
@@ -102,6 +103,28 @@ import { Icon } from '../../../ui/icon/icon';
 
     /* The release notes' Markdown is styled globally (styles/_markdown.scss): these rules used to
        live here, where emulated encapsulation kept them from ever reaching the [innerHTML] nodes. */
+    /* Same shape as the changelog's version list at this width: 240px of release list out of 360px
+       leaves the notes unreadable, so the list becomes a scrollable strip on top instead. */
+    @media (max-width: 640px) {
+      .fwbody { flex-direction: column; }
+      .rlist {
+        width: auto; flex: 0 0 auto; min-width: 0; border-right: none; border-bottom: 1px solid var(--line);
+        display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+      }
+      .rlist::-webkit-scrollbar { display: none; }
+      .ritem { width: auto; flex: 0 0 auto; padding: 7px 10px; }
+      .ritem .rmeta { display: none; }
+      .rnotes { padding: 14px 16px; }
+      /* The footer is a nowrap row of destination + GitHub links + the install buttons: 408px of
+         content in 336px, which pushed the install button clean off the right edge — the one
+         control the dialog exists for. It wraps now, the buttons take a full row of their own, and
+         the GitHub fallback links go (they are a manual-download escape hatch, and the release
+         notes above already link the repo). */
+      .fwfoot { flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
+      .fwfoot .ghfall { display: none; }
+      .fwfoot .grow { display: none; }
+      .fwfoot .btn { flex: 1 1 100%; justify-content: center; }
+    }
   `,
 })
 export class FirmwareDialog {
