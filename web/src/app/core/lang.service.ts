@@ -43,17 +43,34 @@ export class LangService {
     const initial = this.resolveInitial();
     this.transloco.setActiveLang(initial);
     this._lang.set(initial);
+    this.applyLang(initial);
   }
 
   set(lang: Lang): void {
     if (!LANGS.includes(lang)) return;
     this.transloco.setActiveLang(lang);
     this._lang.set(lang);
+    this.applyLang(lang);
     try {
       localStorage.setItem(LS_KEY, lang);
     } catch {
       // storage may be unavailable (private mode); non-fatal
     }
+  }
+
+  /**
+   * Keep `<html lang>` honest.
+   *
+   * index.html ships `lang="en"` because it has to say something, but the app defaults to 'pt' and
+   * switches at runtime — so without this the document claimed English while rendering Portuguese.
+   * That mismatch is exactly what makes Chrome offer to translate the page, on top of a UI that
+   * already ships seven languages. (`translate="no"` in index.html stops the offer; this stops the
+   * lie, which also matters for screen readers picking a voice and for `:lang()` rules.)
+   *
+   * Mirrors how PrefsStore writes accent/density onto <html>.
+   */
+  private applyLang(lang: Lang): void {
+    document.documentElement.lang = lang;
   }
 
   private resolveInitial(): Lang {
