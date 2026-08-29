@@ -22,7 +22,6 @@ import {
   saveCardHandle,
   loadCardHandle,
   clearCardHandle,
-  loadCardFwAssume,
   pickImageFile,
   pickVideoFile,
   pickPdfFile,
@@ -1021,11 +1020,6 @@ export class LibraryStore {
   /** The layout the card is already in, observed during the migration probe. Only consulted when
    *  the firmware version cannot be read. */
   private readonly _cardLayout = signal<LayoutMode | null>(null);
-  /** The user's answer to "is this card's firmware 2.15 or newer?", asked once, only when neither
-   *  the version nor the card's own folders can settle it, and remembered with the card handle. */
-  private readonly _fwAssume = signal<LayoutMode | null>(null);
-  /** Non-null only when the layout came from the user's answer rather than from the card. */
-  readonly fwAssumed = this._fwAssume.asReadonly();
   /** The most recent plan, published by probeMigration so the dialog can reuse it instead of
    *  walking the whole card again. */
   private readonly _lastPlan = signal<MigrationPlan | null>(null);
@@ -1319,16 +1313,37 @@ export class LibraryStore {
    * The rule itself lives in `layoutForFw` (fw-version.ts) so it can be tested without standing up
    * the whole store; this is only the wiring of the two signals it reads.
    */
-  readonly layoutMode = computed<LayoutMode>(() => layoutForFw(this._fw(), this._cardLayout(), this._fwAssume()));
+  readonly layoutMode = computed<LayoutMode>(() => layoutForFw(this._fw(), this._cardLayout()));
 
-  /** Does the firmware this card will run read the bucket layout at all? Either it says so itself,
-   *  or the user told us because it could not be read. This (not `fwUsesBuckets` alone) is what
-   *  decides whether moving files is safe. Any generation but 'legacy' qualifies -- WHICH one it is
-   *  only decides the destination, and that is `layoutMode`'s job. */
-  readonly readsBuckets = computed(() => {
-    const a = this._fwAssume();
-    return this.fwUsesBuckets() || (a !== null && a !== 'legacy');
+  /**
+   * Do we know which layout this card's console reads?
+   *
+   * `release`/`snapshot` are this fork, `official` is upstream -- all three name a firmware, so the
+   * layout follows from it. Only `absent` and `unknown` leave it genuinely open, and there the app
+   * used to ASK. It no longer does: the answer was a guess the user often could not make, a wrong
+   * one silently wrote assets where that console never looks, and it was persisted per card so the
+   * mistake stuck forever. Writing is gated on this instead, and installing a firmware -- which the
+   * Manager does itself, re-probing afterwards -- is the way out.
+   */
+  readonly cardIdentified = computed(() => {
+    const k = this._fw().kind;
+    return k === 'release' || k === 'snapshot' || k === 'official';
   });
+
+  /** Upstream firmware: the layout is known, but box art, game info cards, manuals, themes and menu
+   *  sounds are things this fork added, so those files would sit unread. Informational only. */
+  readonly cardIsOfficialFw = computed(() => this._fw().kind === 'official');
+
+  /** What the card's own folders suggest, for the unidentified banner. A hint, never a decision:
+   *  the shape says what SOMETHING wrote before, not what this console reads. */
+  readonly cardLayoutHint = computed(() => {
+    const o = this._cardLayout();
+    return !o ? null : o === 'legacy' ? 'library.fwHintLegacy' : o === 'buckets' ? 'library.fwHint215' : 'library.fwHint216';
+  });
+
+  /** Does the firmware this card will run read the bucket layout at all? This (not `fwUsesBuckets`
+   *  alone) is what decides whether moving files is safe. */
+  readonly readsBuckets = computed(() => this.fwUsesBuckets() || this.layoutMode() !== 'legacy');
 
   /** `assetKeyOf` with the card's layout injected. Every write path goes through this. It is the
    *  single point where the mode enters, which is why adding it touched no call site. */
@@ -1363,10 +1378,7 @@ export class LibraryStore {
       v.kind === 'snapshot' ? this.i18n.translate('topbar.fwDetailDev', { raw: v.raw })
       : v.kind === 'absent' ? this.i18n.translate('topbar.fwDetailAbsent')
       : this.i18n.translate('topbar.fwDetailUnknown');
-    /* Say which layout we settled on when the version is a guess, otherwise the only way to find
-       out is to look at where a downloaded cover landed. */
-    const a = this._fwAssume();
-    return a ? `${head} ${this.i18n.translate(a === 'legacy' ? 'migrate.fwAssumedOld' : 'migrate.fwAssumedNew')}` : head;
+    return head;
   });
 
   /* The card is actively broken: the firmware reads only buckets and this card is not bucketed.
@@ -1731,11 +1743,10 @@ export class LibraryStore {
          it is fire-and-forget and its full card walk takes ~20s, which is a wide window for the
          user to hit Auto-fill in. This probe is cheap: one file read plus one shallow listing. */
       await this.probeLayout(dir);
-      await this.resolveFwAssumption(dir, !!opts.interactive);
       this._connected.set(true);
       this._reconnectHandle.set(null); // we're connected now, drop any pending reconnect offer
-      // remember this card (+ the firmware answer) so a reload can reconnect without re-picking or re-asking
-      void saveCardHandle(dir, this._fwAssume());
+      // remember this card so a reload can reconnect without re-picking
+      void saveCardHandle(dir);
       this._scan.set(null);
       this.toast.show(this.i18n.translate('store.gamesReadingStatus', { count: entries.length }));
       void this.probeAllOnCard(entries);
@@ -1828,7 +1839,7 @@ export class LibraryStore {
    *  (not just the dropped top-level items) and copies run concurrently. */
   async importDropped(handles: FileSystemHandle[], destFolderPath: string): Promise<void> {
     if (!this.rootHandle || !handles.length) return;
-    if (this.bulkBusy()) return; // don't stomp an in-flight bulk op (shared progress + cancel flag)
+    if (this.cardUnidentified() || this.bulkBusy()) return; // don't stomp an in-flight bulk op (shared progress + cancel flag)
     this.cancelImport = false;
 
     // Phase 1, walk the drop into a flat copy plan (no data read yet).
@@ -2007,7 +2018,7 @@ export class LibraryStore {
       this.toast.show(this.i18n.translate('store.connectCardOrFolderFirst'), 'warn');
       return;
     }
-    if (this.bulkBusy()) return;
+    if (this.cardUnidentified() || this.bulkBusy()) return;
     this._bulk.set({ done: 0, total: 0, label: this.i18n.translate('store.installingTheme', { name: theme.name }) });
     let bytes: Uint8Array;
     try {
@@ -2072,6 +2083,7 @@ export class LibraryStore {
   }
 
   async saveConfigSettings(values: Record<string, string>): Promise<boolean> {
+    if (this.cardUnidentified()) return false;
     if (!this.rootHandle || this.card.unwritable) return false;
     const dir = await getDirByPath(this.rootHandle, 'sd2snes');
     const raw = dir ? await readTextFile(dir, 'config.yml') : null;
@@ -2108,6 +2120,7 @@ export class LibraryStore {
    *  (src/savestate.c:258), which skips leading delimiters, so an entry written as ",SL" comes
    *  back as the SAVE combo instead of the load one. */
   async saveSavestateInputs(checksum: string, save: string, load: string, gameName: string): Promise<boolean> {
+    if (this.cardUnidentified()) return false;
     if (!this.rootHandle || this.card.unwritable || !/^[0-9A-F]{4}$/i.test(checksum)) return false;
     const value = savestateInputsValue(save, load);
     if (value == null) return false;
@@ -2170,7 +2183,7 @@ export class LibraryStore {
 
   /** Set an already-on-card `.thm` as the menu theme (writes `SkinName` into /sd2snes/config.yml). */
   async setActiveTheme(t: ThemeFile): Promise<void> {
-    if (!this.rootHandle || this.bulkBusy()) return;
+    if (!this.rootHandle || this.cardUnidentified() || this.bulkBusy()) return;
     const skin = '/' + t.path;
     if (skin.length > 127) { this.toast.show(this.i18n.translate('store.themeSetPathLong', { name: t.stem }), 'warn'); return; }
     const outcome = await this.applyThemeConfig(skin);
@@ -2185,7 +2198,7 @@ export class LibraryStore {
 
   /** Delete a `.thm` from the card. If it was the active theme, clears `SkinName` back to the default. */
   async removeTheme(t: ThemeFile): Promise<void> {
-    if (!this.rootHandle || this.bulkBusy()) return;
+    if (!this.rootHandle || this.cardUnidentified() || this.bulkBusy()) return;
     const r = await this.dialog.confirm({
       title: this.i18n.translate('store.removeThemeTitle', { name: t.stem }),
       body: this.i18n.translate('store.removeThemeBody', { name: t.name }),
@@ -2259,46 +2272,6 @@ export class LibraryStore {
     } catch {  }/* leave it unknown -> layoutMode() falls back on the firmware kind */
   }
 
-  /**
-   * When the version could not be read off the card, get the answer from the person holding it.
-   *
-   * The Manager has no device link, so on a card whose image it cannot parse (the original sd2snes
-   * firmware.img, a development build, no firmware at all) it would otherwise have to guess which
-   * layout the console reads, and a wrong guess is silent: the files are written, the console just
-   * never opens that folder. Asking costs one dialog, once per card.
-   *
-   * Only asked as a last resort, and only when the user is right there:
-   *   - a release version settles it -> never ask;
-   *   - an answer already given for this card (stored beside the handle) -> reuse it;
-   *   - the card's own folders showing a layout -> trust the card, stay quiet;
-   *   - reload-resume / reconnect -> no answer, fall back to the safe default (see `layoutForFw`).
-   *
-   * Dismissing the dialog (scrim, Esc) counts as "2.14 or older": that is the answer that cannot
-   * orphan anything, since nothing gets promoted to two-letter folders.
-   */
-  private async resolveFwAssumption(dir: FileSystemDirectoryHandle, interactive: boolean): Promise<void> {
-    this._fwAssume.set(null);
-    if (this._fw().kind === 'release') return;
-
-    const stored = await loadCardFwAssume(dir);
-    if (stored) { this._fwAssume.set(stored === 'legacy' ? 'legacy' : 'namespaces'); return; }
-    if (this._cardLayout()) return;
-    if (!interactive) return;
-
-    // The official firmware is identified. Saying "I could not read the version" there would be a
-    // plain lie, and it hides the one fact that explains the question: the stock build knows neither
-    // of this fork's layouts, so what matters is which firmware the card is going to run.
-    const fw = this._fw();
-    const r = await this.dialog.confirm({
-      title: this.i18n.translate('store.fwAssumeTitle'),
-      body: fw.kind === 'official'
-        ? this.i18n.translate('store.fwAssumeBodyOfficial', { version: fw.base })
-        : this.i18n.translate('store.fwAssumeBody'),
-      confirmLabel: this.i18n.translate('store.fwAssumeNew'),
-      cancelLabel: this.i18n.translate('store.fwAssumeOld'),
-    });
-    this._fwAssume.set(r.ok ? 'namespaces' : 'legacy');
-  }
 
   /**
    * Which layout one root is in, or null when it holds nothing conclusive (missing, empty, or only
@@ -2359,7 +2332,7 @@ export class LibraryStore {
    *  durable and the next connect re-plans), but the browser should still ask. */
   async runMigration(opts?: MigrationOptions): Promise<MigrationResult | null> {
     if (!this.rootHandle) return null;
-    if (this.bulkBusy()) return null;      // don't stomp an in-flight bulk (shared progress + cancel flag)
+    if (this.cardUnidentified() || this.bulkBusy()) return null;      // don't stomp an in-flight bulk (shared progress + cancel flag)
     this.cancelImport = false;
     this.card.resetWriteHealth();
     this._migrateResult.set(null);          // a new run supersedes whatever the last one reported
@@ -2529,6 +2502,7 @@ export class LibraryStore {
   /** Validate a dropped file's CRC32 against the slot, and on success write it to
    *  /sd2snes/<file>. Returns the computed CRC + outcome (no write on mismatch). */
   async addBios(id: string, file: File): Promise<{ ok: boolean; crc: string; error?: string }> {
+    if (this.cardUnidentified()) return { ok: false, crc: '', error: 'unidentified-firmware' };
     const spec: BiosFile | undefined = BIOS_FILES.find((b) => b.id === id);
     if (!spec) return { ok: false, crc: '', error: 'unknown BIOS slot' };
     if (!this.rootHandle) {
@@ -3313,9 +3287,6 @@ export class LibraryStore {
    *     card again (migrate-dialog.ts) and `_lastPlan` was cleared by nothing, not even eject.
    *   · the BIOS warning and the usage total described the card that was no longer there.
    *
-   * `_fwAssume` is reset here too, though it was already safe on its own: the answer is stored with the
-   * card handle and `loadCardFwAssume` returns null for a different folder (lib/scan.js), so another
-   * card is asked again rather than inheriting.
    */
   private resetCardProbes(): void {
     this._biosPresent.set(new Set());
@@ -3326,7 +3297,6 @@ export class LibraryStore {
     this._lastPlan.set(null);
     this._migrateResult.set(null); // the previous card's organize result would re-open the dialog
     this._cardLayout.set(null);
-    this._fwAssume.set(null);
     this._fw.set({ kind: 'unknown' });
     this._cardUsedBytes.set(null);
   }
@@ -4613,7 +4583,7 @@ export class LibraryStore {
     // Same doctrine as every other card mutation entry point: never write behind a bulk run. A
     // guide added mid-run would race installManuals' shared bucket listing (and a PDF render would
     // compete with ffmpeg for CPU anyway).
-    if (this.bulkBusy()) return false;
+    if (this.cardUnidentified() || this.bulkBusy()) return false;
     if (!this.rootHandle) { this.toast.show(this.i18n.translate('store.noCardConnected'), 'warn'); return false; }
     const stem = stemOf(g.file);
     const dir = await this.ensureDir(infoDirFor(this.key(g.file)));
@@ -4664,7 +4634,7 @@ export class LibraryStore {
    *  to defer reordering-by-renumbering to a later cycle). Works for slot 0 too (the official manual
    *  is still just a file), flips `manual` back to 'none' so auto-fill sees it as missing again. */
   async removeGuide(g: Entry, nn: number): Promise<void> {
-    if (this.bulkBusy()) return; // see addGuide, never mutate slots behind a bulk run's listing
+    if (this.cardUnidentified() || this.bulkBusy()) return; // see addGuide, never mutate slots behind a bulk run's listing
     if (!this.rootHandle) return;
     const stem = stemOf(g.file);
     try {
@@ -4752,7 +4722,7 @@ export class LibraryStore {
 
   /** Open the auto-fill dialog: identify the scope (so availability is known), then tally per category. */
   async startAutoFill(ids?: ReadonlySet<string>): Promise<void> {
-    if (this._autoFill() || this.bulkBusy()) return;
+    if (this._autoFill() || this.cardUnidentified() || this.bulkBusy()) return;
     const epoch = ++this.autoFillEpoch; // so a close/re-open during analysis can't be overwritten by us
     const inScope = (g: Entry): boolean => (ids ? ids.has(g.id) : true) && !!g.fileHandle;
     const scope = this._entries().filter(inScope);
@@ -5095,7 +5065,7 @@ export class LibraryStore {
     if (!st) return;
     const ids = st.ids;
     this._autoFill.set(null);
-    if (this.bulkBusy()) return;
+    if (this.cardUnidentified() || this.bulkBusy()) return;
     const inScope = (g: Entry): boolean => (ids ? ids.has(g.id) : true) && !!g.fileHandle;
     let targets = this._entries().filter(inScope);
     if (!targets.length) return;
@@ -5722,6 +5692,20 @@ export class LibraryStore {
 
   /** True (and warns) when a card operation already owns the progress bar, guards every `_bulk`
    *  entry point so two can't run at once (they'd stomp each other's progress + share cancelImport). */
+  /**
+   * True + toast when the card's firmware could not be identified, in which case nothing may be
+   * written: we do not know which folders that console reads, and a wrong guess is silent -- the
+   * file lands somewhere the console never opens and the user reads it as "my saves disappeared".
+   *
+   * Installing a firmware is the deliberate exception (it is the way out, and it re-probes), as are
+   * the paths that do not depend on the layout at all. Guard the entry points, not the writers.
+   */
+  private cardUnidentified(): boolean {
+    if (this.cardIdentified()) return false;
+    this.toast.show(this.i18n.translate('store.needsFirmware'), 'warn');
+    return true;
+  }
+
   private bulkBusy(): boolean {
     if (this.isBulkRunning()) {
       this.toast.show(this.i18n.translate('store.operationInProgress'), 'warn');
@@ -5963,6 +5947,7 @@ export class LibraryStore {
   }
 
   async delSave(g: Entry): Promise<void> {
+    if (this.cardUnidentified()) return;
     const savesDir = await this.bucketDir(SAVES_ROOT, this.key(g.file));
     if (g.fileHandle && savesDir) {
       const r = await this.dialog.confirm({
@@ -5983,6 +5968,7 @@ export class LibraryStore {
   /** Delete all save-state slots (<stem>NN.state) for a ROM. Confirmed -- save states are the user's
    *  in-game progress and cannot be regenerated. */
   async delStates(g: Entry): Promise<void> {
+    if (this.cardUnidentified()) return;
     const key = this.key(g.file);
     const stem = key.stem;
     const slots = await this.listSaveStates(key);
@@ -6094,6 +6080,7 @@ export class LibraryStore {
 
   /** Delete the ROM file(s) + any opted-in on-card assets (keys per removeAssets). */
   async deleteEntries(ids: Iterable<string>, assets: ReadonlySet<string> = new Set()): Promise<void> {
+    if (this.cardUnidentified()) return;
     const idset = new Set(ids);
     const targets = this._entries().filter((e) => idset.has(e.id));
     for (const e of targets) {
@@ -6163,6 +6150,7 @@ export class LibraryStore {
 
   /* ---- move ---- */
   async moveEntries(ids: Iterable<string>, destFolderPath: string): Promise<void> {
+    if (this.cardUnidentified()) return;
     const idset = new Set(ids);
     const targets = this._entries().filter((e) => idset.has(e.id) && e.folder !== destFolderPath);
     if (!targets.length) { this.endDrag(); return; }
@@ -6239,7 +6227,7 @@ export class LibraryStore {
     const idset = new Set(ids);
     const targets = this._entries().filter((e) => idset.has(e.id));
     if (!targets.length) return;
-    if (this.rootHandle && this.bulkBusy()) return; // real-card copy uses the bulk bar
+    if (this.rootHandle && this.cardUnidentified() || this.bulkBusy()) return; // real-card copy uses the bulk bar
 
     if (!this.rootHandle) { // demo, clone the entries into the folder
       const clones = targets.map((e) => ({ ...e, id: 'copy' + ++this.copySeq, folder: destFolderPath, thumbUrl: undefined }));
@@ -6320,6 +6308,7 @@ export class LibraryStore {
   cancelNewFolder(): void { this._newFolderParent.set(null); }
 
   async createFolder(parentPath: string, name: string): Promise<void> {
+    if (this.cardUnidentified()) return;
     this._newFolderParent.set(null);
     name = name.trim().replace(/[/\\]/g, '');
     if (!name) return;
@@ -6338,6 +6327,7 @@ export class LibraryStore {
   }
 
   async deleteFolder(path: string): Promise<void> {
+    if (this.cardUnidentified()) return;
     if (!path) return;
     const inFolder = this._entries().filter((e) => e.folder === path || e.folder.startsWith(path + '/'));
     const leafName = path.split('/').pop() ?? path;
@@ -6439,7 +6429,7 @@ export class LibraryStore {
 
   /* ---- bulk ops (simulated generation; download-only this phase) ---- */
   async runBulk(kind: 'cover' | 'cheats', ids?: ReadonlySet<string>): Promise<void> {
-    if (this.bulkBusy()) return;
+    if (this.cardUnidentified() || this.bulkBusy()) return;
     this.cancelImport = false; // shared cooperative-cancel flag. Reset so a Cancel actually stops this run
     this.card.resetWriteHealth(); // fresh write-health (latches + stops the run if the card goes unwritable)
     const inSel = (g: Entry): boolean => (ids ? ids.has(g.id) : true);
@@ -6573,6 +6563,7 @@ export class LibraryStore {
     if (this.card.unwritable) this.toast.show(this.i18n.translate('store.cardUnwritable'), 'warn');
   }
   async bulkDelete(ids: ReadonlySet<string>): Promise<void> {
+    if (this.cardUnidentified()) return;
     const n = ids.size;
     if (!n) return;
     const anyReal = this._entries().some((e) => ids.has(e.id) && e.fileHandle);

@@ -49,3 +49,21 @@
 .scan-line .label { font-family: var(--mono); font-size: 12px; color: var(--tx-mid); margin-bottom: 10px; }
 .bar { height: 6px; background: var(--elevated); border-radius: 99px; overflow: hidden; }
 .bar > i { display: block; height: 100%; background: var(--accent); border-radius: 99px; transition: width 0.25s; }
+
+/* Firmware banner: the card's firmware could not be identified (writing is blocked until it is),
+   or it is the stock upstream build (writing is fine, but half the features do not exist there). */
+.fwbanner {
+  display: flex; align-items: center; gap: 12px;
+  margin: 10px 16px 0; padding: 11px 14px; border-radius: 10px;
+  font-size: 12.5px; line-height: 1.45;
+  border: 1px solid rgba(120, 160, 255, 0.35); background: rgba(120, 160, 255, 0.08);
+  color: var(--tx-mid);
+}
+.fwbanner app-icon { flex: 0 0 auto; color: var(--accent); }
+.fwbanner .txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1 1 auto; }
+.fwbanner .txt b { color: var(--tx-hi); }
+.fwbanner .hint { font-family: var(--mono); font-size: 11px; color: var(--tx-low); }
+.fwbanner .btn { flex: 0 0 auto; }
+/* the blocking one is louder than the informational one */
+.fwbanner.block { border-color: rgba(245, 177, 58, 0.45); background: rgba(245, 177, 58, 0.09); }
+.fwbanner.block app-icon { color: #f5b13a; }

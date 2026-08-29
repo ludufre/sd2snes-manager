@@ -46,6 +46,31 @@
       </div>
     </div>
   } @else {
+    @if (!lib.cardIdentified()) {
+      <div class="fwbanner block">
+        <app-icon name="sd" [size]="16" />
+        <div class="txt">
+          <b>{{ 'library.fwUnknownTitle' | transloco }}</b>
+          <span>{{ 'library.fwUnknownBody' | transloco }}</span>
+          @if (lib.cardLayoutHint(); as hint) { <span class="hint">{{ hint | transloco }}</span> }
+        </div>
+        <button class="btn primary" type="button" (click)="firmwareOpen.set(true)">
+          {{ 'library.fwUnknownCta' | transloco }}
+        </button>
+      </div>
+    } @else if (lib.cardIsOfficialFw()) {
+      <div class="fwbanner">
+        <app-icon name="sd" [size]="16" />
+        <div class="txt">
+          <b>{{ 'library.fwOfficialTitle' | transloco }}</b>
+          <span>{{ 'library.fwOfficialBody' | transloco }}</span>
+        </div>
+        <button class="btn" type="button" (click)="firmwareOpen.set(true)">
+          {{ 'library.fwOfficialCta' | transloco }}
+        </button>
+      </div>
+    }
+
     <app-statbar />
     <app-toolbar />
     <app-bulkbar />

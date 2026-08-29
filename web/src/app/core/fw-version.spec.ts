@@ -84,33 +84,23 @@ describe('layoutForFw', () => {
     expect(layoutForFw(rel('2.14'), 'buckets')).toBe('legacy');
   });
 
-  it('an unidentified firmware follows the card', () => {
+  it('an unidentified firmware falls back to what the card looks like', () => {
+    // Only drives reads/display: writing is blocked outright while the firmware is unidentified
+    // (see cardIdentified in library-store), so this value can no longer put a file in the wrong place.
     expect(layoutForFw({ kind: 'absent' }, 'buckets')).toBe('buckets');
-    expect(layoutForFw({ kind: 'unknown' }, 'legacy')).toBe('legacy');
-    expect(layoutForFw({ kind: 'snapshot', raw: 'SNAPSHOT' }, 'legacy')).toBe('legacy');
-  });
-
-  it('with NO evidence at all, only a dev build gets the benefit of the doubt', () => {
-    // The original sd2snes card carries firmware.img/menu.bin, which reads as 'absent' here. Writing
-    // buckets there put covers and saves where a 2.14 console never looks -- silently.
+    expect(layoutForFw({ kind: 'unknown' }, 'namespaces')).toBe('namespaces');
     expect(layoutForFw({ kind: 'absent' }, null)).toBe('legacy');
     expect(layoutForFw({ kind: 'unknown' }, null)).toBe('legacy');
-    // A snapshot is a build of this fork, so it writes whatever HEAD writes -- today, the
-    // per-console namespaces. Anything older would regress dev cards.
-    expect(layoutForFw({ kind: 'snapshot', raw: '20260718231602' }, null)).toBe('namespaces');
   });
 
-  it("the user's answer beats what the card looks like, and the default", () => {
-    // The card shows what it has; the user knows what they are about to run. A card still in the
-    // old layout whose owner says "this runs 2.15" must get the new layout from the next write on.
-    expect(layoutForFw({ kind: 'absent' }, 'legacy', 'buckets')).toBe('buckets');
-    expect(layoutForFw({ kind: 'snapshot', raw: 'SNAPSHOT' }, 'buckets', 'legacy')).toBe('legacy');
-    expect(layoutForFw({ kind: 'unknown' }, null, 'buckets')).toBe('buckets');
-  });
-
-  it('but a version read off the card beats even the answer — it is the one thing that is not a guess', () => {
-    expect(layoutForFw(rel('2.14'), null, 'buckets')).toBe('legacy');
-    expect(layoutForFw(rel('2.15'), null, 'legacy')).toBe('buckets');
+  it('every firmware that names itself settles the layout, ignoring the card', () => {
+    expect(layoutForFw(rel('2.14'), 'namespaces')).toBe('legacy');
+    expect(layoutForFw(rel('2.15b3'), 'legacy')).toBe('buckets');
+    expect(layoutForFw(rel('2.16b1'), 'legacy')).toBe('namespaces');
+    // a dev build is this fork's HEAD
+    expect(layoutForFw({ kind: 'snapshot', raw: '20260718231602' }, 'legacy')).toBe('namespaces');
+    // the stock upstream build predates every layout this fork added
+    expect(layoutForFw({ kind: 'official', raw: '1.11.2', base: '1.11.2' }, 'namespaces')).toBe('legacy');
   });
 });
 
@@ -178,13 +168,14 @@ describe('classifyFwString — the official firmware', () => {
     expect(fwUsesBuckets(classifyFwString('1.11.2'))).toBe(false);
   });
 
-  it('leaves the layout decision to the user, exactly as before', () => {
-    // Positively identified, but it proves what is on the card, not what will run: this fork is
-    // routinely flashed over USB with the stock image left in place. So the user's answer still wins,
-    // and a card already organized in buckets keeps being organized.
+  it('settles on the legacy layout, whatever the card looks like', () => {
+    // The stock build predates every layout this fork added, so it reads the flat one. It used to
+    // defer to the user's answer instead, on the grounds that this fork is routinely flashed over
+    // USB with the stock image left in place -- but that question is gone, and installing a firmware
+    // through the Manager re-probes the card, so reading what is there now is the honest answer.
     const off = classifyFwString('1.11.2');
-    expect(layoutForFw(off, null, 'buckets')).toBe('buckets'); // the user said 2.15+
-    expect(layoutForFw(off, 'buckets', null)).toBe('buckets'); // the card is already organized
-    expect(layoutForFw(off, null, null)).toBe('legacy');       // nobody knows → the safe layout
+    expect(layoutForFw(off, 'buckets')).toBe('legacy');
+    expect(layoutForFw(off, 'namespaces')).toBe('legacy');
+    expect(layoutForFw(off, null)).toBe('legacy');
   });
 });

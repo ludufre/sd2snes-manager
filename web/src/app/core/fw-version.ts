@@ -111,32 +111,22 @@ export function fwUsesNamespaces(v: FwVersion): boolean {
 }
 
 /**
- * Which layout to write, in order of how much the evidence is worth.
+ * Which layout to write.
  *
- *   1. a release version read off the card. The only thing that is not a guess;
- *   2. `assumed`: the user answered "is this card's firmware 2.15 or newer?" when the version could
- *      not be read. An answer beats an observation: the card shows what it has, the user knows what
- *      they are going to run;
- *   3. `observed`: what the card already uses. An organized card keeps being organized, a legacy one
- *      stays readable. An 'official' image does not short-circuit here even though it is positively
- *      identified, because it proves what is on the card, not what the console will run (this fork is
- *      routinely flashed over USB, leaving the stock image in place), and a card already organized in
- *      buckets must not start scattering new files into the old layout. It still lands on 'legacy'
- *      below when nobody knows better, just not over the user's answer;
- *   4. nothing at all. A snapshot is a development build of this fork, so it reads the newest layout.
- *      'absent'/'unknown' covers the original sd2snes card (firmware.img + menu.bin, which the parser
- *      above cannot read), where assuming buckets would write covers and saves into two-letter folders
- *      a 2.14 console never opens. Legacy is the safer wrong answer: the files land in the old layout
- *      and the migration dialog offers to move them, which is recoverable and visible.
- *
- * (4) is only reached when nobody could be asked, such as a reload-resume of an unanswered card.
+ * Every firmware kind that NAMES a version settles it: a release by its number, a snapshot because
+ * it is this fork's HEAD, and `official` because the stock build predates every layout this fork
+ * added. `absent`/`unknown` are the open case -- the app used to ask the user and write on the
+ * answer; it now refuses to write at all (see `cardIdentified` in library-store), so the value
+ * returned here only drives what is READ and displayed. `observed` is the card's own shape, which
+ * is the best evidence available for that.
  */
-export function layoutForFw(fw: FwVersion, observed: LayoutMode | null, assumed: LayoutMode | null = null): LayoutMode {
+export function layoutForFw(fw: FwVersion, observed: LayoutMode | null): LayoutMode {
   if (fw.kind === 'release') return fwUsesNamespaces(fw) ? 'namespaces' : fwUsesBuckets(fw) ? 'buckets' : 'legacy';
-  if (assumed) return assumed;
-  if (observed) return observed;
-  return fw.kind === 'snapshot' ? 'namespaces' : 'legacy';
+  if (fw.kind === 'snapshot') return 'namespaces';
+  if (fw.kind === 'official') return 'legacy';
+  return observed ?? 'legacy';
 }
+
 
 /**
  * The images to read a version out of, in order of authority.

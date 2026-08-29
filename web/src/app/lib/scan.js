@@ -132,25 +132,18 @@ async function isSameCard(a, b) {
 }
 
 /**
- * Remember this card, plus the layout the user said its firmware reads (see `loadCardFwAssume`).
- * Pass `fwAssume` to record an answer; pass null/undefined to keep whatever is already stored,
- * but only when it is the same card. Pointing the Manager at a different folder must never inherit
- * the previous one's assumed firmware.
+ * Remember this card so a reload can reconnect without re-picking it.
+ *
+ * Older versions also stored `fwAssume`, the user's answer to "which firmware does this card use?".
+ * That question is gone -- the layout now comes from the firmware image or the card is read-only --
+ * and the stored value is deliberately dropped here rather than migrated: it was a guess, and a
+ * stale guess is exactly what this change exists to stop honouring.
  */
-export async function saveCardHandle(handle, fwAssume) {
-  const prev = await readRecord();
-  const kept = (await isSameCard(prev?.handle, handle)) ? (prev.fwAssume ?? null) : null;
-  await writeRecord({ handle, fwAssume: fwAssume ?? kept });
+export async function saveCardHandle(handle) {
+  await writeRecord({ handle });
 }
 export async function loadCardHandle() {
   return (await readRecord())?.handle ?? null;
-}
-/** The layout the user said this card's firmware reads, when the version could not be read off it.
- *  Scoped to the remembered card. A different folder gets null and is asked again. */
-export async function loadCardFwAssume(handle) {
-  const rec = await readRecord();
-  if (!rec?.fwAssume) return null;
-  return (await isSameCard(rec.handle, handle)) ? rec.fwAssume : null;
 }
 export async function clearCardHandle() {
   try {

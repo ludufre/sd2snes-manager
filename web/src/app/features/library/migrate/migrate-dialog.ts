@@ -55,11 +55,6 @@ import { Icon } from '../../../ui/icon/icon';
           @case ('absent') { {{ 'migrate.fwAbsent' | transloco }} }
           @default { {{ 'migrate.fwUnknown' | transloco }} }
         }
-        <!-- the version could not be read, but the user answered which firmware this card runs —
-             say so, because that answer is what decides everything below. -->
-        @if (lib.fwAssumed(); as a) {
-          <div class="assumed">{{ (a === 'legacy' ? 'migrate.fwAssumedOld' : 'migrate.fwAssumedNew') | transloco }}</div>
-        }
       </div>
 
       @if (lib.migrateResult(); as r) {
@@ -236,7 +231,6 @@ import { Icon } from '../../../ui/icon/icon';
     .tip p { margin: 0; }
     .tip p span + span::before { content: ' '; }
     .fw { margin: 8px 14px 0; font-size: 11.5px; color: var(--tx-low); font-family: var(--mono); }
-    .fw .assumed { margin-top: 3px; font-family: inherit; }
     .blist { overflow: auto; padding: 8px 14px 4px; display: flex; flex-direction: column; gap: 6px; }
     .brow {
       display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 9px;
