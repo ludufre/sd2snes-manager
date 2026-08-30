@@ -99,7 +99,28 @@ export const ACCENTS = {
   'ñ': 154, 'Ñ': 155, 'ü': 156, 'Ü': 157, '¿': 158, '¡': 159,
   'è': 224, 'ù': 225, 'î': 226, 'ï': 227, 'ë': 228, 'û': 229,
   'ì': 230, 'ò': 231, 'È': 232, 'Ì': 233, 'Ò': 234, 'Ù': 235,
+  'ä': 236, 'ö': 237, 'ß': 238, 'Ä': 239, 'Ö': 240,
+  'Б': 178, 'Г': 179, 'Д': 180, 'Ё': 181, 'Ж': 182, 'З': 183,
+  'И': 184, 'Й': 185, 'Л': 186, 'П': 187, 'Ф': 188, 'Ц': 189,
+  'Ч': 190, 'Ш': 191, 'Щ': 192, 'Ъ': 193, 'Ы': 194, 'Ь': 195,
+  'Э': 196, 'Ю': 197, 'Я': 198, 'б': 199, 'в': 200, 'г': 201,
+  'д': 202, 'ж': 203, 'з': 204, 'и': 205, 'й': 206, 'к': 207,
+  'л': 208, 'м': 209, 'н': 210, 'п': 211, 'т': 212, 'ф': 213,
+  'ц': 214, 'ч': 215, 'ш': 216, 'щ': 217, 'ъ': 218, 'ы': 219,
+  'ь': 220, 'э': 221, 'ю': 222, 'я': 223,
 };
+/* Cyrillic, drawn over the dead katakana block. Only the 46 letters with a tile of their own
+ * are in ACCENTS; the 20 that reuse an existing tile are HOMOGLYPHS below -- ENCODE-ONLY, because
+ * folding them in would give a code two owners and DECODE_TITLE would hand back 'А' for a Latin
+ * 'A' and 'ё' for a French ë. */
+export const HOMOGLYPHS = {
+  'А': 65, 'В': 66, 'Е': 69, 'К': 75, 'М': 77, 'Н': 72,
+  'О': 79, 'Р': 80, 'С': 67, 'Т': 84, 'У': 89, 'Х': 88,
+  'а': 97, 'е': 101, 'о': 111, 'р': 112, 'с': 99, 'у': 121, 'х': 120,
+  'ё': 228,
+};
+/** What fontEncodeTitle may translate; DECODE_TITLE stays keyed on ACCENTS alone. */
+export const ENCODE_TITLE = { ...ACCENTS, ...HOMOGLYPHS };
 const DECODE_TITLE = Object.fromEntries(Object.entries(ACCENTS).map(([k, v]) => [v, k]));
 
 /** UTF-8 string -> TITLE_CAP bytes (font codes, nul-padded). Mirrors gen_man.py's font_encode_title. */
@@ -108,7 +129,7 @@ export function fontEncodeTitle(text) {
   let n = 0, truncated = false;
   for (const ch of String(text ?? '')) {
     if (n >= TITLE_CAP - 1) { truncated = true; break; }
-    const code = ACCENTS[ch];
+    const code = ENCODE_TITLE[ch];
     if (code !== undefined) { out[n++] = code; continue; }
     const cp = ch.codePointAt(0);
     if (cp >= 0x20 && cp < 0x7f) { out[n++] = cp; continue; }
