@@ -59,7 +59,17 @@
     "modeOffHint": "Lässt diese Kategorie genau so, wie sie auf der Karte ist.",
     "modeCompleteHint": "Schreibt nur dort, wo das Element auf der Karte fehlt.",
     "modeUpdateHint": "Schreibt dort, wo es fehlt UND wo die Karte eine veraltete Version hat.",
-    "modeReplaceHint": "Schreibt alle Spiele neu, auch die bereits aktuellen."
+    "modeReplaceHint": "Schreibt alle Spiele neu, auch die bereits aktuellen.",
+    "coverRegion": "Bevorzugte Cover-Region",
+    "coverRegionScopeOne": "{{count}} ROM lässt mehr als ein Cover zu",
+    "coverRegionScopeMany": "{{count}} ROMs lassen mehr als ein Cover zu",
+    "coverRegionMovedOne": "{{count}} Cover würde die Region wechseln",
+    "coverRegionMovedMany": "{{count}} Cover würden die Region wechseln",
+    "coverRegionAuto": "Automatisch",
+    "coverRegionU": "USA",
+    "coverRegionE": "Europa",
+    "coverRegionJ": "Japan",
+    "coverRegionOnlyCover": "Betrifft nur das Cover (.cov/.gcv). Screenshot, Vorschau, Handbücher und Texte stammen weiterhin aus der Region des Spiels."
   },
   "badge": {
     "availToGen": "verfügbar zum Erstellen",
@@ -581,6 +591,7 @@
     "needsFirmware": "Installiere zuerst eine Firmware auf der Karte — bis dahin kann ich nicht wissen, wo ihre Konsole sucht.",
     "generatingCovers": "Cover werden erstellt",
     "generatingCoversData": "Cover und Daten werden erstellt…",
+    "generatingCoversRegion": "Cover der bevorzugten Region werden erstellt…",
     "identifying": "Wird identifiziert…",
     "importCancelled": "Import abgebrochen.",
     "importCancelledCopiedMany": "Import abgebrochen — {{count}} Dateien kopiert.",

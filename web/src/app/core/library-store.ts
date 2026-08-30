@@ -48,9 +48,12 @@ import { fetchBytes, gdHasSnapshot } from '../lib/gd.js'; // .gd retired; only t
 import { buildFmv, buildCoverFile, buildGcvFromCov, buildStaticShot, buildPcm } from '../lib/fmv.js';
 import { fetchPackage, fetchInflate } from '../lib/package.js';
 import { parseInfoYml, buildYml, syncTokensFromMatch, SYNC_KEYS, DESC_LANGS, DESC_LANG_KEYS,
-         MAN_SLOTS_KEY, MAN_USER_TAG, manGroupTag, parseManSlots, serializeManSlots } from '../lib/yml.js';
+         MAN_SLOTS_KEY, MAN_USER_TAG, manGroupTag, parseManSlots, serializeManSlots,
+         COVER_REGION_KEY, coverRegionTag, coverRegionField } from '../lib/yml.js';
 /** yml.js is untyped JS: pin its language list to the DescLang union here (one cast, one place). */
 const DESC_LANG_LIST = DESC_LANGS as readonly DescLang[];
+import { coverPick, coverDiverges, type CoverRegion } from './cover-region';
+import { AutoFillPrefsStore } from './autofill-prefs';
 import { readFwVersion, fwUsesBuckets, hasFirmwareFiles, layoutForFw, type FwVersion } from './fw-version';
 import { SdMigrationService, buildRomIndex, isSweepableJunk, JUNK_GIVE_UP_STREAK, type MigrationResult, type MigrationPlan, type MigrationOptions, type RomIndex, type ScannedName } from './sd-migration.service';
 import { infoDirFor, cheatsDirFor, bucketDirFor, isJunkFile, classifyRootChild, nsOfRootChild, isNsSeg, BUCKET_LEN, AssetNs, SGB_SEG, NS_SEGS,
@@ -232,7 +235,15 @@ interface BulkState { done: number; total: number; label: string; cancelable?: b
 type FillTally = Record<FillCategory, number>;
 /** `stale` means present on the card but with a newer version on the GameDB (token diff against the
  *  `sync_*` keys in the on-card `.yml`). It is what the "Atualizar" mode ('update') would rewrite. */
-interface FillCounts { present: FillTally; available: FillTally; missing: FillTally; stale: FillTally; }
+export interface FillCounts {
+  present: FillTally; available: FillTally; missing: FillTally; stale: FillTally;
+  /** ROMs in scope whose cover has more than one legitimate region, the only ones the preference can
+   *  act on, so this is what decides whether the dialog offers the control at all. */
+  coverChoice: number;
+  /** Of those, how many the current preference actually moves to another region's art. What makes
+   *  the control's hint honest instead of a promise the library may not be able to keep. */
+  coverMoved: number;
+}
 /** "Preencher automaticamente" dialog state: the scope, whether we're still analysing, and the counts. */
 interface AutoFillState {
   ids: ReadonlySet<string> | null; // null = whole card
@@ -951,6 +962,9 @@ export class LibraryStore {
   private readonly fw = inject(FirmwareService);
   private readonly themes = inject(ThemesService);
   private readonly prefs = inject(PrefsStore);
+  /** Auto-fill choices that outlive a run (the cover region a World dump gets). Separate from
+   *  PrefsStore, which is purely appearance: this one decides which art lands on the card. */
+  private readonly fillPrefs = inject(AutoFillPrefsStore);
   private readonly migration = inject(SdMigrationService);
   private readonly i18n = inject(TranslocoService);
   // Re-emits whenever the active language's translations finish (re)loading, so the `rootName`
@@ -2827,6 +2841,11 @@ export class LibraryStore {
         p.gamedbId = match.id;
         if (match.title) p.title = match.title;
         p.coverUrl = match.coverUrl ?? undefined;
+        p.bucket = match.bucket ?? null;
+        // null rather than undefined: "resolved, and this ROM has no cover to choose", which is what
+        // coverPick reads to know it may not move the cover.
+        p.coverChoices = match.coverChoices ?? null;
+        p.coverUrls = match.coverUrls ?? null;
         p.videoUrl = match.videoUrl ?? undefined;
         p.screenshotUrl = match.screenshotUrl ?? undefined;
         p.manualUrl = match.manualUrl ?? undefined; // primary GameDB manual (.man, ready w/ zoom)
@@ -3546,7 +3565,9 @@ export class LibraryStore {
       if (!quiet) this.toast.show(this.i18n.translate('store.noCoverImage'), 'warn');
       return 'no-cover';
     }
-    return this.encodeAndPlaceCover(cur, cur.coverUrl, 'has', this.i18n.translate('store.coverGenerated'), quiet);
+    // Same preference the auto-fill run obeys: one choice giving two different covers, depending on
+    // which button you pressed, is worse than having no choice at all.
+    return this.encodeAndPlaceCover(cur, coverPick(cur, this.fillPrefs.coverRegion()).url ?? cur.coverUrl, 'has', this.i18n.translate('store.coverGenerated'), quiet);
   }
 
   /** Derive the game info `.gcv` from the game's existing on-card `.cov` (used when there is no GamesDB
@@ -3628,7 +3649,11 @@ export class LibraryStore {
     try {
       // Prefer the pre-built bundle: write its .cov + .gcv straight to the card (no fetch, no encode).
       // Only for the GameDB cover path ('has'). A 'custom' local image must use the picked file.
-      const pkg = status === 'has' ? await this.getPackage(g) : null;
+      // ...and only when the cover this run wants is the one the package carries: the server builds the
+      // `.s2pkg` per CRC with the ROM's own region baked in and the API has no way to ask for another
+      // bucket, so under a cover-region preference those bytes are simply the wrong art. Those games
+      // re-encode from the preferred bucket's image below.
+      const pkg = status === 'has' && !coverDiverges(g, this.fillPrefs.coverRegion()) ? await this.getPackage(g) : null;
       if (pkg && pkg['cov'] && pkg['gcv']) {
         const stem = stemOf(g.file);
         const name = stem + '.cov';
@@ -3665,6 +3690,11 @@ export class LibraryStore {
           await this.card.write(infoDir, stem + '.gcv', gcv);
         }
         if (!covOk) { this.pushFillError(g, 'cov', 'readonly'); this.update(g.id, { gcv: 'has', busy: null }); return 'cov-readonly'; }
+        // Copies of the same game in other folders get the same `.cov`, exactly as the write worker
+        // does for the package path. Without it a card that holds a game twice (a `bkup/` copy, a
+        // regional build) shows the new art on one row and the old art on the other, and the
+        // cover-region preference makes that path the common one rather than the rare fallback.
+        void this.mirrorCovToSiblings(g.id, cov);
         if (!quiet) this.toast.show(`${label} ✓`, 'ok');
       } else {
         downloadBlob(name, cov);
@@ -4093,7 +4123,11 @@ export class LibraryStore {
    *     saved in the editor would come back with its manuals unprovable, and therefore unrepairable:
    *     the next re-encode has no identity to anchor to and the game reports "no free guide slot" for
    *     good. persistSyncTokens does restore them from the pre-run snapshot, but only at the end of a
-   *     run, which never arrives if the run is cancelled or the card goes unwritable mid-way. */
+   *     run, which never arrives if the run is cancelled or the card goes unwritable mid-way.
+   *   - `cover_region`, which region's art the two cover files hold. Card state like man_slots, and
+   *     no caller here names it either. Dropping it would tell the next run that the cover came from
+   *     the game's own bucket when it did not, and the cover-region preference would stop noticing
+   *     that the card is out of step with it. */
   /** The `sync_*` receipts exactly as the card holds them, for any path that replaces a `<rom>.yml`
    *  wholesale. Null keeps buildYml from emitting the key, matching a card that never had it. */
   private syncTokensOnCard(g: Entry): Record<string, string | null> {
@@ -4105,7 +4139,9 @@ export class LibraryStore {
   private async keepFromCard(g: Entry, fields: Record<string, string | null>): Promise<Record<string, string>> {
     const wantSlots = g.manSlots === undefined && g.info === 'has'; // no game info on card → no map to lose
     const wantDesc = (DESC_LANG_KEYS as string[]).filter((k) => !(k in fields));
-    const wantSync = (SYNC_KEYS as string[]).filter((k) => !(k in fields));
+    // `cover_region` rides with the receipts: same rule (no caller names it, so a rewrite that
+    // dropped it would erase card state nothing can re-derive), same source of truth.
+    const wantSync = ([...SYNC_KEYS, COVER_REGION_KEY] as string[]).filter((k) => !(k in fields));
     const out: Record<string, string> = {};
     // Receipts come from the PRE-RUN snapshot when it is loaded, the same source persistSyncTokens
     // resolves against, and free: loadOnCardYml runs library-wide before a fill, so the bulk path adds
@@ -4162,7 +4198,7 @@ export class LibraryStore {
    *  (unverifiable without a download), and for `sync_meta` only when the on-card metadata already equals
    *  the server's (verified locally). Reads the current game info file (the worker may have just rewritten it),
    *  merges the tokens, and rewrites only when something actually changed. */
-  private async persistSyncTokens(g: Entry, wrote: { pkg?: boolean; pcm?: boolean; man?: boolean; meta?: boolean }): Promise<void> {
+  private async persistSyncTokens(g: Entry, wrote: { pkg?: boolean; pcm?: boolean; man?: boolean; meta?: boolean; cover?: string | null }): Promise<void> {
     if (!this.rootHandle || this.card.unwritable) return;
     const cur = await this.readInfoYml(g).catch(() => null);
     if (!cur) return; // no game info on card → nothing to annotate (never create one just to store tokens)
@@ -4193,10 +4229,20 @@ export class LibraryStore {
     // recorded. Left exactly as the card has it when the entry never loaded it (undefined).
     const slots = manSlotsField(g, cur[MAN_SLOTS_KEY]);
     const slotsSame = slots === (cur[MAN_SLOTS_KEY] ?? null);
-    if (slotsSame && SYNC_KEYS.every((k) => (next[k] ?? null) === (stored[k] ?? null))) return; // nothing to change
+    // `cover_region` is card state like `man_slots` (which region's art the two cover files hold), not
+    // a server version, so it is neither in SYNC_KEYS nor derivable from `desired`: putting it in that
+    // list would have the loop below delete it on the first token rewrite. Advanced only when a cover
+    // actually landed this run (`wrote.cover`, emitted by every path that writes one), and omitted
+    // whenever it equals the bucket the rest of the match rides on, which is exactly what an absent
+    // key already means. Emitting it on the ordinary path too is what lets the key be REMOVED again
+    // when a game goes back to its own region's art.
+    const coverReg = coverRegionField('cover' in wrote ? wrote.cover : cur[COVER_REGION_KEY], g.bucket ?? null);
+    const coverSame = coverReg === (coverRegionTag(cur[COVER_REGION_KEY]) ?? null);
+    if (coverSame && slotsSame && SYNC_KEYS.every((k) => (next[k] ?? null) === (stored[k] ?? null))) return; // nothing to change
     const merged: Record<string, string> = { ...cur };
     for (const k of SYNC_KEYS as string[]) { const v = next[k]; if (v == null) delete merged[k]; else merged[k] = v; }
     if (slots == null) delete merged[MAN_SLOTS_KEY]; else merged[MAN_SLOTS_KEY] = slots;
+    if (coverReg == null) delete merged[COVER_REGION_KEY]; else merged[COVER_REGION_KEY] = coverReg;
     try {
       const dir = await this.ensureDir(infoDirFor(this.key(g.file)));
       const text = buildYml(merged);
@@ -4720,6 +4766,35 @@ export class LibraryStore {
     return this.startAutoFill(new Set(this.fillScope().map((g) => g.id)));
   }
 
+  /** The cover region a World dump gets, and the one place that keeps an open auto-fill dialog honest
+   *  about it.
+   *
+   *  Everything the tally needs is already on the entries (`bucket`/`world`/`coverUrls`, set at
+   *  Identify), so the re-count is synchronous: no lookup, no cache read, no spinner, and no epoch to
+   *  lose a race against. That is the whole reason resolveMatch exports the per-bucket cover URLs
+   *  instead of applying the preference itself. Only `capa` can move, but re-tallying everything is a
+   *  few milliseconds and keeps one definition of the counts. */
+  setCoverRegion(v: CoverRegion): void {
+    if (v === this.fillPrefs.coverRegion()) return;
+    this.fillPrefs.setCoverRegion(v);
+    const st = this._autoFill();
+    if (!st || st.analyzing || !st.counts) return;
+    const ids = st.ids;
+    const inScope = (g: Entry): boolean => (ids ? ids.has(g.id) : true) && !!g.fileHandle;
+    this._autoFill.set({ ...st, counts: this.fillCounts(this._entries().filter(inScope)) });
+  }
+
+  /** The current cover-region preference, for the dialog's segmented control. */
+  readonly coverRegion = this.fillPrefs.coverRegion;
+
+  /** The GameDB cover this game would actually get, preference applied. What any preview of "the cover
+   *  from the GameDB" has to show: `Entry.coverUrl` is the general bucket's art, so a screen showing it
+   *  next to a Generate button (which does obey the preference) would promise one region and write
+   *  another. */
+  coverPreviewUrl(g: Entry): string | null {
+    return coverPick(g, this.fillPrefs.coverRegion()).url;
+  }
+
   /** Open the auto-fill dialog: identify the scope (so availability is known), then tally per category. */
   async startAutoFill(ids?: ReadonlySet<string>): Promise<void> {
     if (this._autoFill() || this.cardUnidentified() || this.bulkBusy()) return;
@@ -4859,6 +4934,22 @@ export class LibraryStore {
 
   private fillStale(g: Entry, cat: FillCategory): boolean {
     if (!this.fillPresent(g, cat) || !this.fillAvailable(g, cat) || !this.ownsGameInfo(g)) return false;
+    if (cat === 'capa') {
+      const want = coverPick(g, this.fillPrefs.coverRegion()).bucket;
+      // An absent key means "the bucket the rest of the match rides on" (see yml.js COVER_REGION_KEY),
+      // which is what every card written before the preference existed holds.
+      const stamped = coverRegionTag(g.onCardYml?.[COVER_REGION_KEY]) ?? g.bucket ?? null;
+      // ...but only when there is a `<rom>.yml` to stamp the new region into. With none,
+      // persistSyncTokens has nowhere to record the result (it never creates a game info file just for
+      // bookkeeping), so flagging this would re-offer the same game on every single run, forever.
+      // Exactly the rule the package/manual branch below already applies.
+      if (want !== stamped) return g.info === 'has';
+      // The cover on the card is where the preference asks. When that is not the bucket the `.s2pkg`
+      // was built for, `sync_pkg` has nothing to say about it (it is the hash of a package whose cover
+      // this card deliberately does not hold), and letting it judge would report the game stale
+      // forever, since nothing ever advances that token for a cover that never came from it.
+      if (want !== (g.bucket ?? null)) return false;
+    }
     const desired = syncTokensFromMatch(g);
     const key = LibraryStore.CAT_SYNC_KEY[cat];
     const want = desired[key];
@@ -4902,6 +4993,8 @@ export class LibraryStore {
     const cats = FILL_CATS;
     const zero = (): FillTally => ({ capa: 0, tela: 0, previa: 0, info: 0, cheats: 0, manual: 0 });
     const present = zero(), available = zero(), missing = zero(), stale = zero();
+    const pref = this.fillPrefs.coverRegion();
+    let coverChoice = 0, coverMoved = 0;
     for (const g of list) {
       for (const c of cats) {
         const p = this.fillPresent(g, c), a = this.fillAvailable(g, c);
@@ -4910,8 +5003,9 @@ export class LibraryStore {
         if (a && !p) missing[c]++;
         if (p && this.fillStale(g, c)) stale[c]++;
       }
+      if (g.coverChoices) { coverChoice++; if (coverDiverges(g, pref)) coverMoved++; }
     }
-    return { present, available, missing, stale };
+    return { present, available, missing, stale, coverChoice, coverMoved };
   }
 
   /** Rough average written bytes per asset type (format-derived) for the dialog's size estimate. The
@@ -4919,7 +5013,10 @@ export class LibraryStore {
    *  ready-made `.man` with zoom (the GameDB's, downloaded as-is), a multi-page manual's zoom section
    *  is ~4-5x the 1x section (see lib/man.js BLOCK_BYTES), so this runs far bigger than the other
    *  per-game members; no per-game size comes back from the lookup, so it's a flat estimate. */
-  private static readonly EST_BYTES = { cov: 42_000, gcv: 17_000, gss: 8_000, fmv: 800_000, pcm: 4_200_000, yml: 1_500, man: 2_000_000 };
+  private static readonly EST_BYTES = { cov: 42_000, gcv: 17_000, gss: 8_000, fmv: 800_000, pcm: 4_200_000, yml: 1_500, man: 2_000_000,
+    /** A GameDB cover image (the source PNG/JPEG), downloaded only when the cover-region preference
+     *  moves a cover off its package. Flat: the lookup carries no per-asset size. */
+    img: 300_000 };
   private bytesForCat(cat: FillCategory, previaAudio = false): number {
     const B = LibraryStore.EST_BYTES;
     switch (cat) {
@@ -4989,10 +5086,17 @@ export class LibraryStore {
     const inScope = (g: Entry): boolean => (ids ? ids.has(g.id) : true) && !!g.fileHandle;
     let downloadBytes = 0;
     let manualWriteBytes = 0;
+    let movedCovers = 0;
     if (writeBytes > 0 || plan.manual !== 'off') {
+      const pref = this.fillPrefs.coverRegion();
       for (const g of this._entries()) {
         if (!inScope(g)) continue;
-        if (pkgCats.some((c) => plan[c] !== 'off' && this.fillNeeds(g, c, plan))) {
+        // A cover the preference moved is a direct image fetch plus two local encodes, never a package
+        // member, so it must not pull the whole `.s2pkg` into the estimate: a game whose only package
+        // category was the capa now downloads an image instead of a bundle that often carries a clip.
+        const moved = plan.capa !== 'off' && this.fillNeeds(g, 'capa', plan) && coverDiverges(g, pref);
+        if (moved) { downloadBytes += LibraryStore.EST_BYTES.img; movedCovers++; }
+        if (pkgCats.some((c) => plan[c] !== 'off' && this.fillNeeds(g, c, plan) && !(c === 'capa' && moved))) {
           const full = g.packageBytes ?? (g.videoUrl ? 1_500_000 : 80_000);
           const wantPcm = previaAudio && this.fillNeeds(g, 'previa', plan);
           // New audio-less packages fetch the separated `.pcm.zst` on top of the (audio-less) base; legacy
@@ -5014,7 +5118,12 @@ export class LibraryStore {
     if (manualWriteBytes) { rows.manual = { bytes: manualWriteBytes, sec: manualWriteBytes / cardBps }; writeBytes += manualWriteBytes; }
     const writeSec = writeBytes / cardBps;
     const downloadSec = downloadBytes / netBps;
-    return { rows, writeBytes, writeSec, downloadBytes, downloadSec, totalSec: Math.max(writeSec, downloadSec) };
+    // Two encodes per moved cover (wasm `.cov` + canvas `.gcv`), on the main thread. Not modelled
+    // before the cover-region preference existed because it only ever ran for the handful of games the
+    // package could not serve; with a preference set it can be the bulk of the run, and an ETA that
+    // ignores it reads as a hang. Flat for now, the way EST_BYTES is; calibratable later like sd2_mbps.
+    const encodeSec = movedCovers * 0.25;
+    return { rows, writeBytes, writeSec, downloadBytes, downloadSec, totalSec: Math.max(writeSec, downloadSec) + encodeSec };
   }
 
   /** Whether game `g` needs category `cat` generated under `plan` (mode + on-card presence + GameDB
@@ -5167,9 +5276,18 @@ export class LibraryStore {
     const previaSkipped = new Set<string>();
     // Which sync-token groups were (re)written per game this run → persistSyncTokens advances only those
     // tokens in the `<rom>.yml` (untouched-but-stale categories keep their old token so they stay flagged).
-    const tokenWrites = new Map<string, { pkg?: boolean; pcm?: boolean; man?: boolean; meta?: boolean }>();
+    const tokenWrites = new Map<string, { pkg?: boolean; pcm?: boolean; man?: boolean; meta?: boolean; cover?: string | null }>();
     const markWrote = (id: string, k: 'pkg' | 'pcm' | 'man' | 'meta'): void => {
       const t = tokenWrites.get(id) ?? {}; t[k] = true; tokenWrites.set(id, t);
+    };
+    /* The region the cover files on the card now hold, per game. Not one of the `sync_*` groups: the
+       package hash cannot describe a cover that did not come from the package (see yml.js
+       COVER_REGION_KEY). Emitted by EVERY path that writes a cover, including the ordinary one, which
+       is what lets persistSyncTokens delete the key again when a game goes back to its own region's
+       art. Writing into the same map is also what puts a cover-only game into `tokenWrites`, the set
+       persistSyncTokens runs over. */
+    const markWroteCover = (id: string, bucket: string | null): void => {
+      const t = tokenWrites.get(id) ?? {}; t.cover = bucket ?? null; tokenWrites.set(id, t);
     };
     // `sync_man` is a digest of all of the game's manuals, so it may only advance once the card holds
     // the whole set. When part of it couldn't be installed, clear the flag: stamping it anyway would
@@ -5198,10 +5316,17 @@ export class LibraryStore {
     // text are pre-serialized here (the worker only does I/O: fetch .s2pkg → write members to the card).
     const jobs: AutofillJob[] = [];
     const mainOnly: Entry[] = [];
+    // Snapshotted once: a preference the user changes mid-run must not leave half the games with one
+    // region's art and half with another, nor stamp a `cover_region` the files do not match.
+    const coverRegion = this.fillPrefs.coverRegion();
     // Worker-handled games that still need a main-thread manual pass: >1 manual (the worker only writes
     // the primary), or the worker's `.man` fetch/write failed (`retry`. Then a failure is reported, so a
     // manual that can't land never silently keeps its category flagged as outdated forever).
     const manualPass = new Map<string, { retry: boolean; err: string }>();
+    /* Games whose cover the preference points at another region. Their `.cov`/`.gcv` cannot come from
+       the `.s2pkg` (built per CRC with the ROM's own region baked in), so they go to a main-thread
+       pass that fetches the preferred bucket's image and encodes both halves. */
+    const coverPass = new Set<string>();
     const needManual = (id: string, retry: boolean, err = ''): void => {
       const p = manualPass.get(id) ?? { retry: false, err: '' };
       manualPass.set(id, { retry: p.retry || retry, err: p.err || err });
@@ -5232,8 +5357,14 @@ export class LibraryStore {
       // package changed → the .cov and .gcv are both out of date). 'update' also covers games that are
       // merely missing a half (it's cumulative now), those fill just that half, like 'complete'.
       const rewriteCapa = plan.capa === 'replace' || (plan.capa === 'update' && this.fillStale(g, 'capa'));
-      const wantCov = nCapa && (rewriteCapa || !(g.cover === 'has' || g.cover === 'custom'));
-      const wantGcv = nCapa && (rewriteCapa || g.gcv !== 'has');
+      // A moved cover never rides the package: the worker would download the `.s2pkg` and write the
+      // wrong region's art. Both halves go to the cover pass together, since the encoder builds them
+      // from one image and splitting them would leave a `.cov` and a `.gcv` from different regions on
+      // the same game.
+      const moved = nCapa && coverDiverges(g, coverRegion);
+      if (moved) coverPass.add(g.id);
+      const wantCov = nCapa && !moved && (rewriteCapa || !(g.cover === 'has' || g.cover === 'custom'));
+      const wantGcv = nCapa && !moved && (rewriteCapa || g.gcv !== 'has');
       const pkgUrl = (!wantPcm && g.packageNoAudioUrl) ? g.packageNoAudioUrl : g.packageUrl;
       const url = pkgUrl ? (cdnUrl(pkgUrl) ?? pkgUrl) : null;
       // When the variant was picked, hand the worker the base package too: a variant row can outlive
@@ -5265,7 +5396,11 @@ export class LibraryStore {
       // A game with no package and no manual to fetch has nothing the worker can do -> main thread
       // (raw covgen/ffmpeg from coverUrl/screenshotUrl/videoUrl). A manual-only game with no package
       // still gets a worker job (packageUrl null), the worker fetches+writes the manual on its own.
-      if (!url && !manualUrl) { mainOnly.push(g); continue; }
+      // ...and what is left for the worker once a moved cover was taken out. A game whose only package
+      // category was the capa must not get a job at all: it would download the whole `.s2pkg` (often
+      // over a megabyte, with the clip) to write nothing.
+      const pkgWork = wantCov || wantGcv || nTela || nPrevia || nCheats || nInfo;
+      if ((!url || !pkgWork) && !manualUrl) { mainOnly.push(g); continue; }
       if (nManual && (g.manuals?.length ?? 0) > 1) needManual(g.id, false); // worker writes primary; extras below
       jobs.push({
         id: g.id, packageUrl: url, fallbackPackageUrl: fallbackPkgUrl, manualUrl, pcmUrl, file: g.file, mode: this.layoutMode(), stem: stemOf(g.file), folder: g.folder,
@@ -5289,7 +5424,11 @@ export class LibraryStore {
         infoYml: (nInfo || nPrevia)
           ? buildYml({ ...this.gameInfoFields(g), ...this.syncTokensOnCard(g), rom: g.file, crc: g.crc || null, gamedb_id: g.gamedbId ?? null,
                        fmv: (nPrevia || nTela || fmvFlagFor(g) != null) ? 1 : null,
-                       [MAN_SLOTS_KEY]: manSlotsField(g, g.onCardYml?.[MAN_SLOTS_KEY]) })
+                       [MAN_SLOTS_KEY]: manSlotsField(g, g.onCardYml?.[MAN_SLOTS_KEY]),
+                       // Preserved, never advanced here: the run can still fail to place the cover, and
+                       // the worker replaces the game info wholesale, so a key not baked in is erased.
+                       // The cover passes stamp the new value through persistSyncTokens.
+                       [COVER_REGION_KEY]: g.onCardYml?.[COVER_REGION_KEY] ?? null })
           : null,
       });
     }
@@ -5312,6 +5451,9 @@ export class LibraryStore {
         if (w.manual) { manuals++; manCounted.add(m.id); }
         // record which sync-token groups this write refreshed (capa/tela/prévia/cheats all ride the package)
         if (w.cov || w.gcv || w.gss || w.fmv || w.cheats) markWrote(m.id, 'pkg');
+        // A cover out of the package is, by construction, the bucket the rest of the match rides on:
+        // record that, so a card coming back from a preference has its `cover_region` removed.
+        if (w.cov || w.gcv) { const e = this.entriesById().get(m.id); markWroteCover(m.id, e?.bucket ?? null); }
         if (w.pcm) markWrote(m.id, 'pcm'); if (w.info) markWrote(m.id, 'meta');
         /* `sync_man` is a receipt for the whole served set (every manual's sha, joined), and the worker
            writes only the primary. Stamping it here for a game whose extras are still queued is how a
@@ -5431,7 +5573,9 @@ export class LibraryStore {
       await pool(mainOnly, AUTOFILL_CONCURRENCY, async (entry) => {
         if (this.cancelImport || this.card.unwritable) return;
         let g = cur(entry);
-        const nCapa = this.fillNeeds(g, 'capa', plan), nTela = this.fillNeeds(g, 'tela', plan),
+        // A moved cover belongs to the cover pass below, never here: this pool would fetch and encode it
+        // a second time, and derive the `.gcv` from a `.cov` that is still the old region's art.
+        const nCapa = this.fillNeeds(g, 'capa', plan) && !coverPass.has(g.id), nTela = this.fillNeeds(g, 'tela', plan),
           nInfo = this.fillNeeds(g, 'info', plan), nCheats = this.fillNeeds(g, 'cheats', plan),
           nPrevia = this.fillNeeds(g, 'previa', plan), nManual = wantManual.has(g.id);
         if (nCapa) {
@@ -5446,7 +5590,9 @@ export class LibraryStore {
               : await this.genGcvFromCov(g, true);
           // 'cov-readonly' counts as done: the game info .gcv did land, only the .cov next to the ROM was
           // refused, and encodeAndPlaceCover already recorded that in the report.
-          if (ok) { capas++; markWrote(g.id, 'pkg'); }
+          // The `onlyGcv` branch derives from the `.cov` already on the card, so the region did not
+          // change and there is nothing to stamp; the image branch wrote the general bucket's art.
+          if (ok) { capas++; markWrote(g.id, 'pkg'); if (!onlyGcv && g.coverUrl) markWroteCover(g.id, g.bucket ?? null); }
           // A cover we were asked for and could not build: count it and name it in the report, so the
           // row never sits at "N to complete" run after run with no way to tell which games or why.
           else { covFail++; this.pushFillError(cur(g), 'cov', g.coverUrl ? 'download' : 'nosource'); }
@@ -5492,6 +5638,35 @@ export class LibraryStore {
         this.bulkProgress(++done);
       });
       this.bulkProgress(done, true);
+    }
+
+    /* Covers the preference moved to another region. Main thread, and not because it is convenient:
+       the `.cov` encoder is compiled wasm loaded through a <script> tag (lib/covwasm.js) and the
+       `.gcv` is built on a 2D canvas (lib/fmv.js buildCoverFile), so neither exists inside the write
+       worker. Its own phase on the bar because it is a genuinely different, slower kind of work (fetch
+       an image plus two local encodes per game, against the worker's "write bytes you already have"),
+       and a silent slowdown inside "Gerando capas e dados…" reads as the app having hung. */
+    if (coverPass.size && !this.cancelImport && !this.card.unwritable && !workerDead) {
+      let cdone = 0;
+      this.bulkBegin(coverPass.size, this.i18n.translate('store.generatingCoversRegion'), true);
+      await pool([...coverPass], AUTOFILL_CONCURRENCY, async (id) => {
+        if (this.cancelImport || this.card.unwritable) return;
+        const g = this.entriesById().get(id);
+        if (!g) { this.bulkProgress(++cdone); return; }
+        const pick = coverPick(g, coverRegion);
+        if (!pick.url) { covFail++; this.pushFillError(g, 'cov', 'nosource'); this.bulkProgress(++cdone); return; }
+        const r = await this.encodeAndPlaceCover(g, pick.url, 'has', this.i18n.translate('store.cover'), true);
+        // 'cov-readonly' counts as done, exactly as in the mainOnly branch: the `.gcv` landed and only
+        // the `.cov` next to the ROM was refused, which encodeAndPlaceCover already reported.
+        //
+        // No markWrote(id, 'pkg') here, deliberately. This path never downloaded the `.s2pkg`, so
+        // advancing `sync_pkg` would declare tela/prévia/cheats up to date without having written one
+        // of them, wiping real staleness. The cover gets its own receipt instead.
+        if (r !== 'cov-failed') { capas++; markWroteCover(id, pick.bucket); }
+        else { covFail++; this.pushFillError(cur(g), 'cov', 'download'); }
+        this.bulkProgress(++cdone);
+      });
+      this.bulkProgress(cdone, true);
     }
 
     // Manuals, the worker wrote only the primary (slot 0). This pass installs the additional manuals of
@@ -6512,7 +6687,7 @@ export class LibraryStore {
           g = this.entriesById().get(g.id) ?? g; // identify() flushed, so this sees the match
         }
         if (g.coverUrl) {
-          const res = await this.encodeAndPlaceCover(g, g.coverUrl, 'has', 'Generated .cov', true);
+          const res = await this.encodeAndPlaceCover(g, coverPick(g, this.fillPrefs.coverRegion()).url ?? g.coverUrl, 'has', 'Generated .cov', true);
           if (res === 'cov-failed') covFail++;
           else if (res === 'cov-readonly') {  }/* read-only folder → recorded in the fill report, not a failure */
           else { made++; if (res === 'gd-failed') gdFail++; else if (res === 'shot-missing') shotRetry.push(g.id); }

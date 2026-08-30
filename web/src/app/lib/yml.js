@@ -1,6 +1,8 @@
 // `.yml` game-info writer + filename addressing, faithful port of the gamedb
 // yml-writer.ts (build_gameinfo_yml.py) and export.engine.ts naming.
 
+import { REGION_ORDER } from './regions.js';
+
 export const YML_COMMENT = '# sd2snes game info — gerado pelo sd2snes-covers-web';
 
 /** Mirrors Python yfield: falsy -> omitted; `"`->`'`; CR/LF->space; trimmed; quoted. */
@@ -66,6 +68,39 @@ export const MAN_GROUP_TAG_LEN = 8;
  *  refuses it outright below, so the two namespaces cannot collide. */
 export const MAN_USER_TAG = 'u';
 
+// Which region's art the two cover files (`<stem>.cov` + `<stem>.gcv`) on this card hold. Card state,
+// exactly like man_slots, and for the same reason deliberately NOT in SYNC_KEYS: persistSyncTokens
+// resolves every key in that list against syncTokensFromMatch and deletes the ones it cannot derive,
+// so listing it there would wipe it on the first token rewrite.
+//
+// It exists because the cover is the one asset the user can point at another region (the auto-fill
+// cover-region preference for World dumps). `sync_pkg` is the hash of the server-built `.s2pkg`, and
+// that package is built per CRC with the region baked in, so it structurally cannot describe a cover
+// that came from a different card: with only sync_pkg, switching the preference would mark nothing
+// stale and "Atualizar" would never rewrite a single cover.
+//
+// An ABSENT key means "the bucket the rest of the match rides on", which is what every card written
+// before this holds and what the package bakes. So the key is written only when the cover really came
+// from somewhere else, and removed again when it goes back.
+export const COVER_REGION_KEY = 'cover_region';
+
+/** A `cover_region` value to a bucket letter, or null. Same spirit as manGroupTag: the game info file
+ *  may be hand-edited, and anything that is not one of the five buckets is dropped rather than
+ *  trusted into a comparison that decides what gets rewritten. */
+export function coverRegionTag(value) {
+  const s = String(value ?? '').trim().toUpperCase();
+  return REGION_ORDER.includes(s) ? s : null;
+}
+
+/** The `cover_region` a game info rewrite must write, given the region the cover on the card came
+ *  from and the bucket the rest of the match rides on. Null (the key omitted) when the two agree,
+ *  which is exactly what an absent key already means, so no existing `.yml` grows a line it does not
+ *  need. Pure and exported so the store's rewrite paths cannot disagree about it. */
+export function coverRegionField(stamped, generalBucket) {
+  const tag = coverRegionTag(stamped);
+  return tag && tag !== (generalBucket ?? null) ? tag : null;
+}
+
 /** GameDB `groupUuid` → the tag stored in `man_slots`: lowercased, non-alphanumerics dropped (so a
  *  dashed uuid can never smuggle the `:`/`,` separators into the value), truncated. Null when the
  *  GameDB gave no group. There is then nothing to record, and the caller falls back to sha dedup,
@@ -129,6 +164,9 @@ export function buildYml(fields, comment = YML_COMMENT) {
   // Rides with the bookkeeping, but see MAN_SLOTS_KEY: it is card state, not a server token, and must
   // never be folded into the SYNC_KEYS loop above.
   { const line = yfield(MAN_SLOTS_KEY, fields[MAN_SLOTS_KEY]); if (line) lines.push(line); }
+  // Rides with the bookkeeping for the same reason as man_slots, and is likewise card state rather
+  // than a server token (see COVER_REGION_KEY).
+  { const line = yfield(COVER_REGION_KEY, fields[COVER_REGION_KEY]); if (line) lines.push(line); }
   // The localized descriptions go last, after every short field. The firmware's YAML reader rewinds
   // and re-scans the file once per key it wants, stopping at the hit -- keeping the bulk at the end
   // leaves every other lookup cheap, and only the one localized description costs a full scan.

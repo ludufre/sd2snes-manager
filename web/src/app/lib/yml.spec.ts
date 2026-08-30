@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildYml, descLangFields, parseInfoYml, shaFromAssetUrl, syncTokensFromMatch, ymlFieldsFromMatch, DESC_LANGS, DESC_LANG_KEYS, SYNC_KEYS,
-         MAN_SLOTS_KEY, MAN_USER_TAG, manGroupTag, parseManSlots, serializeManSlots } from './yml.js';
+         MAN_SLOTS_KEY, MAN_USER_TAG, manGroupTag, parseManSlots, serializeManSlots,
+         COVER_REGION_KEY, coverRegionTag, coverRegionField } from './yml.js';
 
 describe('shaFromAssetUrl', () => {
   it('extracts the content hash (sha16) from a package/pcm CDN URL', () => {
@@ -236,5 +237,56 @@ describe('localized descriptions (description_<lang>)', () => {
     expect(f['description']).toBe('Samus returns to Zebes.');
     expect(f['description_pt']).toBe('Samus volta a Zebes.');
     expect(f['description_es']).toBeUndefined();
+  });
+});
+
+describe('cover_region', () => {
+  it('is card state, never a sync token', () => {
+    // Listing it in SYNC_KEYS would have persistSyncTokens delete it on the first token rewrite:
+    // it cannot be derived from the match, only from what a run actually wrote.
+    expect(SYNC_KEYS).not.toContain(COVER_REGION_KEY);
+    expect(COVER_REGION_KEY).toBe('cover_region');
+  });
+
+  it('survives a build -> parse -> rebuild round trip', () => {
+    const yml: string = buildYml({ title: 'Super Game', [COVER_REGION_KEY]: 'U' });
+    expect(yml).toContain('cover_region: "U"');
+    const back = parseInfoYml(yml) as Record<string, string>;
+    expect(back[COVER_REGION_KEY]).toBe('U');
+    expect(buildYml(back)).toContain('cover_region: "U"');
+  });
+
+  it('is omitted when absent, which is what every card written before it holds', () => {
+    expect(buildYml({ title: 'Super Game' })).not.toContain('cover_region');
+    expect(buildYml({ title: 'Super Game', [COVER_REGION_KEY]: null })).not.toContain('cover_region');
+  });
+
+  it('fits the firmware reader line cap with room to spare', () => {
+    const line = buildYml({ title: 'x', [COVER_REGION_KEY]: 'U' }).split('\n').find((l) => l.startsWith('cover_region'));
+    expect(line!.length).toBeLessThan(256); // YAML_BUFLEN
+  });
+});
+
+describe('coverRegionTag', () => {
+  it('accepts the five buckets and drops anything else', () => {
+    expect(coverRegionTag('U')).toBe('U');
+    expect(coverRegionTag(' j ')).toBe('J'); // hand-edited, still readable
+    expect(coverRegionTag('W')).toBe('W');
+    expect(coverRegionTag('X')).toBeNull();
+    expect(coverRegionTag('USA')).toBeNull();
+    expect(coverRegionTag('')).toBeNull();
+    expect(coverRegionTag(null)).toBeNull();
+  });
+});
+
+describe('coverRegionField', () => {
+  it('writes the key only when the cover came from somewhere else', () => {
+    expect(coverRegionField('U', 'J')).toBe('U');
+    // agrees with the general bucket -> omit, since an absent key already means exactly that
+    expect(coverRegionField('J', 'J')).toBeNull();
+    expect(coverRegionField(null, 'J')).toBeNull();
+    // a card whose game has no region cards at all
+    expect(coverRegionField('U', null)).toBe('U');
+    expect(coverRegionField('bogus', 'J')).toBeNull();
   });
 });

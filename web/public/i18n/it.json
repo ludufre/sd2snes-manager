@@ -59,7 +59,17 @@
     "modeOffHint": "Lascia questa categoria esattamente com’è sulla scheda.",
     "modeCompleteHint": "Scrive solo dove l'elemento manca sulla scheda.",
     "modeUpdateHint": "Scrive dove manca E dove la scheda ha una versione obsoleta.",
-    "modeReplaceHint": "Riscrive tutti i giochi, compresi quelli già aggiornati."
+    "modeReplaceHint": "Riscrive tutti i giochi, compresi quelli già aggiornati.",
+    "coverRegion": "Regione preferita della copertina",
+    "coverRegionScopeOne": "{{count}} ROM accetta più di una copertina",
+    "coverRegionScopeMany": "{{count}} ROM accettano più di una copertina",
+    "coverRegionMovedOne": "{{count}} copertina cambierebbe regione",
+    "coverRegionMovedMany": "{{count}} copertine cambierebbero regione",
+    "coverRegionAuto": "Automatica",
+    "coverRegionU": "USA",
+    "coverRegionE": "Europa",
+    "coverRegionJ": "Giappone",
+    "coverRegionOnlyCover": "Riguarda solo la copertina (.cov/.gcv). Schermata, anteprima, manuali e testi continuano a venire dalla regione del gioco."
   },
   "badge": {
     "availToGen": "disponibile da generare",
@@ -581,6 +591,7 @@
     "needsFirmware": "Installa prima un firmware sulla scheda — fino ad allora non posso sapere dove cerca la sua console.",
     "generatingCovers": "Generazione delle copertine",
     "generatingCoversData": "Generazione di copertine e dati…",
+    "generatingCoversRegion": "Generazione delle copertine della regione preferita…",
     "identifying": "Identificazione…",
     "importCancelled": "Importazione annullata.",
     "importCancelledCopiedMany": "Importazione annullata — {{count}} file copiati.",

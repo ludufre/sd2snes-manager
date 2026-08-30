@@ -1,9 +1,13 @@
 import { ChangeDetectionStrategy, Component, computed, inject, linkedSignal, signal } from '@angular/core';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { LangService } from '../../../core/lang.service';
-import { LibraryStore } from '../../../core/library-store';
+import { LibraryStore, type FillCounts } from '../../../core/library-store';
 import { fmtEta } from '../../../core/format';
+import type { CoverRegion } from '../../../core/cover-region';
 import type { FillCategory, FillMode, FillPlan } from '../../../core/models';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore -- ported JS module (allowJs), no type declarations
+import { REGION_FLAGS } from '../../../lib/regions.js';
 import { Icon, type IconName } from '../../../ui/icon/icon';
 
 interface Row { key: FillCategory; labelKey: string; summaryKey: string; icon: IconName; color: string; }
@@ -24,6 +28,16 @@ const MODES: readonly { v: FillMode; lKey: string; hKey: string }[] = [
   { v: 'complete', lKey: 'autofill.modeComplete', hKey: 'autofill.modeCompleteHint' },
   { v: 'update', lKey: 'autofill.modeUpdate', hKey: 'autofill.modeUpdateHint' },
   { v: 'replace', lKey: 'autofill.modeReplace', hKey: 'autofill.modeReplaceHint' },
+];
+
+/** Which region's cover a ROM with more than one candidate gets. Only the cover follows this: the
+ *  ROM's own region still decides the title, the snapshot, the clip and the manuals. `null` is "no
+ *  preference", i.e. exactly what the GameDB's own package already carries. */
+const COVER_REGIONS: readonly { v: CoverRegion; flag: string; lKey: string }[] = [
+  { v: null, flag: '🌍', lKey: 'autofill.coverRegionAuto' },
+  { v: 'U', flag: REGION_FLAGS['U'], lKey: 'autofill.coverRegionU' },
+  { v: 'E', flag: REGION_FLAGS['E'], lKey: 'autofill.coverRegionE' },
+  { v: 'J', flag: REGION_FLAGS['J'], lKey: 'autofill.coverRegionJ' },
 ];
 
 /** "Preencher automaticamente", analisa o que já existe na seleção e deixa escolher, por categoria,
@@ -72,6 +86,27 @@ const MODES: readonly { v: FillMode; lKey: string; hKey: string }[] = [
             }
           </div>
 
+          <!-- Cover region: only a ROM with more than one legitimate region can be moved, so a library
+               without one never sees this. Deliberately NOT gated on the Capas mode: with every cover
+               already in sync that row sits at "Não mexer", and hiding the control there would hide it
+               exactly when someone wants to change their mind about the region. Picking one re-tallies,
+               the covers read as stale, and the Capas row lights up on its own. -->
+          @if (st.counts.coverChoice > 0) {
+            <div class="opt">
+              <span class="ico" style="color: var(--accent)"><app-icon name="image" [size]="16" /></span>
+              <span class="lbl">{{ 'autofill.coverRegion' | transloco }}
+                <small class="est">{{ coverRegionHint(st.counts) }}</small>
+              </span>
+              <div class="seg">
+                @for (c of coverRegions; track c.lKey) {
+                  <button
+                    type="button" [class.on]="lib.coverRegion() === c.v" [title]="'autofill.coverRegionOnlyCover' | transloco"
+                    (click)="lib.setCoverRegion(c.v)">{{ c.flag }} {{ c.lKey | transloco }}</button>
+                }
+              </div>
+            </div>
+          }
+
           @if (plan().previa !== 'off') {
             <label class="audio">
               <input type="checkbox" [checked]="previaAudio()" (change)="previaAudio.set($any($event.target).checked)" />
@@ -112,6 +147,11 @@ const MODES: readonly { v: FillMode; lKey: string; hKey: string }[] = [
     .spin { width: 15px; height: 15px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: sp 0.7s linear infinite; }
     @keyframes sp { to { transform: rotate(360deg); } }
     .rows { display: flex; flex-direction: column; gap: 8px; }
+    /* Same three-column shape as .row, but set apart: it is not a category with a mode, it qualifies
+       the Capas row above it. */
+    .opt { display: grid; grid-template-columns: 20px 1fr auto; align-items: center; gap: 8px;
+           margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+    .opt .lbl { font-size: 13px; color: var(--tx); }
     .row { display: grid; grid-template-columns: 20px 1fr auto auto; align-items: center; gap: 8px; }
     .ico { display: inline-grid; place-items: center; }
     .lbl { font-size: 13px; color: var(--tx); }
@@ -147,6 +187,12 @@ const MODES: readonly { v: FillMode; lKey: string; hKey: string }[] = [
          choice, and a ragged last row reads as a separate control. */
       .seg { display: grid; grid-template-columns: 1fr 1fr; }
       .seg button { text-align: center; }
+      /* The cover-region control gets the same treatment, and for the same reason: at 338px a label
+         plus four buttons on one line wraps into a shape that stops reading as one choice. */
+      .opt { grid-template-columns: 20px 1fr; grid-template-areas: 'ico lbl' '. seg'; row-gap: 7px; }
+      .opt .ico { grid-area: ico; }
+      .opt .lbl { grid-area: lbl; }
+      .opt .seg { grid-area: seg; }
     }
     .plan { margin: 16px 0 14px; font-size: 12px; color: var(--tx-mid); line-height: 1.5; min-height: 1.2em; }
     .actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
@@ -158,22 +204,35 @@ export class AutoFillDialog {
   private readonly i18n = inject(TranslocoService);
   protected readonly rows = ROWS;
   protected readonly modes = MODES; // always the four modes; each is per-row disabled when it has nothing to do
+  protected readonly coverRegions = COVER_REGIONS;
+
+  /** Categories the user has explicitly set. The plan re-derives its defaults whenever the analysis
+   *  changes, and switching the cover region is now one of those changes (it moves `stale.capa`), so
+   *  re-deriving must not silently undo a choice already made: turn "Prévias" off, pick a region, and
+   *  the previews would come back on. A plain Set, not a signal: it is only ever read inside the
+   *  computation below, and reading it as a dependency would make setMode and the linkedSignal fight
+   *  over the same value. */
+  private readonly touched = new Set<FillCategory>();
 
   /** Plano local, re-inicializado a cada análise concluída. Como "Atualizar" é cumulativo (faltantes +
    *  desatualizados), ele é o padrão sempre que houver algo desatualizado; havendo só faltantes, o padrão
    *  é "Completar"; sem nada a fazer, "Não mexer". */
-  protected readonly plan = linkedSignal<FillPlan>(() => {
-    const st = this.lib.autoFill();
-    const c = st?.counts;
-    const def = (k: FillCategory): FillMode => (!c ? 'off' : c.stale[k] > 0 ? 'update' : c.missing[k] > 0 ? 'complete' : 'off');
-    return {
-      capa: def('capa'), tela: def('tela'), previa: def('previa'), info: def('info'), cheats: def('cheats'),
-      manual: def('manual'),
-    };
+  protected readonly plan = linkedSignal<FillCounts | null | undefined, FillPlan>({
+    source: () => this.lib.autoFill()?.counts,
+    computation: (c, prev) => {
+      const def = (k: FillCategory): FillMode =>
+        this.touched.has(k) && prev ? prev.value[k]
+        : !c ? 'off' : c.stale[k] > 0 ? 'update' : c.missing[k] > 0 ? 'complete' : 'off';
+      return {
+        capa: def('capa'), tela: def('tela'), previa: def('previa'), info: def('info'), cheats: def('cheats'),
+        manual: def('manual'),
+      };
+    },
   });
 
   protected setMode(cat: FillCategory, mode: FillMode): void {
     this.plan.update((p) => ({ ...p, [cat]: mode }));
+    this.touched.add(cat);
   }
 
   /** How many games this mode would actually write in `cat`, the one definition behind the summary,
@@ -253,6 +312,17 @@ export class AutoFillDialog {
     if (s < 60) return `${s}s`;
     if (s < 3600) return `${Math.floor(s / 60)}m`;
     return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+  }
+
+  /** "N ROMs aceitam mais de uma capa · N capas mudariam de região", each half pluralised on its own.
+   *  Two counts in one sentence, so a single `{{count}}` string cannot do it: with a one-game scope
+   *  (the detail panel's "Preencher tudo") it read "1 ROMs ... 1 capas". Same one/many pair the
+   *  dialog's own subOne / subMany already use. */
+  protected coverRegionHint(counts: FillCounts): string {
+    this.lang.ready();
+    const t = (base: string, n: number): string =>
+      this.i18n.translate(`autofill.${base}${n === 1 ? 'One' : 'Many'}`, { count: n });
+    return `${t('coverRegionScope', counts.coverChoice)} · ${t('coverRegionMoved', counts.coverMoved)}`;
   }
 
   /** Analyze progress as a 0..100 width. */

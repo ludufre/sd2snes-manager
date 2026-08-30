@@ -59,7 +59,17 @@
     "modeOffHint": "Deixa esta categoria exatamente como está no cartão.",
     "modeCompleteHint": "Grava só onde o item está faltando no cartão.",
     "modeUpdateHint": "Grava onde está faltando E onde o cartão tem uma versão desatualizada.",
-    "modeReplaceHint": "Regrava todos os jogos, inclusive os que já estão em dia."
+    "modeReplaceHint": "Regrava todos os jogos, inclusive os que já estão em dia.",
+    "coverRegion": "Região preferida da capa",
+    "coverRegionScopeOne": "{{count}} ROM aceita mais de uma capa",
+    "coverRegionScopeMany": "{{count}} ROMs aceitam mais de uma capa",
+    "coverRegionMovedOne": "{{count}} capa mudaria de região",
+    "coverRegionMovedMany": "{{count}} capas mudariam de região",
+    "coverRegionAuto": "Automática",
+    "coverRegionU": "EUA",
+    "coverRegionE": "Europa",
+    "coverRegionJ": "Japão",
+    "coverRegionOnlyCover": "Afeta apenas a capa (.cov/.gcv). Tela, prévia, manuais e textos continuam vindo da região do jogo."
   },
   "badge": {
     "availToGen": "disponível p/ gerar",
@@ -583,6 +593,7 @@
     "needsFirmware": "Instale primeiro uma firmware no cartão — até lá não dá para saber onde o console dele procura.",
     "generatingCovers": "Gerando capas",
     "generatingCoversData": "Gerando capas e dados…",
+    "generatingCoversRegion": "Gerando capas da região preferida…",
     "identifying": "Identificando…",
     "importCancelled": "Importação cancelada.",
     "importCancelledCopiedMany": "Importação cancelada — {{count}} arquivos copiados.",

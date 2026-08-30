@@ -31,13 +31,15 @@ import { Icon } from '../../../ui/icon/icon';
         <div class="idbody scroll">
           <div class="idcard">
             <div class="idcap">{{ 'identify.cover' | transloco }}</div>
-            @if (g.coverUrl) {
-              <img class="idmedia" [src]="cdn(g.coverUrl)" crossorigin="anonymous" [alt]="'identify.coverAlt' | transloco" />
+            <!-- The preference applied, not the raw entry field: the Generate button below obeys it, and
+                 showing one region's art next to a button that writes another's is a lie. -->
+            @if (lib.coverPreviewUrl(g); as coverUrl) {
+              <img class="idmedia" [src]="cdn(coverUrl)" crossorigin="anonymous" [alt]="'identify.coverAlt' | transloco" />
               <div class="idactions">
                 <button class="btn sm primary" type="button" [disabled]="g.busy === 'cover'" (click)="lib.genCover(g)">
                   <app-icon name="spark" [size]="13" />{{ g.busy === 'cover' ? ('identify.generating' | transloco) : (g.cover === 'has' ? ('identify.regenCover' | transloco) : ('identify.genCover' | transloco)) }}
                 </button>
-                <button class="btn sm" type="button" (click)="download(g.coverUrl, g.title + ' cover')"><app-icon name="download" [size]="13" />{{ 'identify.download' | transloco }}</button>
+                <button class="btn sm" type="button" (click)="download(coverUrl, g.title + ' cover')"><app-icon name="download" [size]="13" />{{ 'identify.download' | transloco }}</button>
               </div>
             } @else { <div class="idnone">{{ 'identify.none' | transloco }}</div> }
           </div>

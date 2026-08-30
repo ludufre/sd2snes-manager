@@ -59,7 +59,17 @@
     "modeOffHint": "Оставить эту категорию на карте ровно такой, какая она есть.",
     "modeCompleteHint": "Записывать только там, где файла на карте нет.",
     "modeUpdateHint": "Записывать там, где файла нет, И там, где на карте устаревшая версия.",
-    "modeReplaceHint": "Перезаписать все игры, включая уже актуальные."
+    "modeReplaceHint": "Перезаписать все игры, включая уже актуальные.",
+    "coverRegion": "Предпочитаемый регион обложки",
+    "coverRegionScopeOne": "{{count}} ROM допускает более одной обложки",
+    "coverRegionScopeMany": "{{count}} ROM допускают более одной обложки",
+    "coverRegionMovedOne": "{{count}} обложка сменит регион",
+    "coverRegionMovedMany": "{{count}} обложек сменят регион",
+    "coverRegionAuto": "Автоматически",
+    "coverRegionU": "США",
+    "coverRegionE": "Европа",
+    "coverRegionJ": "Япония",
+    "coverRegionOnlyCover": "Влияет только на обложку (.cov/.gcv). Скриншот, превью, руководства и тексты по-прежнему берутся из региона игры."
   },
   "badge": {
     "availToGen": "можно создать",
@@ -583,6 +593,7 @@
     "needsFirmware": "Сначала установите прошивку на карту — до этого невозможно узнать, где ищет её консоль.",
     "generatingCovers": "Создание обложек",
     "generatingCoversData": "Создание обложек и данных…",
+    "generatingCoversRegion": "Создание обложек предпочитаемого региона…",
     "identifying": "Опознание…",
     "importCancelled": "Импорт отменён.",
     "importCancelledCopiedMany": "Импорт отменён — скопировано файлов: {{count}}.",

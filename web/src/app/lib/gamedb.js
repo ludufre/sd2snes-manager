@@ -1,6 +1,6 @@
 // Client for the sd2snes-gamedb read API. All these endpoints are public (no auth).
 // NOTE: cross-origin requests need the gamedb to allow this app's origin via CORS.
-import { pickBucket } from './regions.js';
+import { pickBucket, coverChoicesFor } from './regions.js';
 import { apiFetch } from './net.js';
 import { DESC_LANGS } from './yml.js';
 
@@ -87,14 +87,46 @@ export function activeAsset(game, type, bucket) {
   return bucket ? ofType.find((a) => a.regionBucket === bucket) || null : ofType[0] || null;
 }
 
+/** Every bucket this game can serve a cover for, mapped to its URL. Exactly the resolution
+ *  resolveMatch does for the selected bucket (active cover asset, else the region row's own
+ *  coverUrl), applied to all of them. Buckets with no cover at all are absent, so `Object.keys()`
+ *  is "who has art". */
+export function coverUrlsByBucket(db, game) {
+  const out = {};
+  for (const r of (game && game.regions) || []) {
+    if (!r || !r.bucket || out[r.bucket]) continue;
+    const url = db.assetUrl(activeAsset(game, 'cover', r.bucket)) || (r.coverUrl ? db.assetUrl(r.coverUrl) : null);
+    if (url) out[r.bucket] = url;
+  }
+  return out;
+}
+
 /** Resolve a ROM (by its region) against a looked-up game into a flat, render-ready match.
  *  Returns null when the game is null. `romCrc` (optional) sets `cheatsAvailable` straight from the
  *  game's cheats blocks (one per CRC), so callers don't need a separate per-CRC cheats probe. */
 export function resolveMatch(db, game, romRegion, romCrc) {
   if (!game) return null;
+  // Hoisted from the package block below: the ROM row is also what carries the authoritative region
+  // for this exact CRC, and the World test needs it before the buckets are resolved.
+  const romRow = romCrc ? (game.roms || []).find((r) => r.crc32 && r.crc32.toUpperCase() === romCrc.toUpperCase()) : null;
+  // The ROM's region, GameDB first: `roms[].region` is the No-Intro string the database holds for this
+  // exact CRC, while `romRegion` is only what regionFromName could scrape off the file name, which a
+  // renamed dump simply does not have.
+  //
+  // Used ONLY by the cover-region preference. The bucket the rest of the match rides on is still
+  // picked from `romRegion` on purpose: switching it to the authoritative string would move titles,
+  // screenshots, videos and manuals on every card that has ever been filled, and mark all of it
+  // stale. That is a different feature.
+  const coverRegionStr = (romRow && romRow.region) || romRegion || null;
   const buckets = (game.regions || []).map((r) => r.bucket);
   const bucket = pickBucket(romRegion, buckets);
   const region = (game.regions || []).find((r) => r.bucket === bucket) || null;
+
+  const allCoverUrls = coverUrlsByBucket(db, game);
+  // Only a genuine choice is worth carrying: one candidate (or none) means the preference has nothing
+  // to decide, whatever the user picked.
+  const choices = coverChoicesFor(coverRegionStr, Object.keys(allCoverUrls));
+  const coverChoices = choices.length > 1 ? choices : null;
 
   const coverAsset = activeAsset(game, 'cover', bucket);
   const shotAsset = activeAsset(game, 'screenshot', bucket);
@@ -111,7 +143,6 @@ export function resolveMatch(db, game, romRegion, romCrc) {
 
   // the pre-built `.s2pkg` bundle URL (cover/gcv/gss/fmv/pcm/cheats) for this CRC's ROM, when the
   // gamedb has one, auto-fill prefers it over fetching+encoding the raw media (see library-store).
-  const romRow = romCrc ? (game.roms || []).find((r) => r.crc32 && r.crc32.toUpperCase() === romCrc.toUpperCase()) : null;
   const packageUrl = romRow && romRow.packageUrl ? db.assetUrl(romRow.packageUrl) : null;
   const packageBytes = romRow && romRow.packageBytes != null ? romRow.packageBytes : null; // .s2pkg download size
   const packageNoAudioUrl = romRow && romRow.packageNoAudioUrl ? db.assetUrl(romRow.packageNoAudioUrl) : null; // legacy no-pcm variant
@@ -141,6 +172,13 @@ export function resolveMatch(db, game, romRegion, romCrc) {
     completeness: game.completeness,
     reviewStatus: game.reviewStatus,
     bucket,
+    /** The region buckets this ROM's cover may legitimately come from, when there is more than one to
+     *  choose between; null when the ROM has no say (one candidate, or none). See coverChoicesFor. */
+    coverChoices,
+    /** Cover URL per region bucket, what lets a caller move the cover to another region with no
+     *  second lookup and no re-resolve. Carried ONLY alongside a real choice: on a 6000-game library,
+     *  five extra URLs per entry that no preference could ever act on is pure heap. */
+    coverUrls: coverChoices ? allCoverUrls : null,
     coverUrl: db.assetUrl(coverAsset) || (region && region.coverUrl ? db.assetUrl(region.coverUrl) : null),
     screenshotUrl: db.assetUrl(shotAsset) || (region && region.screenshotUrl ? db.assetUrl(region.screenshotUrl) : null),
     videoUrl: db.assetUrl(videoAsset),

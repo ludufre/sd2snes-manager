@@ -166,6 +166,16 @@ export interface Entry {
   thumbUrl?: string;
   /** Real box-art URL from the gamedb (set only on intentional Identify). */
   coverUrl?: string;
+  /** Region bucket the match resolved to (`pickBucket`): where the title, screenshot, video and
+   *  manuals came from, and the bucket the server baked into this ROM's `.s2pkg`. One letter
+   *  (U/E/J/W/O), null when the game has no region cards. Set on Identify. */
+  bucket?: string | null;
+  /** Region buckets this ROM's cover may legitimately come from, when there is more than one to
+   *  choose between; null when the ROM has no say. The set the cover-region preference acts on. */
+  coverChoices?: string[] | null;
+  /** Cover URL per region bucket, so switching the preference costs no lookup. Carried only
+   *  alongside a real choice. See lib/gamedb coverUrlsByBucket and core/cover-region. */
+  coverUrls?: Record<string, string> | null;
   /** Video URL from the gamedb (drives .fmv generation). */
   videoUrl?: string;
   /** Still screenshot URL from the gamedb (preview only). */
@@ -272,6 +282,10 @@ export interface GameMatch {
   /** Every translation the GameDB stores for this game, by language code. */
   descriptions: Descriptions;
   bucket: string | null;
+  /** Region buckets whose cover this ROM may wear, when there is more than one; null otherwise. */
+  coverChoices?: string[] | null;
+  /** Cover URL per region bucket; null when there is no choice. See lib/gamedb coverUrlsByBucket. */
+  coverUrls?: Record<string, string> | null;
   coverUrl: string | null;
   screenshotUrl: string | null;
   videoUrl: string | null;

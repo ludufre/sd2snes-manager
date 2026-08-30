@@ -59,7 +59,17 @@
     "modeOffHint": "Laisse cette catégorie telle quelle sur la carte.",
     "modeCompleteHint": "Écrit uniquement là où l'élément manque sur la carte.",
     "modeUpdateHint": "Écrit là où il manque ET là où la carte a une version obsolète.",
-    "modeReplaceHint": "Réécrit tous les jeux, y compris ceux déjà à jour."
+    "modeReplaceHint": "Réécrit tous les jeux, y compris ceux déjà à jour.",
+    "coverRegion": "Région préférée de la jaquette",
+    "coverRegionScopeOne": "{{count}} ROM accepte plus d’une jaquette",
+    "coverRegionScopeMany": "{{count}} ROM acceptent plus d’une jaquette",
+    "coverRegionMovedOne": "{{count}} jaquette changerait de région",
+    "coverRegionMovedMany": "{{count}} jaquettes changeraient de région",
+    "coverRegionAuto": "Automatique",
+    "coverRegionU": "États-Unis",
+    "coverRegionE": "Europe",
+    "coverRegionJ": "Japon",
+    "coverRegionOnlyCover": "N’affecte que la jaquette (.cov/.gcv). La capture, l’aperçu, les manuels et les textes proviennent toujours de la région du jeu."
   },
   "badge": {
     "availToGen": "disponible à générer",
@@ -581,6 +591,7 @@
     "needsFirmware": "Installez d'abord un firmware sur la carte — d'ici là je ne peux pas savoir où sa console cherche.",
     "generatingCovers": "Génération des jaquettes",
     "generatingCoversData": "Génération des jaquettes et des données…",
+    "generatingCoversRegion": "Génération des jaquettes de la région préférée…",
     "identifying": "Identification…",
     "importCancelled": "Importation annulée.",
     "importCancelledCopiedMany": "Importation annulée — {{count}} fichiers copiés.",

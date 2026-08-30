@@ -59,7 +59,17 @@
     "modeOffHint": "Leave this category exactly as it is on the card.",
     "modeCompleteHint": "Write only where the asset is missing from the card.",
     "modeUpdateHint": "Write where it is missing AND where the card has an outdated version.",
-    "modeReplaceHint": "Rewrite every game, including the ones already up to date."
+    "modeReplaceHint": "Rewrite every game, including the ones already up to date.",
+    "coverRegion": "Preferred cover region",
+    "coverRegionScopeOne": "{{count}} ROM takes more than one cover",
+    "coverRegionScopeMany": "{{count}} ROMs take more than one cover",
+    "coverRegionMovedOne": "{{count}} cover would change region",
+    "coverRegionMovedMany": "{{count}} covers would change region",
+    "coverRegionAuto": "Automatic",
+    "coverRegionU": "USA",
+    "coverRegionE": "Europe",
+    "coverRegionJ": "Japan",
+    "coverRegionOnlyCover": "Affects the cover only (.cov/.gcv). Snapshot, preview, manuals and text still come from the game’s own region."
   },
   "badge": {
     "availToGen": "available to generate",
@@ -583,6 +593,7 @@
     "needsFirmware": "Install a firmware on the card first — until then I cannot tell where its console reads.",
     "generatingCovers": "Generating covers",
     "generatingCoversData": "Generating covers and data…",
+    "generatingCoversRegion": "Generating covers for the preferred region…",
     "identifying": "Identifying…",
     "importCancelled": "Import cancelled.",
     "importCancelledCopiedMany": "Import cancelled — {{count}} files copied.",
