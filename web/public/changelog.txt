@@ -5,6 +5,50 @@ Every released version, newest first.
 Some releases were published together and reach the repository as a single commit. When that
 happens, the entry says which versions it covers.
 
+## 1.30.0 - 2026-08-29
+
+### Added
+
+- **A ROM that belongs to more than one region can now be told which cover to use.** A No-Intro
+  region is a list, not a single value: `Super Metroid (Japan, USA)` genuinely is both, and a
+  `(World)` dump stands for all of them. Until now the cover such a ROM got was decided by the order
+  the region tests happen to sit in inside the Manager, Japan before USA before Europe, which is a
+  coin toss nobody got to call. That is why one card could show a Japanese box for one game and an
+  American one for the next. Auto-fill now carries a "Região preferida da capa" control, offered only
+  when the selection really holds ROMs with more than one candidate, and it states up front how many
+  covers the choice would move. It is remembered between sessions.
+
+  The preference only picks among the regions a ROM legitimately represents. `Super Metroid (Japan,
+  USA)` will take the American box if you ask for it; `Super Metroid (Japan)` keeps the Japanese one
+  whatever you pick, because the American box would describe a cartridge that is not the one on the
+  card. A World dump is the exception that accepts any region, since it is the release that stands
+  for every one of them.
+
+  It governs the cover and nothing else. The snapshot, the preview, the manuals and every text field
+  still come from the region the ROM itself resolves to. Where the choice differs from what the
+  GameDB's prebuilt bundle carries, the Manager fetches that region's image and builds the two cover
+  files locally instead, and records which region it used in the game info file, so a later run can
+  tell that the card no longer matches the preference and offer to bring it back in line. Which
+  regions a ROM belongs to is read from the GameDB's own dump record rather than from the file name,
+  so a renamed ROM is still recognised. The GameDB dialog previews the cover the preference would
+  write rather than the one the general region carries, so what it shows is what lands on the card.
+
+### Changed
+
+- **The auto-fill dialog fits a phone.** Six categories times four modes meant a 2x2 grid of
+  buttons under every row below 640px, and on a short screen the dialog ran past both edges with
+  the title and the Preencher button out of reach. Each row is one line again, the mode buttons
+  become the phone's own picker (a bigger target than an 11px segment, and it opens the system
+  list), and the body scrolls with the heading and the buttons pinned in place.
+
+### Fixed
+
+- **A cover built in the app now reaches the game's other copies.** A card that holds the same ROM in
+  more than one folder, a patched copy, a backup, the game's own letter folder, showed the new art on
+  one row and the old art on the others: only the write worker mirrored the `.cov` into sibling
+  folders, and the path that encodes the image in the app did not. On a full card that is not rare,
+  Super Metroid alone sits in four of them.
+
 ## 1.29.0 - 2026-08-29
 
 ### Added
