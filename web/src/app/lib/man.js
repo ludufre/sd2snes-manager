@@ -108,14 +108,15 @@ export const ACCENTS = {
   'л': 208, 'м': 209, 'н': 210, 'п': 211, 'т': 212, 'ф': 213,
   'ц': 214, 'ч': 215, 'ш': 216, 'щ': 217, 'ъ': 218, 'ы': 219,
   'ь': 220, 'э': 221, 'ю': 222, 'я': 223,
+  'У': 177,
 };
-/* Cyrillic, drawn over the dead katakana block. Only the 46 letters with a tile of their own
- * are in ACCENTS; the 20 that reuse an existing tile are HOMOGLYPHS below -- ENCODE-ONLY, because
+/* Cyrillic, drawn over the dead katakana block. Only the 47 letters with a tile of their own
+ * are in ACCENTS; the 19 that reuse an existing tile are HOMOGLYPHS below -- ENCODE-ONLY, because
  * folding them in would give a code two owners and DECODE_TITLE would hand back 'А' for a Latin
  * 'A' and 'ё' for a French ë. */
 export const HOMOGLYPHS = {
   'А': 65, 'В': 66, 'Е': 69, 'К': 75, 'М': 77, 'Н': 72,
-  'О': 79, 'Р': 80, 'С': 67, 'Т': 84, 'У': 89, 'Х': 88,
+  'О': 79, 'Р': 80, 'С': 67, 'Т': 84, 'Х': 88,
   'а': 97, 'е': 101, 'о': 111, 'р': 112, 'с': 99, 'у': 121, 'х': 120,
   'ё': 228,
 };
