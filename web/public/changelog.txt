@@ -5,6 +5,37 @@ Every released version, newest first.
 Some releases were published together and reach the repository as a single commit. When that
 happens, the entry says which versions it covers.
 
+## 1.31.0 - 2026-09-09
+
+### Added
+
+- **Every option firmware 2.16 added is now in the settings dialog.** Five new lines in `config.yml`
+  and one new value for a line that was already there, none of which the dialog knew, so on a 2.16
+  card they could only be changed on the console itself: the **Duration** reset mode, where a short
+  press restarts the game and a long one returns to the menu; **shuffle menu music** and the folder
+  it draws from; the **text outline** and **anti-aliasing** tri-states, which follow the theme
+  unless you say otherwise; and **ask for the clock on boot**.
+- **Atari 2600 picture width and the Competition Cart round timer.** The two settings the 2.16
+  firmware puts under *Chip options*. The width is the console's own 160 (1:1) or a 256 that fills
+  the screen. The timer is the DIP-switch bank of the real Campus Challenge '92 and PowerFest '94
+  boards, 3 to 18 minutes — the value stored on the card stays the switch position the firmware
+  reads, while the dialog shows the minutes it means, exactly as the console's menu does.
+- **Russian in the firmware language selector.** The card's own menu speaks it since 2.16; the
+  Manager could set the other six.
+
+### Changed
+
+- **The font tables now mirror the firmware's German and Cyrillic glyphs.** A guide's title is
+  encoded here and drawn there, so a letter this app does not know about reaches the console as raw
+  UTF-8 bytes and comes out as two pieces of unrelated artwork. Checked character by character
+  against the firmware's own table: 93 accented letters and 20 that reuse an existing drawing.
+
+### Fixed
+
+- **The test suite compiles again.** Type errors in one spec file stopped the whole suite from
+  running, which took the layout mirror's own guard down with it: the test that pins the Manager's
+  folder rules to the firmware's, byte for byte.
+
 ## 1.30.0 - 2026-08-29
 
 ### Added

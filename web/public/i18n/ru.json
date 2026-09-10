@@ -864,7 +864,7 @@
       "LEDBrightness": "Яркость светодиода",
       "Cx4Speed": "Скорость ядра Cx4",
       "GSUSpeed": "Скорость ядра SuperFX",
-      "MSUVolumeBoost": "Усиление громкости MSU-1",
+      "MSUVolumeBoost": "Усиление громкости MSU-1", "A26VideoWidth": "Ширина картинки Atari 2600", "CompCartTimeLimit": "Таймер Competition Cart (мин)",
       "EnableAutoSave": "Включить автосохранение",
       "EnableMSU1AutoSave": "Включить автосохранение MSU-1",
       "ShowCovers": "Размер предпросмотра обложки",

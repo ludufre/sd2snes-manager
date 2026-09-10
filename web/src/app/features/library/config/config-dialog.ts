@@ -12,6 +12,13 @@ const num = (key: string, min?: number, max?: number): SettingField => ({ key, t
 const text = (key: string): SettingField => ({ key, type: 'text' });
 const datetime = (key: string): SettingField => ({ key, type: 'datetime' });
 const select = (key: string, options: Array<[string, string]>): SettingField => ({ key, type: 'select', options: options.map(([value, label]) => ({ value, label })) });
+/**
+ * Competition Cart round timer. The firmware stores the DIP-switch position, 0..15, and the menu
+ * shows it as the minutes it means, 3..18 (CFG_CC_TIME_LIMIT in src/cfg.h, kv_cc_time_limit in
+ * snes/contextdata.a65). Mirrored as value/label rather than converted, so what lands in
+ * config.yml is the byte the firmware clamps and what the user reads is what the console shows.
+ */
+const CC_MINUTES: Array<[string, string]> = Array.from({ length: 16 }, (_, i) => [String(i), String(i + 3)]);
 const normalizeCombo = (value: string): string => { const result = new Set<string>(); const opposite: Record<string,string> = { u:'d', d:'u', l:'r', r:'l' }; for (const key of value) { if (opposite[key]) result.delete(opposite[key]); result.add(key); } return [...result].join(''); };
 
 @Component({
@@ -37,7 +44,7 @@ const normalizeCombo = (value: string): string => { const result = new Set<strin
                 @for (field of group.fields; track field.key) {
                   <label class="setting"><span>{{ ('config.settings.' + field.key) | transloco }}</span>
                     @if (field.type === 'boolean') { <input type="checkbox" [checked]="values()[field.key] === 'true'" (change)="setValue(field.key, $any($event.target).checked ? 'true' : 'false')" /> }
-                    @else if (field.type === 'select') { <select [value]="values()[field.key]" (change)="setValue(field.key, $any($event.target).value)">@for (option of field.options; track option.value) { <option [value]="option.value">{{ option.label | transloco }}</option> }</select> }
+                    @else if (field.type === 'select') { <select [value]="values()[field.key]" (change)="setValue(field.key, $any($event.target).value)">@for (option of field.options; track option.value) { <option [value]="option.value">{{ optionLabel(option) }}</option> }</select> }
                     @else if (field.type === 'number') { <input type="number" [min]="field.min ?? null" [max]="field.max ?? null" [value]="values()[field.key]" (input)="setValue(field.key, $any($event.target).value)" /> }
                     @else if (field.type === 'datetime') { <input type="datetime-local" step="1" [value]="toDateTimeLocal(values()[field.key])" (input)="setValue(field.key, fromDateTimeLocal($any($event.target).value))" /> }
                     @else { <input type="text" [value]="values()[field.key]" (input)="setValue(field.key, $any($event.target).value)" /> }
@@ -122,7 +129,7 @@ export class ConfigDialog {
     { label: 'config.groups.hooks', fields: [bool('EnableCheats'), bool('EnableIngameHook'), bool('EnableIngameButtons'), bool('EnableHookHoldoff'), bool('ResetPatch'), select('EnableIngameSavestate', [['0','config.options.disabled'],['1','config.options.enabled']]), num('LoadstateDelay', 0), bool('EnableSavestateSlots'), bool('EnableCheatOverlay')] },
     { label: 'config.groups.sgb', fields: [bool('SGBEnableIngameHook'), bool('SGBEnableState'), select('SGBVolumeBoost', [['0','config.options.none'],['1','config.options.boost35'],['2','config.options.boost6'],['3','config.options.boost95'],['4','config.options.boost12']]), bool('SGBEnhOverride'), bool('SGBSprIncrease'), bool('SGBClockFix'), num('SGBBiosVersion', 1)] },
     { label: 'config.groups.interface', fields: [bool('EnableScreensaver'), bool('SortDirectories'), bool('HideExtensions'), num('LEDBrightness',0,15), select('ShowCovers', [['0','config.options.off'],['1','config.options.large'],['2','config.options.small']]), bool('ShowCoversInLists'), select('Language', [['0','config.options.english'],['1','config.options.portuguese'],['2','config.options.spanish'],['3','config.options.german'],['4','config.options.french'],['5','config.options.italian'],['6','config.options.russian']]), bool('EnableMenuMusic'), bool('MenuMusicRandom'), bool('EnableMenuSFX'), bool('SortFavorites'), bool('EnableGameManual'), select('TextOutline', [['0','config.options.followTheme'],['1','config.options.on'],['2','config.options.off']]), select('TextAntiAlias', [['0','config.options.followTheme'],['1','config.options.on'],['2','config.options.off']]), bool('AskClockOnBoot')] },
-    { label: 'config.groups.chips', fields: [select('Cx4Speed', [['0','config.options.original'],['1','config.options.fast']]), select('GSUSpeed', [['0','config.options.original'],['1','config.options.fast']]), select('MSUVolumeBoost', [['0','config.options.none'],['1','config.options.boost35'],['2','config.options.boost6'],['3','config.options.boost95'],['4','config.options.boost12']])] },
+    { label: 'config.groups.chips', fields: [select('Cx4Speed', [['0','config.options.original'],['1','config.options.fast']]), select('GSUSpeed', [['0','config.options.original'],['1','config.options.fast']]), select('MSUVolumeBoost', [['0','config.options.none'],['1','config.options.boost35'],['2','config.options.boost6'],['3','config.options.boost95'],['4','config.options.boost12']]), select('A26VideoWidth', [['0','160 (1:1)'],['1','256 (wide)']]), select('CompCartTimeLimit', CC_MINUTES)] },
     { label: 'config.groups.saves', fields: [bool('EnableAutoSave'), bool('EnableMSU1AutoSave')] },
     { label: 'config.groups.patches', fields: [bool('PatchVerifyIntegrity'), bool('EnableBpsCopier')] },
     { label: 'config.groups.gameInfo', fields: [select('ShowGameInfo', [['0','config.options.off'],['1','config.options.on'],['2','config.options.contextOnly']]), bool('GameInfoVideo'), bool('GameInfoMusic')] },
@@ -156,6 +163,10 @@ export class ConfigDialog {
     const names: Record<string, string> = { s: 'select', S: 'start', u: 'up', d: 'down', l: 'left', r: 'right', L: 'L', R: 'R', a: 'A', b: 'B', x: 'X', y: 'Y' };
     return [...(value || '')].map((c) => this.i18n.translate(`config.buttons.${names[c] ?? c}`)).join(' + ') || this.i18n.translate('config.none');
   }
+  /** A label carrying a dot is a translation key; anything else is a literal. The firmware keeps
+   *  these particular values language-neutral too ("160 (1:1)", the timer's 3..18), and sixteen
+   *  translation entries that all read "7" would only give seven languages something to drift on. */
+  protected optionLabel(option: { label: string }): string { return option.label.includes('.') ? this.i18n.translate(option.label) : option.label; }
   protected selectedString(): string { return [...this.selected()].join(''); }
   protected editingLabel(): string { return this.fields.find((f) => f.key === this.editing())?.label ?? ''; }
   protected edit(key: string): void { this.editing.set(key); this.selected.set(new Set(this.values()[key] || '')); }

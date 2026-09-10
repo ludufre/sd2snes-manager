@@ -30,6 +30,18 @@ function game(overrides: Record<string, unknown> = {}): Record<string, unknown> 
   };
 }
 
+/* gamedb.js is a ported JS module with no declarations, so TypeScript infers `resolveMatch` as
+   "the match or null" and `coverUrlsByBucket` as a bare `{}`. Every case below hands them input
+   they can resolve, so unwrap once here instead of repeating an assertion on each field read. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function matched(...args: Parameters<typeof resolveMatch>): any {
+  const m = resolveMatch(...args);
+  if (m == null) throw new Error('resolveMatch returned null for a case that should resolve');
+  return m;
+}
+const coversOf = (...args: Parameters<typeof coverUrlsByBucket>): Record<string, string> =>
+  coverUrlsByBucket(...args) as Record<string, string>;
+
 describe('coverUrlsByBucket', () => {
   it('maps every bucket that has art, and only those', () => {
     expect(coverUrlsByBucket(db, game())).toEqual({
@@ -43,27 +55,27 @@ describe('coverUrlsByBucket', () => {
 
   it('prefers the active cover asset over the region row url, like resolveMatch does', () => {
     const g = game({ assets: [{ type: 'cover', isActive: true, regionBucket: 'U', url: '/api/assets/u-active/file' }] });
-    expect(coverUrlsByBucket(db, g)['U']).toBe('https://gamedb.test/api/assets/u-active/file');
+    expect(coversOf(db, g)['U']).toBe('https://gamedb.test/api/assets/u-active/file');
   });
 });
 
 describe('resolveMatch: which covers this ROM may wear', () => {
   it('takes the region from the GameDB ROM row, not the file name', () => {
     // the file was renamed and lost its "(World)" tag: the row still knows.
-    expect(resolveMatch(db, game(), 'USA', 'AABBCCDD').coverChoices).toEqual(['J', 'U', 'W']);
+    expect(matched(db, game(), 'USA', 'AABBCCDD').coverChoices).toEqual(['J', 'U', 'W']);
   });
 
   it('falls back to the file name when the row carries no region', () => {
     const g = game({ roms: [{ crc32: 'AABBCCDD', region: null }] });
-    expect(resolveMatch(db, g, 'World', 'AABBCCDD').coverChoices).toEqual(['J', 'U', 'W']);
-    expect(resolveMatch(db, g, 'Japan', 'AABBCCDD').coverChoices).toBeNull();
+    expect(matched(db, g, 'World', 'AABBCCDD').coverChoices).toEqual(['J', 'U', 'W']);
+    expect(matched(db, g, 'Japan', 'AABBCCDD').coverChoices).toBeNull();
   });
 
   /* Super Metroid's real card: `(Japan, USA)` is two regions at once, and before this the cover was
      decided by the order the tests sit in inside bucketsOfRegion. */
   it('offers both regions of a multi-region dump', () => {
     const g = game({ roms: [{ crc32: 'AABBCCDD', region: 'Japan, USA' }] });
-    const m = resolveMatch(db, g, 'Japan, USA', 'AABBCCDD');
+    const m = matched(db, g, 'Japan, USA', 'AABBCCDD');
     expect(m.coverChoices).toEqual(['J', 'U']);
     expect(m.bucket).toBe('J'); // the rest of the match still rides the region it always did
     expect(m.coverUrls).toMatchObject({ J: expect.any(String), U: expect.any(String) });
@@ -71,7 +83,7 @@ describe('resolveMatch: which covers this ROM may wear', () => {
 
   it('gives a single-region dump no choice at all', () => {
     const g = game({ roms: [{ crc32: 'AABBCCDD', region: 'Japan' }] });
-    const m = resolveMatch(db, g, 'Japan', 'AABBCCDD');
+    const m = matched(db, g, 'Japan', 'AABBCCDD');
     expect(m.coverChoices).toBeNull();
     // and nothing to move it with: a (Japan) cartridge must not end up under the USA box
     expect(m.coverUrls).toBeNull();
@@ -82,7 +94,7 @@ describe('resolveMatch: which covers this ROM may wear', () => {
       regions: [{ id: 1, bucket: 'J', title: 'x', coverUrl: '/api/assets/j-cov/file', screenshotUrl: null }],
       roms: [{ crc32: 'AABBCCDD', region: 'Japan, USA' }],
     });
-    expect(resolveMatch(db, bare, 'Japan, USA', 'AABBCCDD').coverChoices).toBeNull();
+    expect(matched(db, bare, 'Japan, USA', 'AABBCCDD').coverChoices).toBeNull();
   });
 });
 
@@ -90,7 +102,7 @@ describe('resolveMatch: which covers this ROM may wear', () => {
    romRow and adding the World flag must leave every other field byte for byte as it was. */
 describe('resolveMatch: nothing but the cover moved', () => {
   it('keeps bucket, title, screenshot, video, manuals and package as they were', () => {
-    const m = resolveMatch(db, game(), 'Japan', 'AABBCCDD');
+    const m = matched(db, game(), 'Japan', 'AABBCCDD');
     expect(m.bucket).toBe('J');
     expect(m.title).toBe('Super Game (J)');
     expect(m.screenshotUrl).toBe('https://gamedb.test/api/assets/j-shot/file');
@@ -106,6 +118,6 @@ describe('resolveMatch: nothing but the cover moved', () => {
 
   it('resolves the package by CRC even when the ROM row is not the first', () => {
     const g = game({ roms: [{ crc32: '11111111', region: 'USA' }, { crc32: 'AABBCCDD', region: 'World', packageUrl: '/api/assets/pkg.s2pkg' }] });
-    expect(resolveMatch(db, g, 'World', 'aabbccdd').packageUrl).toBe('https://gamedb.test/api/assets/pkg.s2pkg');
+    expect(matched(db, g, 'World', 'aabbccdd').packageUrl).toBe('https://gamedb.test/api/assets/pkg.s2pkg');
   });
 });
