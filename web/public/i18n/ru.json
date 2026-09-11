@@ -880,7 +880,7 @@
       "BusCompat": "Режим совместимости шины",
       "EnableGameManual": "Включить внутриигровое руководство",
       "SkinName": "Путь к теме меню",
-      "MenuMusicFile": "Путь к музыке меню", "MenuMusicRandom": "Случайная музыка меню", "MenuMusicFolder": "Папка музыки меню", "TextOutline": "Контур текста меню", "TextAntiAlias": "Сглаживание текста меню", "AskClockOnBoot": "Спрашивать время при запуске",
+      "MenuMusicFile": "Путь к музыке меню", "MenuMusicRandom": "Случайная музыка меню", "MenuMusicFolder": "Папка музыки меню", "TextOutline": "Контур текста меню", "TextAntiAlias": "Сглаживание текста меню", "AskClockOnBoot": "Спрашивать время при запуске", "OpenMsuFolders": "Открывать папки MSU-1 как игру",
       "ShowGameInfo": "Экран информации об игре",
       "GameInfoVideo": "Воспроизводить видео информации об игре",
       "GameInfoMusic": "Воспроизводить звук информации об игре",
