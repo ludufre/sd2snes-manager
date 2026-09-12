@@ -144,6 +144,38 @@ export async function buildGcvFromCov(covBytes) {
   const pngBytes = new Uint8Array(await pngBlob.arrayBuffer());
   return buildCoverFile(pngBytes); // letterbox-fit + centered into 128×128 -> .gcv
 }
+/** Decode an on-card `.gcv` and render it to a PNG data URL, the same job `covToDataUrl` does for the
+ *  `.cov`. Used for the browser thumbnail of a game that has a game info cover but no `.cov` next to
+ *  the ROM (the cover the firmware shows in the file list). The `.gcv` letterbox-fits its art inside
+ *  128x128 and pads with the transparent index 0, so the render crops back to the opaque art: without
+ *  the crop the tile would show the cover shrunk inside its own padding. */
+export function gcvToDataUrl(bytes) {
+  const blob = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  const { coverW, coverH, pal, plane } = bandpal.decodeCoverFile(blob);
+  const W = coverW * 8, H = coverH * 8;
+  let minX = W, minY = H, maxX = -1, maxY = -1;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (plane[y * W + x] === 0) continue; // transparent letterbox pixel
+    if (x < minX) minX = x; if (x > maxX) maxX = x;
+    if (y < minY) minY = y; if (y > maxY) maxY = y;
+  }
+  if (maxX < 0) throw new Error('empty .gcv (no opaque art)');
+  const cw = maxX - minX + 1, ch = maxY - minY + 1;
+  const canvas = document.createElement('canvas');
+  canvas.width = cw; canvas.height = ch;
+  const ctx = canvas.getContext('2d');
+  const img = ctx.createImageData(cw, ch);
+  const data = img.data;
+  for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
+    const v = plane[(minY + y) * W + (minX + x)];
+    const c = v === 0 ? null : pal[v - bandpal.COVER_CGBASE];
+    const p = (y * cw + x) * 4;
+    if (!c) { data[p + 3] = 0; continue; }
+    data[p] = c[0]; data[p + 1] = c[1]; data[p + 2] = c[2]; data[p + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  return canvas.toDataURL('image/png');
+}
 /** Static screenshot as a 1-frame paletted screenshot `.gss` (88c, same format as `.fmv`), no ffmpeg. For non-video games. */
 export async function buildStaticShot(shotBytes, { fps = 0, dither = false } = {}) {
   if (!shotBytes) throw new Error('no screenshot bytes');

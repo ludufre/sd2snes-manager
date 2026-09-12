@@ -5,6 +5,27 @@ Every released version, newest first.
 Some releases were published together and reach the repository as a single commit. When that
 happens, the entry says which versions it covers.
 
+## 1.32.0 - 2026-09-12
+
+### Added
+
+- **A game that has only half its cover on the card now shows the art in the list.** The thumbnail
+  is decoded from the `.cov` next to the ROM, the file the console itself draws in its file list.
+  The other half of the cover is the paletted `.gcv` the game information screen reads, and a card
+  can perfectly well carry that one and not the `.cov`. Such a game used to sit behind the empty
+  placeholder even though its art was right there on the card. The list now falls back to the `.gcv`
+  whenever the `.cov` is missing or unreadable, cropped back to the art so the cover is not shown
+  shrunk inside its own padding. Nothing else changes: the board and auto-fill still report the
+  cover as missing, because the file the console reads is the `.cov` and that is the one the card
+  does not have.
+- **Two more of the firmware 2.16 options in the settings dialog.** *Open MSU-1 folders as games*
+  makes A on a folder whose only ROM has a matching `.msu` behave exactly like A on that ROM, so it
+  opens the game information screen or boots straight into it, as *Game information screen* decides.
+  *Show the sd2snes folder in the browser* lists the card's own `sd2snes` directory, which the menu
+  hides twice over, by name and by the hidden and system attributes it carries: with it on, a theme
+  or a music file stored in there can be picked like any other file, and the saves and info folders
+  stop looking empty.
+
 ## 1.31.0 - 2026-09-09
 
 ### Added

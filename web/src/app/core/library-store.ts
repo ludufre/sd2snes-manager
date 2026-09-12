@@ -45,7 +45,7 @@ import { BIOS_FILES, BIOS_DIR, type BiosFile } from './bios';
 import { buildCovFromBytes, covToDataUrl } from '../lib/cov.js';
 import { renderThmToDataUrl } from '../lib/thm.js';
 import { fetchBytes, gdHasSnapshot } from '../lib/gd.js'; // .gd retired; only the on-card reader/back-compat scan remain
-import { buildFmv, buildCoverFile, buildGcvFromCov, buildStaticShot, buildPcm } from '../lib/fmv.js';
+import { buildFmv, buildCoverFile, buildGcvFromCov, buildStaticShot, buildPcm, gcvToDataUrl } from '../lib/fmv.js';
 import { fetchPackage, fetchInflate } from '../lib/package.js';
 import { parseInfoYml, buildYml, syncTokensFromMatch, SYNC_KEYS, DESC_LANGS, DESC_LANG_KEYS,
          MAN_SLOTS_KEY, MAN_USER_TAG, manGroupTag, parseManSlots, serializeManSlots,
@@ -2741,18 +2741,37 @@ export class LibraryStore {
     return create ? this.ensureDir(path) : this.getDir(path);
   }
 
-  /** Lazily decode an entry's on-card .cov into a thumbnail, called when its
-   *  cover scrolls into view. Idempotent + de-duplicated. */
+  /** Lazily decode an entry's on-card cover into a thumbnail, called when its cover scrolls into
+   *  view. Idempotent + de-duplicated.
+   *
+   *  The `.cov` next to the ROM comes first: it is the cover the firmware draws in the file list, and
+   *  it is what the card is supposed to have. A game that only got the game info half of the capa (a
+   *  `.gcv` in /sd2snes/info, no `.cov`) used to show the empty placeholder even though its art is
+   *  right there on the card, so the `.gcv` is the fallback, decoded the same way. It does not change
+   *  the capa's status: the board and auto-fill still count a `.gcv`-only game as missing its cover. */
   async ensureThumb(e: Entry): Promise<void> {
     const cur = this.entriesById().get(e.id);
-    if (!cur || cur.thumbUrl || cur.cover !== 'has' || !cur.dirHandle) return;
+    if (!cur || cur.thumbUrl) return;
+    const fromCov = cur.cover === 'has' && !!cur.dirHandle;
+    if (!fromCov && cur.gcv !== 'has') return;
     if (this.thumbPending.has(cur.id)) return;
     this.thumbPending.add(cur.id);
+    const stem = stemOf(cur.file);
     try {
-      const bytes = await readFileFrom(cur.dirHandle, stemOf(cur.file) + '.cov');
-      if (bytes) this.update(cur.id, { thumbUrl: covToDataUrl(bytes) });
+      if (fromCov) {
+        try {
+          const bytes = await readFileFrom(cur.dirHandle!, stem + '.cov');
+          if (bytes) { this.update(cur.id, { thumbUrl: covToDataUrl(bytes) }); return; }
+        } catch {
+          /* unreadable / bad .cov → try the game info cover below */
+        }
+      }
+      if (cur.gcv !== 'has') return;
+      const dir = await this.getDir(infoDirFor(this.key(cur.file)));
+      const bytes = dir ? await readFileFrom(dir, stem + '.gcv') : null;
+      if (bytes) this.update(cur.id, { thumbUrl: gcvToDataUrl(bytes) });
     } catch {
-      /* unreadable / bad .cov → keep the placeholder */
+      /* unreadable / bad cover → keep the placeholder */
     } finally {
       this.thumbPending.delete(cur.id);
     }
