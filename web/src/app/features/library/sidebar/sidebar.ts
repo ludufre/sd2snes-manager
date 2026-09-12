@@ -43,8 +43,10 @@ import { TranslocoModule } from '@jsverse/transloco';
       width: 224px; flex: 0 0 224px; border-right: 1px solid var(--line);
       background: var(--panel); display: flex; flex-direction: column; min-height: 0;
     }
-    /* Narrow: the tree stops taking 224px out of the list's width and floats over it instead. The
-       toggle (and its persisted pref) is unchanged — only where the panel sits changes. */
+    /* Narrow: the tree stops taking 224px out of the list's width and floats over it instead. Only
+       where the panel sits changes here. What changes with it is who owns the open state: a floating
+       tree starts closed and keeps that to the session, a column is the saved preference and defaults
+       to open. See LibraryStore.sidebarOpen. */
     @media (max-width: 860px) {
       .sidebar {
         position: absolute; top: 0; bottom: 0; left: 0; z-index: 20;

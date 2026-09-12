@@ -5,6 +5,22 @@ Every released version, newest first.
 Some releases were published together and reach the repository as a single commit. When that
 happens, the entry says which versions it covers.
 
+## 1.32.1 - 2026-09-12
+
+### Fixed
+
+- **The folder tree is there when you open the Manager, and one visit on a small screen no longer
+  takes it away for good.** It was always meant to start open. What it was not meant to do is share
+  a single saved flag with the narrow layout: on a window under 860px the tree floats over the list
+  rather than sitting beside it, so it opens closed and gets out of the way once it has been used to
+  navigate, and every one of those decisions was being written into the same preference the desktop
+  reads back. The first load in a narrow window was enough, which means visiting the Manager on a
+  phone once left the desktop with no tree from then on, with nothing on screen to say why. The
+  floating tree keeps its state to the session now, so what the preference holds is only what you
+  chose with the toggle, on a window wide enough for the choice to mean anything. Installs already
+  carrying the flag that bug wrote are put back on the default when they load this version, and the
+  rest of the appearance settings, view, density, accent and the board, are untouched.
+
 ## 1.32.0 - 2026-09-12
 
 ### Added

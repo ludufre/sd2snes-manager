@@ -64,16 +64,17 @@ export class Library {
       }
     });
 
-    // A phone opens with the tree closed regardless of the saved pref (which defaults to open and
-    // is shared with the desktop): as an overlay it would be sitting on top of the library before
-    // the user has asked for it. Done once, at boot, so toggling it afterwards still sticks.
-    if (this.vp.phone()) this.prefs.setSidebarOpen(false);
-
+    // A narrow window opens with the tree closed: as an overlay it would be sitting on top of the
+    // library before the user has asked for it. That is the store's own doing now (the floating
+    // tree has session state that starts closed, see LibraryStore.sidebarOpen), so nothing here
+    // has to force it, and the saved preference, which defaults to open, stays untouched for the
+    // desktop column.
+    //
     // Navigating is the whole point of the tree, so on a narrow window it gets out of the way once
     // it has been used, instead of leaving the folder you just opened hidden behind it.
     effect(() => {
       this.lib.cwd();
-      if (this.vp.narrow() && untracked(() => this.lib.sidebarOpen())) this.prefs.setSidebarOpen(false);
+      if (this.vp.narrow() && untracked(() => this.lib.sidebarOpen())) this.lib.dismissNarrowSidebar();
     });
 
     // The chip-BIOS warning is opened manually from the topbar (openBios), never auto-shown.

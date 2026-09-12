@@ -13,6 +13,7 @@ import { DialogService, type ConflictAction, type ConfirmCheckbox } from './dial
 import { FirmwareService } from './firmware.service';
 import { ThemesService, type Theme } from './themes.service';
 import { PrefsStore } from './prefs-store';
+import { ViewportService } from './viewport.service';
 import { downloadBlob } from './download';
 import {
   fsAccessSupported,
@@ -965,6 +966,9 @@ export class LibraryStore {
   /** Auto-fill choices that outlive a run (the cover region a World dump gets). Separate from
    *  PrefsStore, which is purely appearance: this one decides which art lands on the card. */
   private readonly fillPrefs = inject(AutoFillPrefsStore);
+  /** Only for the folder tree: on a narrow window it floats over the list, so its open state is
+   *  session state instead of the saved preference (see sidebarOpen). */
+  private readonly vp = inject(ViewportService);
   private readonly migration = inject(SdMigrationService);
   private readonly i18n = inject(TranslocoService);
   // Re-emits whenever the active language's translations finish (re)loading, so the `rootName`
@@ -1289,8 +1293,19 @@ export class LibraryStore {
   readonly cwd = this._cwd.asReadonly();
   readonly expanded = this._expanded.asReadonly();
   readonly recursive = this._recursive.asReadonly();
-  /** Sidebar open/closed, persisted via PrefsStore (localStorage). */
-  readonly sidebarOpen = this.prefs.sidebarOpen;
+  /** Folder tree open/closed.
+   *
+   *  Two different things, deliberately kept apart. On a window wide enough for the tree to be a
+   *  column of its own it is a saved preference (PrefsStore, localStorage), and it defaults to open:
+   *  the tree is how you move around the card, so it is there the first time the Manager runs. On a
+   *  narrow window the tree floats over the list instead, and there it is session state that starts
+   *  closed, because an overlay covering the library before anyone asked for it is not a default.
+   *
+   *  Keeping the narrow state out of the preference is the point: until 1.32.0 both wrote to the
+   *  same saved flag, so one visit on a phone (or the first navigation in any window under 860px)
+   *  persisted `false` and the desktop opened with no tree from then on. */
+  private readonly _narrowSidebar = signal(false);
+  readonly sidebarOpen = computed(() => (this.vp.narrow() ? this._narrowSidebar() : this.prefs.sidebarOpen()));
   readonly selId = this._selId.asReadonly();
   readonly selected = this._selected.asReadonly();
   readonly dragging = this._dragging.asReadonly();
@@ -3410,7 +3425,14 @@ export class LibraryStore {
   setSysFilter(v: SystemFilter): void { this._sysFilter.set(v); }
   setStatusFilter(v: StatusFilter): void { this._statusFilter.set(v); }
   setRecursive(v: boolean): void { this._recursive.set(v); }
-  toggleSidebar(): void { this.prefs.setSidebarOpen(!this.prefs.sidebarOpen()); }
+  /** Toggle the folder tree, writing whichever state this window size reads (see sidebarOpen). */
+  toggleSidebar(): void {
+    if (this.vp.narrow()) this._narrowSidebar.update((open) => !open);
+    else this.prefs.setSidebarOpen(!this.prefs.sidebarOpen());
+  }
+  /** Close the floating tree after it has been used to navigate. Narrow windows only, and it never
+   *  touches the saved preference, so the desktop column is unaffected. */
+  dismissNarrowSidebar(): void { this._narrowSidebar.set(false); }
   toggleBoard(): void { this.prefs.setBoardOpen(!this.prefs.boardOpen()); }
 
   /** Drill down from one side of a board cell into the games behind it, `missing` (what still

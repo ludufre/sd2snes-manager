@@ -3,6 +3,16 @@ import { DEFAULT_PREFS, type Density, type Prefs, type View } from './models';
 
 const LS_KEY = 'sd2snes-covers:prefs';
 
+/** Bumped when a stored field has to be dropped instead of read back.
+ *
+ *  v2 drops the saved `sidebarOpen`. Until 1.32.0 the layout wrote into that same flag whenever the
+ *  window was narrow (a phone at boot, and the first navigation in any window under 860px), so a
+ *  single visit on a small screen persisted `false` and every later desktop session opened with no
+ *  folder tree, with nothing to suggest why. The narrow state is session state now (see
+ *  LibraryStore.sidebarOpen); dropping the value that bug wrote is what puts those installs back on
+ *  the default (open). Everything else in the file is a real choice and survives the bump. */
+const PREFS_VERSION = 2;
+
 /**
  * Appearance preferences (view / density / accent), persisted to localStorage
  * and applied to <html> as CSS variables + data attributes so the whole token
@@ -55,11 +65,11 @@ export class PrefsStore {
     try {
       const raw = localStorage.getItem(LS_KEY);
       if (!raw) return;
-      const p = JSON.parse(raw) as Partial<Prefs>;
+      const p = JSON.parse(raw) as Partial<Prefs> & { v?: number };
       if (p.view) this._view.set(p.view);
       if (p.density) this._density.set(p.density);
       if (p.accent) this._accent.set(p.accent);
-      if (typeof p.sidebarOpen === 'boolean') this._sidebarOpen.set(p.sidebarOpen);
+      if (typeof p.sidebarOpen === 'boolean' && p.v === PREFS_VERSION) this._sidebarOpen.set(p.sidebarOpen);
       if (typeof p.boardOpen === 'boolean') this._boardOpen.set(p.boardOpen);
     } catch {
       // ignore corrupt prefs; defaults stand
@@ -68,7 +78,7 @@ export class PrefsStore {
 
   private save(prefs: Prefs): void {
     try {
-      localStorage.setItem(LS_KEY, JSON.stringify(prefs));
+      localStorage.setItem(LS_KEY, JSON.stringify({ v: PREFS_VERSION, ...prefs }));
     } catch {
       // storage may be unavailable (private mode); non-fatal
     }
