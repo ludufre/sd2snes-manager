@@ -106,11 +106,11 @@
 
       <!-- Preencher tudo automaticamente -->
       @if (g.fileHandle) {
-        <button class="autobar" type="button" [disabled]="!!g.busy" (click)="lib.startAutoFillOne(g.id)">
+        <button class="autobar" type="button" [disabled]="!!g.busy || lib.cardLoading()" (click)="lib.startAutoFillOne(g.id)">
           <span class="ic"><app-icon name="spark" [size]="18" /></span>
           <span class="txt">
             <b>{{ (g.busy ? 'detail.filling' : 'detail.autoFillAll') | transloco }}</b>
-            <span>{{ (g.identified ? 'detail.autoFillDescIdentified' : 'detail.autoFillDesc') | transloco }}</span>
+            <span>{{ (lib.cardLoading() ? 'bulkbar.readingCardHint' : (g.identified ? 'detail.autoFillDescIdentified' : 'detail.autoFillDesc')) | transloco }}</span>
           </span>
         </button>
       }

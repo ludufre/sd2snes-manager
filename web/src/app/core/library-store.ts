@@ -1064,6 +1064,9 @@ export class LibraryStore {
    *  for real filesystem names. Drives re-translation on language change (see constructor effect). */
   private readonly _rootNameKey = signal<string | null>(null);
   private readonly _connected = signal(false);
+  /** On-card status passes still running (probeAllOnCard). A count, not a flag: a rescan can start a
+   *  pass while the previous one is still walking, and the card only counts as read when both are done. */
+  private readonly _probing = signal(0);
   /** A previously-used card handle (from IndexedDB) whose permission needs a user gesture to re-grant,
    * drives the "Reconnect <card>" button on the connect screen. Null = nothing to offer. */
   private readonly _reconnectHandle = signal<FileSystemDirectoryHandle | null>(null);
@@ -1233,6 +1236,10 @@ export class LibraryStore {
     return m as ReadonlyMap<string, Entry>;
   });
   readonly connected = this._connected.asReadonly();
+  /** True while the card's on-card status is still being read, the badges and the counters at the top
+   *  still filling in. Auto-fill waits for it (see startAutoFill): its dialog tallies what is already on
+   *  the card, and a half-read card counts everything as missing. */
+  readonly cardLoading = computed(() => this._probing() > 0);
   /** Connected to a real card, as opposed to the demo fixture (which also sets `connected`). Derived
    *  from the entries rather than a second flag: only a scanned ROM carries a `fileHandle`, and every
    *  card-touching action is gated on exactly that. Guards UI that would be a dead end in demo mode. */
@@ -2612,18 +2619,25 @@ export class LibraryStore {
 
   /** Background pass: cheap on-card existence checks (no .cov decode, no CRC). */
   private async probeAllOnCard(entries: Entry[]): Promise<void> {
-    // One enumeration of /sd2snes/info, then every badge is a Map lookup. It is deliberately a local,
-    // not a field: an existence index goes stale the moment anything writes, and a stale "the .fmv is
-    // already there" is exactly the bug that makes auto-fill skip a game forever. Built here, read by
-    // the probes below it, and unreachable the instant this method returns.
-    const info = this.rootHandle ? await indexInfoRoot(this.rootHandle) : new Map<string, InfoSidecars>();
-    // Each probe queues its patch (see queueUpdate): one game per signal set meant ~3000 full-library
-    // rebuilds + re-tallies on connect. The 100 ms flush still fills the badges in visibly, and the
-    // final flush guarantees the last (partial) batch lands even if it was queued a millisecond ago.
-    // The pool stays at 8 even though only the size `getFile()` (and the rare legacy `.gd` read) still
-    // touch the disk. Those are exactly what benefits from overlapping.
-    try { await pool(entries, 8, (e) => this.probeOnCard(e, info)); }
-    finally { this.flushEntryUpdates(); }
+    // Counted before the first await: every caller fires this without awaiting it, and the Auto-fill
+    // buttons have to read "loading" in the same tick the library appears (see cardLoading).
+    this._probing.update((n) => n + 1);
+    try {
+      // One enumeration of /sd2snes/info, then every badge is a Map lookup. It is deliberately a local,
+      // not a field: an existence index goes stale the moment anything writes, and a stale "the .fmv is
+      // already there" is exactly the bug that makes auto-fill skip a game forever. Built here, read by
+      // the probes below it, and unreachable the instant this method returns.
+      const info = this.rootHandle ? await indexInfoRoot(this.rootHandle) : new Map<string, InfoSidecars>();
+      // Each probe queues its patch (see queueUpdate): one game per signal set meant ~3000 full-library
+      // rebuilds + re-tallies on connect. The 100 ms flush still fills the badges in visibly, and the
+      // final flush guarantees the last (partial) batch lands even if it was queued a millisecond ago.
+      // The pool stays at 8 even though only the size `getFile()` (and the rare legacy `.gd` read) still
+      // touch the disk. Those are exactly what benefits from overlapping.
+      try { await pool(entries, 8, (e) => this.probeOnCard(e, info)); }
+      finally { this.flushEntryUpdates(); }
+    } finally {
+      this._probing.update((n) => n - 1);
+    }
   }
 
   private async probeOnCard(e: Entry, info: ReadonlyMap<string, InfoSidecars>): Promise<void> {
@@ -4918,6 +4932,14 @@ export class LibraryStore {
   /** Open the auto-fill dialog: identify the scope (so availability is known), then tally per category. */
   async startAutoFill(ids?: ReadonlySet<string>): Promise<void> {
     if (this._autoFill() || this.cardUnidentified() || this.bulkBusy()) return;
+    // The dialog tallies what is already on the card, and until the status pass ends every game still
+    // reads as holding nothing: covers counted as missing, `onCardYml` never loaded for the games whose
+    // info file hasn't been seen yet, so nothing can be flagged outdated. The buttons are disabled
+    // meanwhile (cardLoading); this covers any other way in.
+    if (this.cardLoading()) {
+      this.toast.show(this.i18n.translate('bulkbar.readingCardHint'), 'info');
+      return;
+    }
     const epoch = ++this.autoFillEpoch; // so a close/re-open during analysis can't be overwritten by us
     const inScope = (g: Entry): boolean => (ids ? ids.has(g.id) : true) && !!g.fileHandle;
     const scope = this._entries().filter(inScope);

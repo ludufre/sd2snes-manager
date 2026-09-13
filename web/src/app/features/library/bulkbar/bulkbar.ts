@@ -45,8 +45,12 @@ import { Icon } from '../../../ui/icon/icon';
     } @else if (sel.count > 0) {
       <div class="bulkbar sel">
         <span class="selcount">{{ 'bulkbar.selectedCount' | transloco: { count: sel.count } }}</span>
-        <button class="btn sm primary" (click)="lib.startAutoFill(lib.selected())">
-          <app-icon name="spark" [size]="13" />{{ 'bulkbar.autoFill' | transloco }}
+        <!-- Disabled until the card's status is read: the dialog tallies what is already on the card. -->
+        <button
+          class="btn sm primary" [disabled]="lib.cardLoading()"
+          [attr.title]="lib.cardLoading() ? ('bulkbar.readingCardHint' | transloco) : null"
+          (click)="lib.startAutoFill(lib.selected())">
+          <app-icon name="spark" [size]="13" />{{ (lib.cardLoading() ? 'bulkbar.readingCard' : 'bulkbar.autoFill') | transloco }}
         </button>
         <button class="btn sm" (click)="lib.openPicker('move', lib.selected())">
           <app-icon name="move" [size]="13" />{{ 'bulkbar.moveTo' | transloco }}
@@ -65,8 +69,11 @@ import { Icon } from '../../../ui/icon/icon';
         <!-- Says "filtrados" when a filter is on, so it's clear the button follows the visible list
              and not the folder it happens to be sitting in. -->
         <span class="selcount">{{ (lib.flat() ? 'bulkbar.filteredCount' : 'bulkbar.folderCount') | transloco: { count: lib.folderFillCount() } }}</span>
-        <button class="btn sm primary" [disabled]="!lib.folderFillCount()" (click)="lib.startAutoFillFolder()">
-          <app-icon name="spark" [size]="13" />{{ 'bulkbar.autoFill' | transloco }}
+        <button
+          class="btn sm primary" [disabled]="!lib.folderFillCount() || lib.cardLoading()"
+          [attr.title]="lib.cardLoading() ? ('bulkbar.readingCardHint' | transloco) : null"
+          (click)="lib.startAutoFillFolder()">
+          <app-icon name="spark" [size]="13" />{{ (lib.cardLoading() ? 'bulkbar.readingCard' : 'bulkbar.autoFill') | transloco }}
         </button>
         <div class="grow"></div>
         <span class="tip">{{ 'bulkbar.tip' | transloco: { covers: s.covers, previews: s.previews, cheats: s.cheats, total: s.total } }}</span>

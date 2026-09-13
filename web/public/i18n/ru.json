@@ -110,6 +110,8 @@
   },
   "bulkbar": {
     "autoFill": "Автозаполнение",
+    "readingCard": "Чтение карты…",
+    "readingCardHint": "Доступно после завершения чтения карты",
     "cancel": "Отмена",
     "clearSelection": "Снять выделение",
     "copyTo": "Копировать в…",

@@ -110,6 +110,8 @@
   },
   "bulkbar": {
     "autoFill": "Preencher automaticamente",
+    "readingCard": "Lendo o cartão…",
+    "readingCardHint": "Disponível quando a leitura do cartão terminar",
     "cancel": "Cancelar",
     "clearSelection": "Limpar seleção",
     "copyTo": "Copiar para…",

@@ -5,6 +5,17 @@ Every released version, newest first.
 Some releases were published together and reach the repository as a single commit. When that
 happens, the entry says which versions it covers.
 
+## 1.33.1 - 2026-09-12
+
+### Fixed
+
+- **Auto-fill waits for the card to be read.** Right after a card connects, the Manager is still
+  reading what each game already has on it, which is the counters at the top of the page climbing.
+  Opening Auto-fill in that window built the dialog on a half-read card: covers, info files and
+  manuals that were already there counted as missing, and nothing could be flagged as outdated. The
+  Auto-fill buttons now read "Reading the card…" and stay disabled until that pass ends, which also
+  covers the re-read after an import or after organizing the card.
+
 ## 1.33.0 - 2026-09-12
 
 ### Fixed
