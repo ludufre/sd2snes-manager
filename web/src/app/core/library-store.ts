@@ -41,7 +41,7 @@ import {
 import { headerlessCrc32, crc32 } from '../lib/crc32.js';
 import { snesHeaderChecksum } from '../lib/snes-header';
 import { crcKey, loadCrcCache, getCrcCached, saveCrcCache, pruneCrcCache } from '../lib/crc-cache.js';
-import { loadGamedbCache, saveGamedbCache, clearGamedbCache, pruneGamedbCache, isFresh } from '../lib/gamedb-cache.js';
+import { loadGamedbCache, saveGamedbCache, clearGamedbCache, pruneGamedbCache, isCurrent, needsRestamp } from '../lib/gamedb-cache.js';
 import { BIOS_FILES, BIOS_DIR, type BiosFile } from './bios';
 import { buildCovFromBytes, covToDataUrl } from '../lib/cov.js';
 import { renderThmToDataUrl } from '../lib/thm.js';
@@ -131,10 +131,15 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 /** ROMs identified per gamedb request (one batch lookup instead of one-per-ROM). 50 keeps each
  *  request snappy. With 100 the server resolves too many games per call and it feels slow. */
 const IDENTIFY_BATCH = 50;
-/** How recent a cached GameDB answer must be for auto-fill's Atualizar/Substituir to trust it. Those
- *  modes compare the server's `sync_*`/`metaRev` tokens against the card's, so the answer only has to
- *  be newer than the card, not newer than everything. Minutes, so a run that is cancelled or dies
- *  half-way can be restarted without paying for the whole lookup pass a second time. */
+/** CRCs per revision request (POST /games/lookup/revs caps at 500). A revision is ~30 bytes and the
+ *  server sends no game data back, so a whole card fits in a dozen requests. See identifyEntries. */
+const REVS_BATCH = 500;
+/** How recent a cached GameDB answer must be for auto-fill's Atualizar/Substituir to trust it when the
+ *  server can't confirm it by revision (an older GameDB). Those modes compare the server's
+ *  `sync_*`/`metaRev` tokens against the card's, so the answer only has to be newer than the card, not
+ *  newer than everything. Minutes, so a run that is cancelled or dies half-way can be restarted without
+ *  paying for the whole lookup pass a second time. With revisions this window is not consulted: a
+ *  matching revision is already the server's current answer. */
 const AUTOFILL_FRESH_MS = 10 * 60 * 1000;
 /** How many games auto-fill processes at once. The per-file card write is latency-bound (close() is
  *  ~430ms on a slow SD), so overlapping a few games' writes multiplies throughput. CardWriter caps the
@@ -1506,11 +1511,12 @@ export class LibraryStore {
     const id = this._identifyId();
     return id ? (this.entriesById().get(id) ?? null) : null;
   });
-  /** Intentional per-ROM Identify: look up CRC→gamedb, then open the "available" dialog. The lookup is
-   *  a `refresh` one, the click asks the server about this ROM. (Already identified this session? Then
-   *  what is on screen came from the server minutes ago; showing it is not answering from a cache.) */
+  /** Intentional per-ROM Identify: look up CRC→gamedb, then open the "available" dialog. The click asks
+   *  the server about this ROM either way. Not identified yet: a `refresh` lookup, the whole answer.
+   *  Already identified: the revision check, which downloads the answer again only when the GameDB has
+   *  changed it. What is on screen can be hours old, or straight out of the cache. */
   async identifyAndShow(g: Entry): Promise<void> {
-    if (!g.identified) await this.identify(g, { refresh: true });
+    await this.identify(g, { refresh: !g.identified });
     this._identifyId.set(g.id);
   }
   closeIdentify(): void { this._identifyId.set(null); }
@@ -2824,22 +2830,33 @@ export class LibraryStore {
         crc = headerlessCrc32(new Uint8Array(await f.arrayBuffer()), e.file);
         void saveCrcCache([[key, { size: f.size, mtime: f.lastModified, crc }]]);
       }
-      // Then the gamedb cache. Keys are stored uppercase, so read with an uppercased key. A lowercase
-      // CRC from anywhere would otherwise miss 100% of the time, silently and for free.
+      // Then the gamedb cache, validated by the server's revision of this CRC's answer (see
+      // lib/gamedb-cache.js isCurrent). The revision is asked on a refresh too: the refresh ignores the
+      // cache, but the answer it stores has to carry the revision, or the next analysis downloads it
+      // again. Keys are stored uppercase, so read with an uppercased key. A lowercase CRC from anywhere
+      // would otherwise miss 100% of the time, silently and for free.
       const maxAge = opts.refresh ? 0 : opts.freshWithin;
-      const cached = maxAge === 0 ? undefined : (await loadGamedbCache([crc])).get(crc.toUpperCase());
+      const crcUp = crc.toUpperCase();
+      let serverRev: string | null | undefined; // undefined = no revision to go by, the TTLs decide
+      try {
+        const revs = await this.gamedb.lookupRevs([crc]);
+        if (revs) serverRev = typeof revs[crcUp] === 'string' ? revs[crcUp] : null;
+      } catch { /* a failed revision check only means falling back to the TTLs */ }
+      const cached = maxAge === 0 ? undefined : (await loadGamedbCache([crc])).get(crcUp);
       let match: GameMatch | null | undefined; // undefined = not resolved yet (null is a valid no-match)
-      if (cached && isFresh(cached, Date.now(), maxAge)) {
+      if (cached && isCurrent(cached, serverRev, Date.now(), maxAge)) {
         // A record stored under an older server contract can make resolveRaw throw. That's a miss,
         // not a failure: fall through to the server rather than failing the whole identify.
-        try { match = this.gamedb.resolveRaw(cached.game, e.region, crc); }
-        catch (err) { console.warn('[identify] unusable cached record for', crc, '— re-asking', err); }
+        try {
+          match = this.gamedb.resolveRaw(cached.game, e.region, crc);
+          if (serverRev !== undefined && needsRestamp(cached)) void saveGamedbCache([[crc, cached.game, cached.rev]]);
+        } catch (err) { console.warn('[identify] unusable cached record for', crc, '— re-asking', err); }
       }
       if (match === undefined) {
         // A throw here (network/CORS/5xx) is handled below and caches nothing; a 404 is an answer and
         // is cached as a negative, so an unmatched ROM stops costing a request on every visit.
         const game = await this.gamedb.lookupRaw(crc);
-        void saveGamedbCache([[crc, game]]);
+        void saveGamedbCache([[crc, game, serverRev ?? null]]);
         match = this.gamedb.resolveRaw(game, e.region, crc);
       }
       this.applyIdentify(e, crc, f.size, match);
@@ -2932,11 +2949,16 @@ export class LibraryStore {
    *  which changes nothing, since applyIdentify is per entry and coalesces its patches. The CRC cache
    *  keyed by (path, size, mtime), the gamedb cache partition and the bisect-on-failure are unchanged.
    *
-   *  `freshWithin` (ms) caps how old a cached gamedb answer may be for this call; the effective limit is
-   *  min(TTL, freshWithin). `refresh` is sugar for `freshWithin: 0`, which no record satisfies, so
-   *  everything is re-asked. Auto-fill's Atualizar/Substituir passes minutes instead: its sync tokens
-   *  only have to be newer than the card, so re-running after a half-failed pass costs nothing rather
-   *  than another 60-90s of network.
+   *  A cached answer is used only while the server confirms it: the pass asks for the revision of every
+   *  CRC it identifies (REVS_BATCH per request, see lib/gamedb-cache.js isCurrent) and downloads again
+   *  the answers whose revision moved. That is what makes it safe to run over games that are already
+   *  identified. When the server can't give revisions, the TTLs decide, as before revisions existed.
+   *
+   *  `freshWithin` (ms) caps how old a cached gamedb answer may be under that TTL fallback; the effective
+   *  limit is min(TTL, freshWithin). `refresh` is sugar for `freshWithin: 0`, which no record satisfies,
+   *  so everything is re-asked, revision or not. Auto-fill's Atualizar/Substituir passes minutes
+   *  instead: its sync tokens only have to be newer than the card, so re-running after a half-failed
+   *  pass costs nothing rather than another 60-90s of network.
    *
    *  `assumeCrc` skips stage A for any entry that already carries a `crc`: no `getFile()`, no worker, no
    *  checksum cache, the known CRC goes straight into the gamedb partition. Only for callers that know
@@ -3001,6 +3023,47 @@ export class LibraryStore {
     // noticed by a clock: it turns the flag into the abort + wakes the stage loops. (One waiter is
     // out of its reach: a getFile() hung on a yanked card, same unescapable await the old loop had.)
     const watchdog = setInterval(() => { if (stopped()) { killCrc(); bump(); } }, 200);
+
+    // Revisions: the server's word on whether each cached answer is still its current one (see
+    // lib/gamedb-cache.js isCurrent). This is what lets the cache skip downloads without hiding a change:
+    // a cover added upstream moves the revision, and that game is looked up again. CRC → revision, or
+    // null when the server has no game for it. A CRC absent from the map has no known revision and falls
+    // back to the TTLs, as does every CRC not yet answered once `revsOff` says the server can't answer
+    // (an older GameDB, or the request failing).
+    const revs = new Map<string, string | null>();
+    const revAsked = new Map<string, Promise<void>>(); // CRC → the request that answers it
+    let revsOff = false;
+    // One revision request at a time. Each asks the server to build up to REVS_BATCH answers, and
+    // several of those at once from one browser is a load spike the lookups never caused.
+    let revChain: Promise<void> = Promise.resolve();
+    /** Resolves once every CRC given has been asked about, by this call or by one still in flight. */
+    const askRevs = (crcs: string[]): Promise<void> => {
+      const want = [...new Set(crcs.map((c) => c.toUpperCase()))];
+      const unasked = want.filter((c) => !revAsked.has(c));
+      for (let i = 0; i < unasked.length; i += REVS_BATCH) {
+        const chunk = unasked.slice(i, i + REVS_BATCH);
+        const p = revChain.then(async (): Promise<void> => {
+          if (revsOff || stopped()) return;
+          try {
+            const r = await this.gamedb.lookupRevs(chunk, { signal: ctl.signal });
+            if (!r) { revsOff = true; return; }
+            for (const c of chunk) revs.set(c, typeof r[c] === 'string' ? r[c] : null);
+          } catch (err) {
+            if (ctl.signal.aborted) return;
+            console.warn('[identify] revision check failed, falling back to the cache TTLs', err);
+            revsOff = true;
+          }
+        });
+        revChain = p;
+        for (const c of chunk) revAsked.set(c, p);
+      }
+      return Promise.all(want.map((c) => revAsked.get(c))).then(() => undefined);
+    };
+    // Ask about the whole pass up front, REVS_BATCH at a time, instead of once per IDENTIFY_BATCH chunk
+    // (~130 requests for a 6000-game card). Most CRCs are already known: carried by the entry, or in the
+    // checksum cache for a file that hasn't changed. This only decides what to ask about early. A ROM
+    // whose checksum turns out different is asked about by its own chunk.
+    void askRevs(targets.map((e) => e.crc || cache.get(crcKey(e.folder, e.file))?.crc || '').filter(Boolean));
 
     /** Stage A, checksum chunk by chunk and hand each finished chunk to the lookups. The CRC of a chunk
      *  and the POST of the previous one now overlap; before, each waited for the other. */
@@ -3091,23 +3154,33 @@ export class LibraryStore {
     /** Stages B+C for one chunk: partition against the gamedb cache, look up the rest, apply what lands.
      *  Byte-for-byte the old steps 2-4, only when it runs changed. */
     const runChunk = async (triples: { e: Entry; crc: string; size: number }[]): Promise<void> => {
-      // 2) split the chunk against the gamedb cache: a CRC the server already answered for (this week
-      //    for a match, sooner for a no-match) needs no request. ResolveRaw is pure and local, so
-      //    those games are applied at memory speed. This is what turns a 60-90s startup into an
-      //    instant one; `maxAge` 0 opts out and re-asks everything.
+      // 2) split the chunk against the gamedb cache: a CRC whose cached answer the server still confirms
+      //    by revision (or, with no revision to go by, one inside the TTL) needs no request. ResolveRaw
+      //    is pure and local, so those games are applied at memory speed. This is what turns a 60-90s
+      //    startup into a few seconds; `maxAge` 0 opts out and re-asks everything.
+      await askRevs(triples.map((t) => t.crc));
+      /** The server's revision for a CRC; undefined when there is none to go by. */
+      const revOf = (crc: string): string | null | undefined => {
+        const k = crc.toUpperCase();
+        return revs.has(k) ? revs.get(k) : undefined;
+      };
       const now = Date.now();
       // Keys are stored uppercase, read with an uppercased key so a lowercase CRC can't miss silently.
       const cached = maxAge === 0 ? new Map() : await loadGamedbCache(triples.map((t) => t.crc));
       const needsLookup: typeof triples = [];
+      // Answers the server just confirmed that are old enough to be stamped again (see needsRestamp).
+      const restamps: [string, unknown, string | null][] = [];
       for (const t of triples) {
         const rec = cached.get(t.crc.toUpperCase());
-        if (!rec || !isFresh(rec, now, maxAge)) { needsLookup.push(t); continue; }
+        const serverRev = revOf(t.crc);
+        if (!rec || !isCurrent(rec, serverRev, now, maxAge)) { needsLookup.push(t); continue; }
         // Per entry: a record stored under an older server contract can make resolveRaw throw. One bad
         // row must not take the other 49 games of the chunk down with it, treat it as a miss and let
         // the lookup below overwrite it.
         let match: GameMatch | null;
         try { match = this.gamedb.resolveRaw(rec.game, t.e.region, t.crc); }
         catch (err) { console.warn('[identify] unusable cached record for', t.crc, '— re-asking', err); needsLookup.push(t); continue; }
+        if (serverRev !== undefined && needsRestamp(rec, now)) restamps.push([t.crc, rec.game, rec.rev ?? null]);
         dbHits++;
         this.applyIdentify(t.e, t.crc, t.size, match);
         onProgress?.(++done);
@@ -3123,7 +3196,9 @@ export class LibraryStore {
       //    negative, or a network blip would pin "not in the GameDB" onto a real game for the next 60
       //    hours. Only an explicit `null` (the batch answered 200 and this CRC wasn't in the response)
       //    is one.
-      const writes: [string, unknown][] = [];
+      //    The revision stored with each answer is the one the server gave before this lookup. If the game
+      //    changed in between, the two disagree, and the next pass simply downloads that game once more.
+      const writes: [string, unknown, string | null][] = [];
       for (const t of needsLookup) {
         const raw = applied.get(t.crc);
         if (raw === undefined) { failed++; continue; } // lookup never answered for this one
@@ -3132,11 +3207,11 @@ export class LibraryStore {
         let m: GameMatch | null;
         try { m = this.gamedb.resolveRaw(raw, t.e.region, t.crc); }
         catch (err) { console.warn('[identify] unusable payload for', t.crc, err); failed++; continue; }
-        writes.push([t.crc, raw]);
+        writes.push([t.crc, raw, revOf(t.crc) ?? null]);
         this.applyIdentify(t.e, t.crc, t.size, m);
         onProgress?.(++done);
       }
-      void saveGamedbCache(writes); // per chunk, so a run cut short keeps what it already paid for
+      void saveGamedbCache([...writes, ...restamps]); // per chunk, so a run cut short keeps what it already paid for
     };
 
     /** Consumer: keeps up to LOOKUP_CONCURRENCY chunks in flight. Chunks finish out of order and that is
@@ -3229,10 +3304,11 @@ export class LibraryStore {
     }
   }
 
-  /** "Atualizar dados do GameDB": forget every cached lookup and re-ask the server about the whole
-   *  library. The cache is what makes a session start instantly, and its TTLs are the normal way it
-   *  stays current. This is the manual escape hatch for the day the GameDB gains the game (or the
-   *  cover) you are waiting for and you do not want to wait out the TTL. */
+  /** "Atualizar dados do GameDB": forget every cached lookup and download the whole library's answers
+   *  again. The cache is what makes a session start instantly, and the revision check every analysis
+   *  runs is what keeps it current, so this is no longer how a new cover arrives. It stays as the escape
+   *  hatch for a cache that is wrong in a way no revision shows (a corrupted record, a GameDB too old to
+   *  answer revisions, where the TTLs still decide). */
   async refreshGamedb(): Promise<void> {
     if (this.bulkBusy()) return;
     const targets = this._entries().filter((g) => !!g.fileHandle);
@@ -3589,8 +3665,9 @@ export class LibraryStore {
     let cur = g;
     // Auto-identify on demand: coverUrl comes from the gamedb match (identify), so a freshly
     // connected card (not yet identified) has none. Identify first so Regenerate/Generate "just
-    // works" without the manual Identify step.
-    if (!cur.coverUrl && !cur.identified) {
+    // works" without the manual Identify step. An identified game with no cover is asked again too:
+    // the GameDB may have gained one since, and the revision check makes that one small request.
+    if (!cur.coverUrl) {
       await this.identify(cur);
       cur = this.entriesById().get(g.id) ?? cur;
     }
@@ -3941,7 +4018,9 @@ export class LibraryStore {
    *  minutes per game, never put it back in a bulk path (auto-fill skips + reports instead). */
   private async encodeFmvFromVideo(g: Entry, quiet = false, audio = true): Promise<boolean> {
     let cur = g;
-    if (!cur.videoUrl && !cur.identified) {
+    // An identified game with no video is asked again too, for the same reason genCover does: one may
+    // have been added since it was identified.
+    if (!cur.videoUrl) {
       await this.identify(cur);
       cur = this.entriesById().get(g.id) ?? cur;
     }
@@ -4843,15 +4922,20 @@ export class LibraryStore {
     const inScope = (g: Entry): boolean => (ids ? ids.has(g.id) : true) && !!g.fileHandle;
     const scope = this._entries().filter(inScope);
     if (!scope.length) { this.toast.show(this.i18n.translate('store.noGamesToFill'), 'info'); return; }
-    // Identify the not-yet-identified so we know what the GameDB actually offers per game, in
-    // batches (one gamedb request per 50), cancelled if the dialog is closed/superseded. Report
-    // progress so a big folder doesn't sit on a blank spinner with no sense of time.
-    const pending = scope.filter((g) => !g.identified);
+    // Run every game in scope through the lookup pass so we know what the GameDB offers per game now,
+    // cancelled if the dialog is closed/superseded, with progress so a big folder doesn't sit on a blank
+    // spinner. Every game, identified or not: an identified one carries the answer the GameDB gave when
+    // it was identified (earlier in the session, or out of the cache), and the dialog only offers what
+    // that answer says. A cover added upstream since then was never offered, which is what the "new
+    // covers don't download" reports were. The pass checks each cached answer against the server's
+    // revision and downloads only what changed; `assumeCrc` leaves the card untouched for the games
+    // already checksummed this session.
     this._autoFill.set({
       ids: ids ?? null, total: scope.length, analyzing: true, counts: null,
-      done: 0, analyzeTotal: pending.length, startedAt: Date.now(),
+      done: 0, analyzeTotal: scope.length, startedAt: Date.now(),
     });
-    if (pending.length) await this.identifyEntries(pending, {
+    await this.identifyEntries(scope, {
+      assumeCrc: true,
       shouldStop: () => this.autoFillEpoch !== epoch,
       onProgress: (done) => this._autoFill.update((s) => (s && s.analyzing ? { ...s, done } : s)),
     });
@@ -5232,8 +5316,9 @@ export class LibraryStore {
     // the card's `sync_*`/`metaRev` tokens against the ones in the match. A match resolved from a cached
     // lookup carries the tokens the server had when it was cached, so against a cache, "Atualizar"
     // compares yesterday's card to yesterday's server and finds nothing: a silent no-op on the one mode
-    // whose entire purpose is to find something. So re-ask the GameDB first, accepting only answers from
-    // the last few minutes (AUTOFILL_FRESH_MS), in practice the server, but without punishing a re-run.
+    // whose entire purpose is to find something. So check with the GameDB first: a cached answer is used
+    // only while the server's revision still matches it (from a GameDB without revisions, only if it is
+    // from the last few minutes, AUTOFILL_FRESH_MS), so a re-run costs a revision check, not the lookups.
     //
     // Scoped to what the plan can actually touch (`needsGamedbRefresh`), not to the whole scope. This
     // used to run over every game in scope, on the argument that a game the cache says has nothing might
@@ -6698,20 +6783,20 @@ export class LibraryStore {
       );
       return;
     }
-    // Batch-identify the unidentified up-front (one gamedb request per IDENTIFY_BATCH=50) so the per-cover loop
-    // below works from already-resolved matches instead of a lookup-per-ROM.
-    const unident = targets.filter((g) => !g.identified);
-    if (unident.length) {
-      this.bulkBegin(unident.length, this.i18n.translate('store.identifying'), true);
-      await this.identifyEntries(unident, {
-        shouldStop: () => this.cancelImport,
-        onProgress: (n) => this._bulk.update((b) => (b ? { ...b, done: n } : b)),
-      });
-      if (this.cancelImport) {
-        this._bulk.set(null);
-        this.toast.show(this.i18n.translate('store.stoppedNothingWritten'), 'info');
-        return;
-      }
+    // Run every target through the lookup pass up front (one revision check per REVS_BATCH, one gamedb
+    // request per IDENTIFY_BATCH for what changed) so the per-cover loop below works from current matches
+    // instead of a lookup-per-ROM. Every target, not only the unidentified: a game identified earlier with
+    // no cover on the GameDB would otherwise be reported as "nothing on the GameDB" after one was added.
+    this.bulkBegin(targets.length, this.i18n.translate('store.identifying'), true);
+    await this.identifyEntries(targets, {
+      assumeCrc: true,
+      shouldStop: () => this.cancelImport,
+      onProgress: (n) => this._bulk.update((b) => (b ? { ...b, done: n } : b)),
+    });
+    if (this.cancelImport) {
+      this._bulk.set(null);
+      this.toast.show(this.i18n.translate('store.stoppedNothingWritten'), 'info');
+      return;
     }
     this._bulk.set({ done: 0, total: targets.length, label: this.i18n.translate('store.generatingCovers'), cancelable: true });
     // made = real .cov written · gdFail = .cov ok but .gd skipped · covFail = .cov itself failed

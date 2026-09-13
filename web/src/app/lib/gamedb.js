@@ -57,6 +57,31 @@ export class GameDb {
     return res.json();
   }
 
+  /** POST /api/games/lookup/revs { crcs:[...] } → { [crcUpper]: rev } (only CRCs that have a game).
+   *  A revision is a digest of the exact answer lookupByCrcs serves for that CRC, so an unchanged one
+   *  proves a cached answer is still current. Up to 500 CRCs per call.
+   *
+   *  Null when this server can't answer revisions at all: a GameDB older than this app (404/405), or
+   *  anything that isn't a map of strings (a proxy handing back its HTML page with a 200). The caller
+   *  then falls back to the cache TTLs. A throw is a request that failed. */
+  async lookupRevs(crcs, { signal } = {}) {
+    if (!crcs?.length) return {};
+    const res = await apiFetch(this.base + '/api/games/lookup/revs', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      credentials: 'omit',
+      body: JSON.stringify({ crcs }),
+      signal,
+    });
+    if (res.status === 404 || res.status === 405) return null;
+    if (!res.ok) throw new Error(`gamedb ${res.status} ${res.statusText}`);
+    let body;
+    try { body = await res.json(); } catch { return null; }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
+    for (const v of Object.values(body)) if (typeof v !== 'string') return null;
+    return body;
+  }
+
   /** GET /api/games?... → Paged<GameSummary>. */
   search(params = {}, opts) {
     const q = new URLSearchParams();

@@ -5,6 +5,22 @@ Every released version, newest first.
 Some releases were published together and reach the repository as a single commit. When that
 happens, the entry says which versions it covers.
 
+## 1.33.0 - 2026-09-12
+
+### Fixed
+
+- **Art added to the GameDB now reaches the card on the next Auto-fill.** The Manager keeps every
+  GameDB answer on your machine, so reconnecting a card doesn't download the whole library again, and
+  it trusted those answers for up to a week. A game that had no cover when it was first looked up kept
+  "no cover" for that week: Auto-fill never offered the one added since, in any mode, and within the
+  same session it didn't even look. The saved answers now only spare the download, never the check.
+  Every analysis asks the GameDB whether each one is still current, a handful of small requests for a
+  whole card, and downloads again only the games that changed. "Generate covers", Identify and the
+  per-game cover and preview actions check the same way.
+- The first analysis after updating downloads the answers once more, to record what they are checked
+  against from then on. Against a GameDB that can't answer the check yet, the Manager keeps the old
+  behaviour.
+
 ## 1.32.1 - 2026-09-12
 
 ### Fixed

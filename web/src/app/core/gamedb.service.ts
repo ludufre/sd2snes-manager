@@ -38,6 +38,15 @@ export class GameDbService {
     return (await this.db.lookupByCrcs(distinct, opts)) as Record<string, unknown>;
   }
 
+  /** The server's revision of each CRC's lookup answer, `{ [crcUpper]: rev }`, only for the CRCs that
+   *  have a game. Null when the GameDB offers no revisions (then the cache TTLs decide); a throw is a
+   *  failed request. See lib/gamedb-cache.js isCurrent for how a revision validates a cached answer. */
+  async lookupRevs(crcs: string[], opts: { signal?: AbortSignal } = {}): Promise<Record<string, string> | null> {
+    if (!crcs.length) return {};
+    const distinct = [...new Set(crcs.map((c) => c.toUpperCase()))];
+    return (await this.db.lookupRevs(distinct, opts)) as Record<string, string> | null;
+  }
+
   /** Public wrapper over the pure `resolveMatch`: raw game JSON (fresh or from the cache) → flat,
    *  render-ready match. No network, no state, the same input always resolves the same way. */
   resolveRaw(game: unknown, region: string | null | undefined, crc: string): GameMatch | null {

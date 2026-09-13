@@ -17,6 +17,15 @@
 // bulk of the waste on a real card (hacks, translations, bad dumps: hundreds of ROMs that will never
 // match), and without caching them they are re-asked forever. A negative is only ever written when the
 // server answered; a request that failed must stay uncached (see library-store's identifyEntries).
+//
+// Each record also keeps the server's revision of that answer (`rev`, from POST /games/lookup/revs),
+// and the revision is what decides whether a cached answer may still be used. A pass asks the server
+// for the revisions of the CRCs it is about to identify, a dozen small requests for a whole card, and
+// downloads again only the answers whose revision moved. The cache saves the download, never the
+// question: a cover added to a game that had none, a rebuilt package, a game added for a ROM the server
+// did not know, each moves the revision and reaches the library on the next analysis. The TTLs below
+// are only the fallback for a server that can't answer revisions (an older GameDB, or that request
+// failing), which is how the cache behaved before revisions existed.
 
 import { openDb, reqDone } from './idb.js';
 
@@ -24,26 +33,28 @@ const STORE = 'gamedb';
 
 /** Stored record shape/semantics version. A record whose `v` differs is simply a miss, a one-line
  *  kill-switch for when the server contract or this file's rules change, with no migration to write
- *  and no risk of a half-converted store. */
+ *  and no risk of a half-converted store. `rev` was added without a bump on purpose: a record without
+ *  one is still a valid answer for the TTL fallback, and isCurrent already treats it as unconfirmed. */
 export const SCHEMA_V = 1;
 
-/** How long a match is trusted. Game data does change (a new cover, a rebuilt `.s2pkg`), so this is not
- *  forever, but a week of instant startups is the whole point, and the two paths that actually care
- *  about freshness (the explicit "Identificar" and auto-fill's Atualizar/Substituir) bypass the cache
- *  outright rather than waiting for it to expire. */
+/** How long a match is trusted when the server can't confirm it by revision. Game data does change (a
+ *  new cover, a rebuilt `.s2pkg`), so this is not forever, but a week of instant startups is the whole
+ *  point, and the explicit "Identificar" and "Atualizar dados do GameDB" bypass the cache outright. */
 export const POSITIVE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-/** How long a NO-MATCH is trusted. Shorter than a match on purpose: a miss is the answer most likely
- *  to become wrong (the GameDB gains games continuously), so ~2.5 days keeps a newly-added game from
- *  staying invisible for a week while still skipping the re-ask on every session. */
+/** How long a no-match is trusted when the server can't confirm it by revision. Shorter than a match
+ *  on purpose: a miss is the answer most likely to become wrong (the GameDB gains games continuously),
+ *  so ~2.5 days keeps a newly-added game from staying invisible for a week. */
 export const NEGATIVE_TTL_MS = 60 * 60 * 60 * 1000;
-/** Records older than this are dropped wholesale on prune, nothing re-reads them (they are long past
- *  both TTLs), they only grow the store. Mirrors pruneCrcCache's job of keeping this bounded. */
+/** Records older than this are dropped wholesale on prune. A record the server keeps confirming never
+ *  gets here, it is re-stamped (see needsRestamp); what does are CRCs this browser stopped seeing, such
+ *  as another card's, which only grow the store. Mirrors pruneCrcCache's job of keeping this bounded. */
 const MAX_AGE_MS = 60 * 24 * 60 * 60 * 1000;
 
-/** Is a stored record still usable? Pure (no IndexedDB) so the TTL rules can be tested directly.
- *  `nowMs` is injected for the same reason. A record from the future (clock moved backwards, or a
- *  machine with a wrong clock wrote it) is treated as stale: re-asking is cheap, trusting a timestamp
- *  we can't reason about is not.
+/** Is a stored record still usable under the TTL rules? The fallback isCurrent uses when the server
+ *  gave no revision. Pure (no IndexedDB) so the TTL rules can be tested directly. `nowMs` is injected
+ *  for the same reason. A record from the future (clock moved backwards, or a machine with a wrong
+ *  clock wrote it) is treated as stale: re-asking is cheap, trusting a timestamp we can't reason about
+ *  is not.
  *
  *  `maxAgeMs` lets one caller demand something fresher than the shared TTL, without a second cache or
  *  an all-or-nothing bypass flag: the effective limit is min(TTL, maxAgeMs). Auto-fill's
@@ -55,6 +66,34 @@ export function isFresh(rec, nowMs = Date.now(), maxAgeMs = Infinity) {
   const age = nowMs - rec.fetchedAt;
   if (age < 0) return false;
   return age < Math.min(rec.game ? POSITIVE_TTL_MS : NEGATIVE_TTL_MS, maxAgeMs);
+}
+
+/** Is a stored record still the server's current answer for its CRC?
+ *
+ *  `serverRev` is what POST /games/lookup/revs said about the CRC: a string (the revision of the answer
+ *  the server serves now), null (the server has no game for it), or undefined (unknown: the server
+ *  offers no revisions, or that request failed). Only undefined falls back to isFresh and its TTLs.
+ *
+ *  A known revision replaces the TTL instead of adding to it. A record whose revision matches is the
+ *  current answer however old it is, and one that doesn't is out of date however recent. A record
+ *  written before revisions existed has none, so it is downloaded again once and carries one from then
+ *  on. `maxAgeMs` 0 still refuses everything: that is the explicit refresh, which wants the whole
+ *  answer from the server whatever the cache holds. Other `maxAgeMs` values only matter to the
+ *  fallback, a matching revision is already fresher than any time window can promise. */
+export function isCurrent(rec, serverRev, nowMs = Date.now(), maxAgeMs = Infinity) {
+  if (serverRev === undefined) return isFresh(rec, nowMs, maxAgeMs);
+  if (maxAgeMs === 0 || !rec || rec.v !== SCHEMA_V) return false;
+  if (serverRev === null) return rec.game === null;
+  return rec.game != null && typeof rec.rev === 'string' && rec.rev === serverRev;
+}
+
+/** Should a record the server has just confirmed by revision be stamped again? `fetchedAt` then reads
+ *  as "last confirmed current", which keeps a game the server keeps confirming from being pruned at
+ *  MAX_AGE_MS and downloaded again, and is the right age for the TTL fallback to judge if revisions
+ *  stop being available. A re-stamp rewrites the whole record, so it happens once per POSITIVE_TTL_MS
+ *  rather than on every pass. */
+export function needsRestamp(rec, nowMs = Date.now()) {
+  return !!rec && typeof rec.fetchedAt === 'number' && nowMs - rec.fetchedAt >= POSITIVE_TTL_MS;
 }
 
 /** Cached answers for the given CRCs, as crcUpper → record. Only the keys asked for are read, in one
@@ -79,9 +118,11 @@ export async function loadGamedbCache(crcs) {
   }
 }
 
-/** Write a batch of answers in one transaction. `entries` are `[crc, game]` pairs where `game` is the
- *  server's raw JSON or `null` for a confirmed no-match. The record's `v`/`fetchedAt` are stamped
- *  here so no caller can persist a malformed one. Best-effort: a failure only costs a re-ask. */
+/** Write a batch of answers in one transaction. `entries` are `[crc, game, rev]` triples: `game` is the
+ *  server's raw JSON or `null` for a confirmed no-match, `rev` the server's revision of that answer, or
+ *  null when it wasn't known (the next pass that knows it then downloads the answer once more). The
+ *  record's `v`/`fetchedAt` are stamped here so no caller can persist a malformed one. Best-effort: a
+ *  failure only costs a re-ask. */
 export async function saveGamedbCache(entries) {
   if (!entries || !entries.length) return;
   try {
@@ -89,14 +130,16 @@ export async function saveGamedbCache(entries) {
     const tx = db.transaction(STORE, 'readwrite');
     const store = tx.objectStore(STORE);
     const now = Date.now();
-    for (const [crc, game] of entries) store.put({ v: SCHEMA_V, game: game ?? null, fetchedAt: now }, String(crc).toUpperCase());
+    for (const [crc, game, rev] of entries) {
+      store.put({ v: SCHEMA_V, game: game ?? null, rev: typeof rev === 'string' ? rev : null, fetchedAt: now }, String(crc).toUpperCase());
+    }
     await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
     db.close();
   } catch { /* cache is an optimization, never a hard dependency */ }
 }
 
 /** Forget every cached answer. The "Atualizar dados do GameDB" escape hatch, for when the server has
- *  changed and the user does not want to wait out the TTL. */
+ *  changed and the user wants every answer downloaded again. */
 export async function clearGamedbCache() {
   try {
     const db = await openDb();

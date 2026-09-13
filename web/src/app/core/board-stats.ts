@@ -127,10 +127,10 @@ export function assetAvailable(g: Entry, cat: FillCategory): boolean {
  * - `assetAvailable`→ the GameDB has a source, so the run may actually write it.
  *
  * The rest is left out on purpose. A game with neither the asset on card nor a source for it cannot
- * have its outcome changed by a fresher token, only by a source that appeared upstream since the lookup
- * was cached. That does happen, but catching it belongs to the gamedb cache's TTL and to the explicit
- * "Atualizar dados do GameDB" button, not to a pass whose cost scales with the whole library on every
- * Atualizar. What forced this: a 6392-game card with everything on "Não mexer" except Cheats=Atualizar,
+ * have its outcome changed by a fresher token, only by a source that appeared upstream since it was
+ * looked up. That does happen, and catching it belongs to the analysis that opens the dialog
+ * (startAutoFill), which checks every game in scope against the server's revisions, not to a pass that
+ * runs again on every Atualizar. What forced this: a 6392-game card with everything on "Não mexer" except Cheats=Atualizar,
  * a dialog promising "3 cheats · 859 KB", and thousands of card reads and lookups
  * ("Identificando... 3301/6392") before three small files were written.
  */

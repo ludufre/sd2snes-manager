@@ -232,10 +232,10 @@ describe('needsGamedbRefresh', () => {
     expect(needsGamedbRefresh(game('SNES', { coverUrl: 'https://cdn/x.png' }), { ...OFF, capa: 'replace' })).toBe(true);
   });
 
-  it('leaves out the game with neither — that is the TTL\'s job, not this pass\'s', () => {
+  it("leaves out the game with neither: that is the analysis's job, not this pass's", () => {
     // A cover that appeared upstream for a game the cache says has nothing is real, but catching it
-    // belongs to the gamedb cache TTL and the explicit "Atualizar dados do GameDB" button. Paying for it
-    // here is what made a 3-file run walk the whole library.
+    // belongs to the analysis that opens the dialog, which checks every game in scope against the
+    // server's revisions. Paying for it here is what made a 3-file run walk the whole library.
     expect(needsGamedbRefresh(game('SNES'), { ...OFF, capa: 'update' })).toBe(false);
     expect(needsGamedbRefresh(game('SNES'), { ...OFF, capa: 'replace', cheats: 'replace', manual: 'replace' })).toBe(false);
   });
