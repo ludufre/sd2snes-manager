@@ -5,6 +5,32 @@ Every released version, newest first.
 Some releases were published together and reach the repository as a single commit. When that
 happens, the entry says which versions it covers.
 
+## 1.33.2 - 2026-09-14
+
+### Fixed
+
+- **Renaming a game by letter case alone no longer deletes it.** The SD card doesn't tell `mario.sfc`
+  from `Mario.sfc` apart, and the Manager did: a rename that only changed capitals was handled as a new
+  file replacing an old one, and removing the "old" one deleted the game. The same mix-up could delete
+  a game copied into its own folder, or files dropped onto a folder that already held them under other
+  capitals. A case-only rename now renames in place, a copy into the same folder gets a numbered name,
+  dropped files that clash ask first, and renaming a folder by capitals alone is refused with a note,
+  since the card sees the same folder.
+- **Deleting or moving a folder no longer stops half-way on cards used on a Mac.** macOS leaves a
+  hidden `._` file next to many files, and removing a file also removes its companion, so the delete
+  tripped over files that were already gone and left part of the folder behind.
+- **Deleting a copy of a game keeps the original's files.** Cheats, saves, save states, game info,
+  previews and manuals are named after the ROM file instead of sitting next to it, so two copies with
+  the same file name in different folders share them. Deleting a folder with its files, or a single
+  ROM with its files, removed those shared files too, and the copy left behind lost its save, info,
+  preview, manuals and cheats. Files another game still uses now stay; only the deleted copy's cover
+  goes with it.
+- **Renaming a game takes its manuals along.** Cover, info, preview, cheats and saves moved to the new
+  name, but every manual stayed under the old one, where the renamed game no longer finds it. Manuals
+  now move with the rest and keep their order.
+- **Deleting a game with its files removes its manuals too.** Deleting its folder already did; deleting
+  the game itself left the manuals on the card, taking space for nothing.
+
 ## 1.33.1 - 2026-09-12
 
 ### Fixed

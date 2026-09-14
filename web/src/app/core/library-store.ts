@@ -841,6 +841,40 @@ export function infoIndexKey(k: Pick<AssetKey, 'stem' | 'ns'>): string {
   return assetIndexKey(k).toLowerCase();
 }
 
+const INFO_SIBLING_EXTS = ['.yml', '.gcv', '.gss', '.fmv', '.pcm'];
+
+/**
+ * Every file under /sd2snes/info that belongs to a stem: game info, cover, snapshot, preview and the guides
+ * (`<stem>.man`, `<stem>.0N.man`). One list for the rename that moves them and the delete that removes them, so a
+ * rename can't leave the guides behind under the old name. Index `i` names the same file for any stem, which is
+ * how a rename pairs old and new names and keeps each guide in its slot.
+ */
+export function infoSiblingNames(stem: string): string[] {
+  return [...INFO_SIBLING_EXTS.map((ext) => stem + ext), ...guideNames(stem)];
+}
+
+/** The guide files a stem can have under /sd2snes/info, one per slot: `<stem>.man`, then `<stem>.02.man` to `.08.man`. */
+export function guideNames(stem: string): string[] {
+  return (GUIDE_SLOTS as number[]).map((nn) => guideFileName(stem, nn));
+}
+
+/**
+ * The keys (as `infoIndexKey`) of the ROMs that stay on the card when the ROMs in `removed` go.
+ *
+ * Cheats, saves, states and everything under /sd2snes/info are named after the ROM rather than stored beside it,
+ * so two ROMs with the same file name in different folders read one set of those files. Deleting them for a ROM
+ * whose key is in this set would take them from the game that stays.
+ */
+export function assetKeysInUse(
+  entries: readonly { id: string; file: string }[],
+  removed: ReadonlySet<string>,
+  keyOf: (file: string) => Pick<AssetKey, 'stem' | 'ns'>,
+): Set<string> {
+  const inUse = new Set<string>();
+  for (const e of entries) if (!removed.has(e.id)) inUse.add(infoIndexKey(keyOf(e.file)));
+  return inUse;
+}
+
 /**
  * Walk a sidecar root once, visiting every file under it. Only these shapes are accepted, all
  * terminal:
@@ -6312,12 +6346,17 @@ export class LibraryStore {
     if (this.rootHandle) {
       const oldInfoPath = infoDirFor(oldKey);
       const oldInfo = await this.getDir(oldInfoPath);
-      const exts = ['.yml', '.gcv', '.gss', '.fmv', '.pcm']; // info-dir siblings (matches deleteSiblings)
-      const hasInfo = oldInfo && (await Promise.all(exts.map((x) => fileExists(oldInfo, oldStem + x)))).some(Boolean);
-      if (oldInfo && hasInfo) {
+      // The guides move too, each keeping its slot number: that number is what the game info file's
+      // man_slots map refers to, and a guide left under the old name is lost to the renamed game.
+      const oldNames = infoSiblingNames(oldStem);
+      const present = oldInfo ? await Promise.all(oldNames.map((n) => fileExists(oldInfo, n))) : [];
+      if (oldInfo && present.some(Boolean)) {
         const newInfoPath = infoDirFor(newKey);
         const newInfo = await this.ensureDir(newInfoPath);
-        for (const ext of exts) await add(oldInfo, oldInfoPath, oldStem + ext, newInfo, newInfoPath, newStem + ext);
+        const newNames = infoSiblingNames(newStem);
+        for (let i = 0; i < oldNames.length; i++) {
+          if (present[i]) await add(oldInfo, oldInfoPath, oldNames[i], newInfo, newInfoPath, newNames[i]);
+        }
       }
     }
     return moves;
@@ -6476,14 +6515,37 @@ export class LibraryStore {
     if (this.cardUnidentified()) return;
     const idset = new Set(ids);
     const targets = this._entries().filter((e) => idset.has(e.id));
+    // A same-named ROM that stays reads the same cheats, saves, states and game info (see assetKeysInUse): for a
+    // ROM sharing them, only its own cover beside it goes.
+    const inUse = assets.size ? assetKeysInUse(this._entries(), idset, (f) => this.key(f)) : new Set<string>();
     for (const e of targets) {
       if (e.dirHandle) { try { await this.card.remove(e.dirHandle, e.file); } catch {  } }/* gone */
-      if (assets.size) await this.removeAssets(this.key(e.file), e.dirHandle, assets);
+      if (!assets.size) continue;
+      const key = this.key(e.file);
+      if (inUse.has(infoIndexKey(key))) {
+        if (assets.has('cover') && e.dirHandle) { try { await this.card.remove(e.dirHandle, key.stem + '.cov'); } catch {  } }/* */
+        continue;
+      }
+      await this.removeAssets(key, e.dirHandle, assets);
+      // The ROM box takes every file named after the game (it forces the other boxes on), so the guides go too, as
+      // they do when the game's folder is deleted. They have no box of their own to be kept with.
+      if (assets.has('rom')) await this.removeGuides(key);
     }
     this._entries.update((gs) => gs.filter((g) => !idset.has(g.id)));
     if (this._selId() && idset.has(this._selId()!)) this._selId.set(null);
     this._selected.update((s) => { const n = new Set(s); for (const id of idset) n.delete(id); return n; });
     if (targets.length) this.toast.show(this.i18n.translate(targets.length > 1 ? 'store.gamesDeletedMany' : 'store.gamesDeletedOne', { count: targets.length }), 'warn');
+  }
+
+  /** Delete a stem's guides (see guideNames). */
+  private async removeGuides(key: AssetKey): Promise<void> {
+    if (!this.rootHandle) return;
+    try {
+      const infoDir = await this.getDir(infoDirFor(key));
+      if (infoDir) for (const name of guideNames(key.stem)) {
+        try { await this.card.remove(infoDir, name); } catch {  }/* not present */
+      }
+    } catch {  }/* */
   }
 
   /** Remove a ROM's stem-keyed siblings in the fixed dirs (cheats/saves/states/info). */
@@ -6503,13 +6565,10 @@ export class LibraryStore {
     if (this.rootHandle) {
       try {
         const infoDir = await this.getDir(infoDirFor(key));
-        if (infoDir) for (const ext of ['.yml', '.gcv', '.gss', '.fmv', '.pcm']) {
-          try { await this.card.remove(infoDir, stem + ext); } catch {  }/* */
-        }
-        // guides (.man): <stem>.man + <stem>.0N.man. Otherwise deleting the ROM leaves orphaned
+        // guides included (.man): otherwise deleting the ROM leaves orphaned
         // (potentially tens-of-MB) guide files behind forever.
-        if (infoDir) for (const nn of GUIDE_SLOTS) {
-          try { await this.card.remove(infoDir, guideFileName(stem, nn)); } catch {  }/* not present */
+        if (infoDir) for (const name of infoSiblingNames(stem)) {
+          try { await this.card.remove(infoDir, name); } catch {  }/* not present */
         }
       } catch {  }/* */
     }
@@ -6760,8 +6819,17 @@ export class LibraryStore {
         const parent = parentPath ? await getDirByPath(this.rootHandle, parentPath) : this.rootHandle;
         if (parent) await this.card.removeFolder(parent, leafName);
       }
-      if (r.checked) for (const e of inFolder) await this.deleteSiblings(this.key(e.file));
       const idset = new Set(inFolder.map((e) => e.id));
+      if (r.checked) {
+        // A game of the same name outside the folder reads the same files (see assetKeysInUse): those stay.
+        const inUse = assetKeysInUse(this._entries(), idset, (f) => this.key(f));
+        for (const e of inFolder) {
+          const key = this.key(e.file);
+          if (inUse.has(infoIndexKey(key))) continue;
+          inUse.add(infoIndexKey(key)); // once per key when two ROMs in the folder share it
+          await this.deleteSiblings(key);
+        }
+      }
       this._entries.update((gs) => gs.filter((g) => !idset.has(g.id)));
       this.removeFolderPaths(path);
       if (this._cwd() === path || this._cwd().startsWith(path + '/')) {
