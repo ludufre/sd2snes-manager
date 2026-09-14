@@ -570,6 +570,7 @@
     "firmwarePackageEmpty": "Le paquet de firmware était vide.",
     "folderAccessDenied": "Accès au dossier refusé. Autorisez la lecture/écriture pour le gérer.",
     "folderAlreadyExistsThere": "Un dossier nommé « {{name}} » existe déjà à cet endroit.",
+    "folderCaseOnlyRename": "La carte ne distingue pas les majuscules des minuscules : un dossier ne peut pas être renommé en changeant seulement cela. Renommez-le d’abord autrement, puis en « {{name}} ».",
     "folderCreated": "Dossier « {{name}} » créé",
     "folderDeleted": "Dossier « {{name}} » supprimé",
     "folderMovedTo": "« {{name}} » déplacé → {{dest}}",

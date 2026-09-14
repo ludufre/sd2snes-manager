@@ -9,6 +9,7 @@ import { ToastService } from './toast.service';
 import { GameDbService } from './gamedb.service';
 import { CheatsService } from './cheats.service';
 import { CardWriter } from './card-writer.service';
+import { isInsidePath, moveRelation, sameName, samePath, type MoveRelation } from './card-names';
 import { DialogService, type ConflictAction, type ConfirmCheckbox } from './dialog.service';
 import { FirmwareService } from './firmware.service';
 import { ThemesService, type Theme } from './themes.service';
@@ -126,6 +127,13 @@ export function savestateInputsValue(save: string, load: string): string | null 
 }
 import { BOARD_COLS } from './models';
 import { assetAvailable, assetPresent, FILL_CATS, fillModeActs, matchesStatus, needsGamedbRefresh, tallyBoard } from './board-stats';
+
+/** One file a ROM rename moves (see planRename). The folders are card paths, so "same folder" can be decided by
+ *  path when the two handles are different objects for one folder. */
+type RenameMove = {
+  srcDir: FileSystemDirectoryHandle; fh: FileSystemFileHandle; srcName: string; srcFolder: string;
+  destDir: FileSystemDirectoryHandle; destName: string; destFolder: string;
+};
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 /** ROMs identified per gamedb request (one batch lookup instead of one-per-ROM). 50 keeps each
@@ -1925,10 +1933,56 @@ export class LibraryStore {
       return;
     }
 
+    // Decide every name before a byte is copied. The card matches names case-insensitively, so `zelda.sfc` dropped
+    // next to an existing `Zelda.sfc` IS that file and would be replaced without a word, and two dropped files
+    // whose names differ only in case would both be copied onto one file. A name already on the card is asked
+    // like a move/copy conflict; a clash inside the drop itself always keeps both under a free name.
+    const claimed = new Set<string>();
+    const claimKey = (dir: string, name: string): string => `${dir}/${name}`.toLowerCase();
+    const freeName = async (dirHandle: FileSystemDirectoryHandle, dir: string, name: string): Promise<string> => {
+      const dot = name.lastIndexOf('.');
+      const base = dot > 0 ? name.slice(0, dot) : name;
+      const ext = dot > 0 ? name.slice(dot) : '';
+      let i = 1;
+      let candidate = `${base} (${i})${ext}`;
+      while (claimed.has(claimKey(dir, candidate)) || (await fileExists(dirHandle, candidate))) candidate = `${base} (${++i})${ext}`;
+      return candidate;
+    };
+    const resolved: typeof plan = [];
+    let bulkChoice: ConflictAction | null = null;
+    for (const item of plan) {
+      const dirHandle = dirCache.get(item.dir)!;
+      let name = item.name;
+      if (claimed.has(claimKey(item.dir, name))) {
+        name = await freeName(dirHandle, item.dir, name);
+      } else if (await fileExists(dirHandle, name)) {
+        let action = bulkChoice;
+        if (!action) {
+          const r = await this.dialog.conflict(name);
+          if (r.action === 'cancel') { this.cancelImport = true; break; }
+          action = r.action;
+          if (r.all) bulkChoice = r.action;
+        }
+        if (action === 'skip') continue;
+        if (action === 'keepboth') name = await freeName(dirHandle, item.dir, name);
+        // overwrite: copyFile replaces the existing file's contents; nothing is removed first.
+      }
+      claimed.add(claimKey(item.dir, name));
+      resolved.push({ ...item, name });
+    }
+    if (this.cancelImport || !resolved.length) {
+      this._bulk.set(null);
+      this.toast.show(
+        this.i18n.translate(this.cancelImport ? 'store.importCancelled' : 'store.nothingToImport'),
+        this.cancelImport ? 'info' : 'warn',
+      );
+      return;
+    }
+
     // Phase 2, copy with real per-file progress (cancel stops starting new copies).
-    this.bulkBegin(plan.length, this.i18n.translate('store.importing'), true);
+    this.bulkBegin(resolved.length, this.i18n.translate('store.importing'), true);
     let done = 0, ok = 0;
-    await pool(plan, 4, async (item) => {
+    await pool(resolved, 4, async (item) => {
       if (!this.cancelImport) {
         try {
           const dir = dirCache.get(item.dir)!;
@@ -6173,9 +6227,15 @@ export class LibraryStore {
     }
 
     const moves = await this.planRename(e, newName);
+    // Same folder is decided by path, not by handle identity: a bucket folder reached through getDir and
+    // through ensureDir is two handle objects for one folder. A move onto its own file (the No-Intro name
+    // differs from the file name only in letter case) is a plain rename, never a conflict: on the card
+    // `foo.sfc` and `Foo.sfc` are one file, so replacing the destination deletes the file being renamed.
+    const relationOf = (m: RenameMove): MoveRelation =>
+      moveRelation(m.srcDir === m.destDir || samePath(m.srcFolder, m.destFolder), m.srcName, m.destName);
     const conflicts: string[] = [];
     for (const m of moves) {
-      if (m.srcDir === m.destDir && m.srcName === m.destName) continue;
+      if (relationOf(m) !== 'distinct') continue;
       if (await fileExists(m.destDir, m.destName)) conflicts.push(m.destName);
     }
     if (conflicts.length) {
@@ -6191,10 +6251,13 @@ export class LibraryStore {
     try {
       let count = 0;
       for (const m of moves) {
-        if (m.srcDir === m.destDir && m.srcName === m.destName) continue;
-        try {
-          if (await fileExists(m.destDir, m.destName)) await this.card.remove(m.destDir, m.destName);
-        } catch {  }/* ignore */
+        const relation = relationOf(m);
+        if (relation === 'identical') continue;
+        if (relation === 'distinct') {
+          try {
+            if (await fileExists(m.destDir, m.destName)) await this.card.remove(m.destDir, m.destName);
+          } catch {  }/* ignore */
+        }
         const newFh = await this.card.moveFile(m.srcDir, m.fh, m.destDir, m.destName);
         if (m.srcName === e.file) this.update(id, { file: newName, fileHandle: newFh });
         count++;
@@ -6212,7 +6275,7 @@ export class LibraryStore {
   private async planRename(
     e: Entry,
     newName: string,
-  ): Promise<{ srcDir: FileSystemDirectoryHandle; fh: FileSystemFileHandle; srcName: string; destDir: FileSystemDirectoryHandle; destName: string }[]> {
+  ): Promise<RenameMove[]> {
     // Both keys come from a filename, so the namespace is derived rather than assumed. A rename
     // preserves the extension (see rename()), so old and new always agree -- deriving it keeps
     // that a property of the code instead of an invariant someone has to remember.
@@ -6220,34 +6283,41 @@ export class LibraryStore {
     const newKey = this.key(newName);
     const oldStem = oldKey.stem;
     const newStem = newKey.stem;
-    const moves: { srcDir: FileSystemDirectoryHandle; fh: FileSystemFileHandle; srcName: string; destDir: FileSystemDirectoryHandle; destName: string }[] = [];
-    const add = async (srcDir: FileSystemDirectoryHandle | null, srcName: string, destDir: FileSystemDirectoryHandle | null, destName: string): Promise<void> => {
+    const moves: RenameMove[] = [];
+    const add = async (
+      srcDir: FileSystemDirectoryHandle | null, srcFolder: string, srcName: string,
+      destDir: FileSystemDirectoryHandle | null, destFolder: string, destName: string,
+    ): Promise<void> => {
       if (!srcDir || !destDir) return;
       const fh = await srcDir.getFileHandle(srcName).catch(() => null);
-      if (fh) moves.push({ srcDir, fh, srcName, destDir, destName });
+      if (fh) moves.push({ srcDir, fh, srcName, srcFolder, destDir, destName, destFolder });
     };
     const romDir = e.dirHandle!;
-    moves.push({ srcDir: romDir, fh: e.fileHandle!, srcName: e.file, destDir: romDir, destName: newName });
-    await add(romDir, oldStem + '.cov', romDir, newStem + '.cov');
+    moves.push({ srcDir: romDir, fh: e.fileHandle!, srcName: e.file, srcFolder: e.folder, destDir: romDir, destName: newName, destFolder: e.folder });
+    await add(romDir, e.folder, oldStem + '.cov', romDir, e.folder, newStem + '.cov');
     // Renaming can move a file between buckets (e.g. "Foo" -> "Zoo"), so source and destination
     // directories are resolved separately from the old and new stems.
-    await add(await this.bucketDir(CHEATS_ROOT, oldKey), oldStem + '.yml',
-              await this.bucketDir(CHEATS_ROOT, newKey, true), newStem + '.yml');
+    await add(await this.bucketDir(CHEATS_ROOT, oldKey), bucketDirFor(CHEATS_ROOT, oldKey), oldStem + '.yml',
+              await this.bucketDir(CHEATS_ROOT, newKey, true), bucketDirFor(CHEATS_ROOT, newKey), newStem + '.yml');
     // /sd2snes/saves: SRAM (.srm), Super Game Boy rtc (.gtc), BS-X Memory Pack (.mpk)
     { const sOld = await this.bucketDir(SAVES_ROOT, oldKey);
       const sNew = await this.bucketDir(SAVES_ROOT, newKey, true);
-      for (const ext of ['.srm', '.gtc', '.mpk']) await add(sOld, oldStem + ext, sNew, newStem + ext); }
-    // /sd2snes/states: save states <stem>NN.state (slots; flat dir)
+      for (const ext of ['.srm', '.gtc', '.mpk']) {
+        await add(sOld, bucketDirFor(SAVES_ROOT, oldKey), oldStem + ext, sNew, bucketDirFor(SAVES_ROOT, newKey), newStem + ext);
+      } }
+    // /sd2snes/states: save states <stem>NN.state (slots; flat dir, so source and destination share it)
     for (const s of await this.listSaveStates(oldKey)) {
-      moves.push({ srcDir: s.dir, fh: s.fh, srcName: s.name, destDir: s.dir, destName: newStem + s.slot + '.state' });
+      moves.push({ srcDir: s.dir, fh: s.fh, srcName: s.name, srcFolder: STATES_ROOT, destDir: s.dir, destName: newStem + s.slot + '.state', destFolder: STATES_ROOT });
     }
     if (this.rootHandle) {
-      const oldInfo = await this.getDir(infoDirFor(oldKey));
+      const oldInfoPath = infoDirFor(oldKey);
+      const oldInfo = await this.getDir(oldInfoPath);
       const exts = ['.yml', '.gcv', '.gss', '.fmv', '.pcm']; // info-dir siblings (matches deleteSiblings)
       const hasInfo = oldInfo && (await Promise.all(exts.map((x) => fileExists(oldInfo, oldStem + x)))).some(Boolean);
       if (oldInfo && hasInfo) {
-        const newInfo = await this.ensureDir(infoDirFor(newKey));
-        for (const ext of exts) await add(oldInfo, oldStem + ext, newInfo, newStem + ext);
+        const newInfoPath = infoDirFor(newKey);
+        const newInfo = await this.ensureDir(newInfoPath);
+        for (const ext of exts) await add(oldInfo, oldInfoPath, oldStem + ext, newInfo, newInfoPath, newStem + ext);
       }
     }
     return moves;
@@ -6462,20 +6532,24 @@ export class LibraryStore {
   canDropOn(path: string): boolean {
     const fp = this._dragFolder();
     if (fp !== null) {
-      if (path === fp || path.startsWith(fp + '/')) return false; // self / descendant
+      // Case-insensitive like the card: `games` and `Games` are one folder, so a case variant of the folder
+      // itself, or of a folder inside it, is refused like the exact path.
+      if (samePath(path, fp) || isInsidePath(path, fp)) return false; // self / descendant
       const parent = fp.includes('/') ? fp.slice(0, fp.lastIndexOf('/')) : '';
-      return path !== parent; // already there → no-op
+      return !samePath(path, parent); // already there → no-op
     }
     const set = new Set(this._dragging());
     if (!set.size) return false;
-    return this._entries().some((e) => set.has(e.id) && e.folder !== path);
+    return this._entries().some((e) => set.has(e.id) && !samePath(e.folder, path));
   }
 
   /* ---- move ---- */
   async moveEntries(ids: Iterable<string>, destFolderPath: string): Promise<void> {
     if (this.cardUnidentified()) return;
     const idset = new Set(ids);
-    const targets = this._entries().filter((e) => idset.has(e.id) && e.folder !== destFolderPath);
+    // A destination that names the entry's own folder in another letter case IS that folder: every file would
+    // be a conflict with itself, and "overwrite" would delete it.
+    const targets = this._entries().filter((e) => idset.has(e.id) && !samePath(e.folder, destFolderPath));
     if (!targets.length) { this.endDrag(); return; }
     if (this.rootHandle && this.bulkBusy()) { this.endDrag(); return; } // real-card move uses the bulk bar
 
@@ -6571,7 +6645,11 @@ export class LibraryStore {
     for (const e of targets) {
       if (!e.fileHandle || !e.dirHandle) { done++; this._bulk.update((b) => (b ? { ...b, done } : b)); continue; }
       let name = e.file;
-      if (await fileExists(dest, name)) {
+      if (samePath(e.folder, destFolderPath)) {
+        // Copying into the game's own folder: the name already there is the game itself (in whatever letter
+        // case), so the copy is a duplicate under a free name, never an overwrite, which would delete the source.
+        name = await this.uniqueName(dest, name);
+      } else if (await fileExists(dest, name)) {
         let action = bulkChoice;
         if (!action) {
           const r = await this.dialog.conflict(name);
@@ -6639,6 +6717,18 @@ export class LibraryStore {
     try {
       if (this.rootHandle) {
         const parent = await this.card.ensureDir(this.rootHandle, parentPath);
+        // The card matches folder names case-insensitively: asking for `games` next to an existing `Games`
+        // hands back `Games` and creates nothing. Look first, so the tree never grows a `games` that is really
+        // `Games` (a phantom that moves and renames would then treat as a different folder).
+        for await (const [existing, child] of parent.entries()) {
+          if (child.kind === 'directory' && sameName(existing, name)) {
+            const at = parentPath ? parentPath + '/' + existing : existing;
+            this.addFolder(at);
+            this.navTo(at);
+            this.toast.show(this.i18n.translate('store.folderAlreadyExistsThere', { name: existing }), 'warn');
+            return;
+          }
+        }
         await this.card.createFolder(parent, name);
       }
       this.addFolder(full);
@@ -6703,7 +6793,16 @@ export class LibraryStore {
   /** Recursively relocate a folder (rename and/or reparent) on disk + in state. */
   private async relocateFolder(oldPath: string, newPath: string): Promise<void> {
     if (!oldPath || newPath === oldPath) return;
-    if (newPath.startsWith(oldPath + '/')) {
+    // Case-insensitive like the card. A new path that differs only in letter case names the same folder: moving it
+    // "there" would move every file onto itself and then delete the folder. A case variant of a path inside the
+    // folder is still inside it.
+    if (samePath(newPath, oldPath)) {
+      const oldLeafName = oldPath.split('/').pop()!;
+      const newLeafName = newPath.split('/').pop()!;
+      if (oldLeafName !== newLeafName) this.toast.show(this.i18n.translate('store.folderCaseOnlyRename', { name: newLeafName }), 'warn');
+      return;
+    }
+    if (isInsidePath(newPath, oldPath)) {
       this.toast.show(this.i18n.translate('store.cantMoveFolderIntoItself'), 'warn');
       return;
     }

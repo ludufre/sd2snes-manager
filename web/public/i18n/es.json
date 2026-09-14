@@ -570,6 +570,7 @@
     "firmwarePackageEmpty": "El paquete de firmware estaba vacío.",
     "folderAccessDenied": "Acceso a la carpeta denegado. Permite lectura/escritura para gestionarla.",
     "folderAlreadyExistsThere": "Ya existe una carpeta llamada “{{name}}” ahí.",
+    "folderCaseOnlyRename": "La tarjeta no distingue mayúsculas de minúsculas, así que no se puede renombrar la carpeta cambiando solo eso. Renómbrala primero a otro nombre y luego a “{{name}}”.",
     "folderCreated": "Carpeta “{{name}}” creada",
     "folderDeleted": "Carpeta “{{name}}” eliminada",
     "folderMovedTo": "“{{name}}” movida → {{dest}}",

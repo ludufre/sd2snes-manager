@@ -572,6 +572,7 @@
     "firmwarePackageEmpty": "The firmware package was empty.",
     "folderAccessDenied": "Folder access denied. Allow read/write to manage it.",
     "folderAlreadyExistsThere": "A folder named “{{name}}” already exists there.",
+    "folderCaseOnlyRename": "The card doesn't tell uppercase from lowercase, so a folder can't be renamed by changing only that. Rename it to something else first, then to “{{name}}”.",
     "folderCreated": "Folder “{{name}}” created",
     "folderDeleted": "Folder “{{name}}” deleted",
     "folderMovedTo": "“{{name}}” moved → {{dest}}",

@@ -570,6 +570,7 @@
     "firmwarePackageEmpty": "Il pacchetto del firmware era vuoto.",
     "folderAccessDenied": "Accesso alla cartella negato. Consenti lettura/scrittura per gestirla.",
     "folderAlreadyExistsThere": "Esiste già una cartella chiamata “{{name}}” lì.",
+    "folderCaseOnlyRename": "La scheda non distingue maiuscole e minuscole, quindi non si può rinominare una cartella cambiando solo quello. Rinominala prima con un altro nome e poi in “{{name}}”.",
     "folderCreated": "Cartella “{{name}}” creata",
     "folderDeleted": "Cartella “{{name}}” eliminata",
     "folderMovedTo": "“{{name}}” spostata → {{dest}}",

@@ -570,6 +570,7 @@
     "firmwarePackageEmpty": "Das Firmware-Paket war leer.",
     "folderAccessDenied": "Ordnerzugriff verweigert. Erlaube Lesen/Schreiben, um ihn zu verwalten.",
     "folderAlreadyExistsThere": "Dort existiert bereits ein Ordner namens „{{name}}“.",
+    "folderCaseOnlyRename": "Die Karte unterscheidet nicht zwischen Groß- und Kleinschreibung, daher lässt sich ein Ordner nicht umbenennen, indem nur das geändert wird. Benenne ihn zuerst anders und dann in „{{name}}“ um.",
     "folderCreated": "Ordner „{{name}}“ erstellt",
     "folderDeleted": "Ordner „{{name}}“ gelöscht",
     "folderMovedTo": "„{{name}}“ verschoben → {{dest}}",

@@ -1,10 +1,41 @@
 import { Injectable } from '@angular/core';
+import { sameName } from './card-names';
 
 /** FileSystemFileHandle.move() is experimental/non-standard (Chromium) and not in
  *  lib.dom. Type it optionally so we can capability-detect + fall back. */
 type Movable = FileSystemFileHandle & {
   move?: (dirOrName: FileSystemDirectoryHandle | string, name?: string) => Promise<void>;
 };
+
+const isNotFound = (e: unknown): boolean => (e as { name?: string })?.name === 'NotFoundError';
+
+/** Remove `name` under `parent` one entry at a time, treating an entry that is already gone as removed. On a
+ *  card mounted by macOS, deleting a file also deletes its `._` AppleDouble companion, so a walk that listed
+ *  the companion first finds it missing by the time it gets there. */
+async function removeTree(parent: FileSystemDirectoryHandle, name: string): Promise<void> {
+  let dir: FileSystemDirectoryHandle;
+  try {
+    dir = await parent.getDirectoryHandle(name);
+  } catch (e) {
+    if (isNotFound(e)) return;
+    throw e;
+  }
+  const children: [string, FileSystemHandle][] = [];
+  for await (const entry of dir.entries()) children.push(entry);
+  for (const [childName, child] of children) {
+    try {
+      if (child.kind === 'directory') await removeTree(dir, childName);
+      else await dir.removeEntry(childName);
+    } catch (e) {
+      if (!isNotFound(e)) throw e;
+    }
+  }
+  try {
+    await parent.removeEntry(name);
+  } catch (e) {
+    if (!isNotFound(e)) throw e;
+  }
+}
 
 /**
  * Writes/deletes/moves files on the card via the File System Access API. The
@@ -176,13 +207,20 @@ export class CardWriter {
       const oldName = fileHandle.name;
       const name = newName ?? oldName;
       const mv = fileHandle as Movable;
+      let moveErr: unknown = null;
       if (typeof mv.move === 'function') {
         try {
           await mv.move(destDir, name);
           return await destDir.getFileHandle(name);
-        } catch {
-          /* fall through to copy + delete */
+        } catch (e) {
+          moveErr = e; // fall through to copy + delete, unless that would destroy the file (below)
         }
+      }
+      // Copy + delete is only safe onto a different file. In the same folder, a name that differs only in
+      // letter case IS the same file on the card: the copy would write the file onto itself and the delete
+      // would then remove it. That rename is a native move or nothing.
+      if (sameName(oldName, name) && (srcDir === destDir || (await srcDir.isSameEntry(destDir).catch(() => false)))) {
+        throw moveErr ?? new DOMException(`${name}: renaming only the letter case needs a native move`, 'InvalidModificationError');
       }
       const file = await fileHandle.getFile();
       const fh = await destDir.getFileHandle(name, { create: true });
@@ -213,7 +251,17 @@ export class CardWriter {
    *  routinely refuses `System Volume Information` outright, and that refusal must not read as
    *  "this card stopped accepting writes". */
   async removeFolder(parentDir: FileSystemDirectoryHandle, name: string, opts?: { isolated?: boolean }): Promise<void> {
-    return this.serialize(() => this.withRetry(() => parentDir.removeEntry(name, { recursive: true }), opts?.isolated));
+    return this.serialize(() => this.withRetry(async () => {
+      try {
+        await parentDir.removeEntry(name, { recursive: true });
+      } catch (e) {
+        // Chromium's recursive removal stops with NotFoundError on a card mounted by macOS: deleting a file
+        // there also deletes its `._` companion, which the removal had already listed. The folder is left
+        // half deleted, so finish it entry by entry.
+        if (!isNotFound(e)) throw e;
+        await removeTree(parentDir, name);
+      }
+    }, opts?.isolated));
   }
 
   /** Copy a file into `destDir` under `name` (no native copy, stream the Blob). */
@@ -241,18 +289,26 @@ export class CardWriter {
     name: string,
   ): Promise<FileSystemDirectoryHandle> {
     const dst = await destParentDir.getDirectoryHandle(name, { create: true });
+    if (await dst.isSameEntry(srcDir).catch(() => false)) {
+      throw new DOMException(`${name}: a folder cannot be moved onto itself`, 'InvalidModificationError');
+    }
     // Snapshot entries first. Moving files mutates srcDir, which would disturb a
-    // live entries() iteration.
+    // live entries() iteration. `._` AppleDouble companions are left out: macOS moves or deletes them
+    // together with their file, so moving one explicitly fails with NotFoundError, and an orphaned one
+    // is junk the sweep removes.
     const files: [string, FileSystemFileHandle][] = [];
     const subdirs: [string, FileSystemDirectoryHandle][] = [];
     for await (const [childName, child] of srcDir.entries()) {
-      if (child.kind === 'file') files.push([childName, child as FileSystemFileHandle]);
-      else subdirs.push([childName, child as FileSystemDirectoryHandle]);
+      if (child.kind === 'file') {
+        if (!childName.startsWith('._')) files.push([childName, child as FileSystemFileHandle]);
+      } else {
+        subdirs.push([childName, child as FileSystemDirectoryHandle]);
+      }
     }
     for (const [n, fh] of files) await this.moveFile(srcDir, fh, dst, n);
     for (const [n, sub] of subdirs) {
       await this.moveFolderRecursive(sub, dst, n);
-      try { await srcDir.removeEntry(n, { recursive: true }); } catch { /* */ }
+      try { await removeTree(srcDir, n); } catch { /* */ }
     }
     return dst;
   }

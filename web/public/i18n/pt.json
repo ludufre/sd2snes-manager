@@ -572,6 +572,7 @@
     "firmwarePackageEmpty": "O pacote de firmware estava vazio.",
     "folderAccessDenied": "Acesso à pasta negado. Permita leitura/gravação para gerenciá-la.",
     "folderAlreadyExistsThere": "Já existe uma pasta chamada “{{name}}” ali.",
+    "folderCaseOnlyRename": "O cartão não diferencia maiúsculas de minúsculas, então não dá para renomear a pasta mudando só isso. Renomeie primeiro para outro nome e depois para “{{name}}”.",
     "folderCreated": "Pasta “{{name}}” criada",
     "folderDeleted": "Pasta “{{name}}” excluída",
     "folderMovedTo": "“{{name}}” movida → {{dest}}",
