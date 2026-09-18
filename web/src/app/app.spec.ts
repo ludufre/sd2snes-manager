@@ -1,12 +1,21 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { TranslocoTestingModule } from '@jsverse/transloco';
 import { App } from './app';
 import { routes } from './app.routes';
 
 describe('App', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [App],
+      // App injects LangService, which needs Transloco. The testing module supplies it with in-memory
+      // (empty) dictionaries, so nothing is fetched from public/i18n/.
+      imports: [
+        App,
+        TranslocoTestingModule.forRoot({
+          langs: { pt: {}, en: {} },
+          translocoConfig: { availableLangs: ['pt', 'en', 'es', 'de', 'fr', 'it', 'ru'], defaultLang: 'pt' },
+        }),
+      ],
       providers: [provideRouter(routes)],
     }).compileComponents();
   });
