@@ -743,23 +743,6 @@ export function planManualSlots(
 }
 
 /**
- * Group the games a run will install manuals for by the bucket their `.man` files live in, and elect
- * one owner per bucket.
- *
- * Why. `<stem>.NN.man` is addressed by stem (see `infoDirFor`), never by the ROM's folder, so every
- * copy of a game, the same filename under `_CONTROL`, under a patch folder, under its letter folder,
- * shares one set of eight slots and one `<rom>.yml`. Installing per entry has them compete: a sibling's
- * freshly written document is not among the ones this entry serves, so it reads as an unprovable
- * leftover, its own extras spill into the next free slots, and enough copies exhaust the card and
- * report `slotsfull` on a library with no duplicate documents at all.
- *
- * Electing an owner is not a compromise. The firmware resolves the manual by stem too, so those copies
- * can only ever display the same documents. One install per bucket is what the layout means.
- *
- * The owner is the entry offering the most documents (the fullest set for files they all share), ties
- * broken by id so a re-run elects the same one and the card converges instead of oscillating.
- */
-/**
  * The identity of the `<stem>.yml` an entry's assets are recorded in. The game info file path, which is all
  * the card can tell apart. Folded to lower case for the same reason `infoIndexKey` is: FAT resolves
  * case-insensitively, so two stems differing only in case are one file.
@@ -810,14 +793,38 @@ export function electGameInfoOwners<T>(
   return new Map([...best].map(([k, e]) => [k, idOf(e)]));
 }
 
+/**
+ * Group the games a run will install manuals for by the `<stem>` their `.man` files are named after, and
+ * elect one owner per stem.
+ *
+ * Why. `<stem>.NN.man` is addressed by stem (see `gameInfoKeyOf`), never by the ROM's folder, so every
+ * copy of a game, the same filename under `_CONTROL`, under a patch folder, under its letter folder,
+ * shares one set of eight slots and one `<rom>.yml`. Installing per entry has them compete: a sibling's
+ * freshly written document is not among the ones this entry serves, so it reads as an unprovable
+ * leftover, its own extras spill into the next free slots, and enough copies exhaust the card and
+ * report `slotsfull` on a library with no duplicate documents at all.
+ *
+ * Electing an owner is not a compromise. The firmware resolves the manual by stem too, so those copies
+ * can only ever display the same documents. One install per stem is what the layout means.
+ *
+ * The group is the stem inside its bucket directory, NOT the directory. The caller used to hand in
+ * `infoDirFor(...)`, i.e. `info/SU`, which put Super Mario World, Super Mario Kart and every other
+ * game of that two-letter bucket in one group: only the one with the most documents installed its
+ * extras, the rest were silently skipped as "siblings", and a full card needed one run per game in
+ * its busiest bucket (37 in `SU`) before Guias/Manuais stopped reading "Completar". Taking the
+ * AssetKey and deriving the key here is what keeps a directory from ever being passed again.
+ *
+ * The owner is the entry offering the most documents (the fullest set for files they all share), ties
+ * broken by id so a re-run elects the same one and the card converges instead of oscillating.
+ */
 export function groupManualBuckets<T extends { id: string }>(
   entries: readonly T[],
-  bucketOf: (e: T) => string,
+  keyOf: (e: T) => AssetKey,
   docsOf: (e: T) => number,
 ): Array<{ bucket: string; owner: T; members: readonly T[] }> {
   const by = new Map<string, T[]>();
   for (const e of entries) {
-    const k = bucketOf(e);
+    const k = gameInfoKeyOf(keyOf(e));
     const list = by.get(k);
     if (list) list.push(e); else by.set(k, [e]);
   }
@@ -5771,7 +5778,7 @@ export class LibraryStore {
        Disarmed again in the finally. Outside this window the cache has no owner to keep it true. */
     this.manDirNames = new Map();
 
-    /* One manual install per `.man` bucket. `<stem>.NN.man` is addressed by stem (infoDirFor), never by
+    /* One manual install per stem (see groupManualBuckets). `<stem>.NN.man` is addressed by stem, never by
        the ROM's folder, so every copy of a game, the same filename under `_CONTROL`, under a patch
        folder, under its letter folder, shares the same eight slots and the same `<rom>.yml`. Left one
        per entry, N copies each plan against those eight slots on their own: what a sibling installed
@@ -5779,14 +5786,14 @@ export class LibraryStore {
        leftover, the extras spill into fresh slots, and a stem with enough copies exhausts the card and
        reports `slotsfull`, precisely what a card full of control/patch duplicates produced.
        This is not a compromise: the firmware resolves the manual by stem too, so those copies can only
-       ever show the same documents. One owner per bucket is the only thing the layout can represent.
+       ever show the same documents. One owner per stem is the only thing the layout can represent.
        Owner = the entry offering the most documents (the fullest set for files they all share), ties
        broken by id so a re-run keeps picking the same one. */
     const nDocs = (e: Entry): number => e.manuals?.length ?? (e.manualUrl ? 1 : 0);
     const manBuckets = groupManualBuckets(
       [...mainOnly, ...[...manualPass.keys()].map((id) => this.entriesById().get(id))]
         .filter((e): e is Entry => !!e && wantManual.has(e.id) && nDocs(e) > 0),
-      (e) => infoDirFor(this.key(e.file)),
+      (e) => this.key(e.file),
       nDocs,
     );
     const manOwner = new Set(manBuckets.map((b) => b.owner.id));
@@ -5798,7 +5805,7 @@ export class LibraryStore {
     const shareManMark = (ownerId: string): void => {
       const g = this.entriesById().get(ownerId); if (!g) return;
       const digest = syncTokensFromMatch(g).sync_man;
-      for (const s of manSiblings.get(infoDirFor(this.key(g.file))) ?? []) {
+      for (const s of manSiblings.get(gameInfoKeyOf(this.key(g.file))) ?? []) {
         if (s.id !== ownerId && syncTokensFromMatch(s).sync_man === digest) markWrote(s.id, 'man');
       }
     };

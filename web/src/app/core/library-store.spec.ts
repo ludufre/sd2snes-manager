@@ -644,7 +644,7 @@ describe('planManualSlots — slot addressing by DOCUMENT, not by bytes', () => 
 });
 
 describe('groupManualBuckets', () => {
-  const bucketOf = (e: { stem: string }) => e.stem;
+  const bucketOf = (e: { stem: string }) => ({ stem: e.stem, ns: '' as const, mode: 'namespaces' as const });
   const docsOf = (e: { docs: number }) => e.docs;
   const mk = (id: string, stem: string, docs: number) => ({ id, stem, docs });
 
@@ -667,6 +667,31 @@ describe('groupManualBuckets', () => {
     const g = groupManualBuckets([mk('a', 'Zelda', 5), mk('b', 'Metroid', 5)], bucketOf, docsOf);
     expect(g.length).toBe(2);
     expect(new Set(g.map((x) => x.owner.id))).toEqual(new Set(['a', 'b']));
+  });
+
+  it('keeps two games of the SAME bucket directory independent — every one of them gets an owner', () => {
+    // The card that kept "Guias/Manuais" at "Completar" after every run: 37 games in `info/SU` missing
+    // their extras. Grouped by directory they were one group, only Super Mario World (the most
+    // documents) installed, and each run advanced one game per two-letter bucket.
+    const su = [mk('smw', 'Super Mario World (USA)', 4), mk('smk', 'Super Mario Kart (USA)', 3), mk('sb', 'Super Bomberman (USA)', 2)];
+    const g = groupManualBuckets(su, bucketOf, docsOf);
+    expect(g.length).toBe(3);
+    expect(new Set(g.map((x) => x.owner.id))).toEqual(new Set(['smw', 'smk', 'sb']));
+  });
+
+  it('still folds case, the card cannot hold two stems differing only in case', () => {
+    const g = groupManualBuckets([mk('a', 'Zelda (USA)', 2), mk('b', 'ZELDA (USA)', 2)], bucketOf, docsOf);
+    expect(g.length).toBe(1);
+  });
+
+  it('keeps a namespace apart from the SNES bucket of the same stem', () => {
+    const nes = { ...mk('n', 'Tetris (USA)', 2), ns: 'nes' as const };
+    const g = groupManualBuckets(
+      [mk('s', 'Tetris (USA)', 2), nes],
+      (e: { stem: string; ns?: 'nes' }) => ({ stem: e.stem, ns: e.ns ?? '', mode: 'namespaces' as const }),
+      docsOf,
+    );
+    expect(g.length).toBe(2);
   });
 
   it('prefers the FULLEST document set — the shared files should end up as complete as possible', () => {

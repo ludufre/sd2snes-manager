@@ -5,6 +5,17 @@ Every released version, newest first.
 Some releases were published together and reach the repository as a single commit. When that
 happens, the entry says which versions it covers.
 
+## 1.33.3 - 2026-09-18
+
+### Fixed
+
+- **Auto-fill installs every game's extra manuals in one run.** Games with more than one document
+  (a map, a guide or an insert besides the manual) got only one game per card folder completed per
+  run: the Manager treated every game whose files share a folder, such as all the "Super..." titles,
+  as copies of one another and installed the extra documents for just one of them. A full card kept
+  offering "Complete" for Guides/Manuals after every fill, with a few more games done each time. One run
+  now completes all of them.
+
 ## 1.33.2 - 2026-09-14
 
 ### Fixed
