@@ -78,3 +78,61 @@ describe('fetchPackage / fetchInflate retry loop', () => {
     await expect(fetchInflate('https://cdn/x.man.zst')).rejects.toThrow(/^fetch 403 Forbidden$/);
   });
 });
+
+/** A valid zstd frame holding `raw` as one raw block (single segment, 1-byte content size, no
+ *  checksum). fzstd only inflates, and this is all a test of the fetch loop needs. */
+function zstdRaw(raw: Uint8Array): Uint8Array {
+  const n = raw.length; // ≤ 255: the 1-byte Frame_Content_Size
+  const bh = 1 | (n << 3); // Last_Block, Raw_Block, Block_Size
+  return new Uint8Array([0x28, 0xb5, 0x2f, 0xfd, 0x20, n, bh & 0xff, (bh >> 8) & 0xff, (bh >> 16) & 0xff, ...raw]);
+}
+async function hex(b: Uint8Array): Promise<string> {
+  return [...new Uint8Array(await crypto.subtle.digest('SHA-256', b as BufferSource))].map((x) => x.toString(16).padStart(2, '0')).join('');
+}
+
+describe('fetchInflate with a published sha256 — a re-encoded manual stuck in the browser cache', () => {
+  const OLD = new TextEncoder().encode('manual, the encode before the GameDB rebuilt it');
+  const NEW = new TextEncoder().encode('manual, the encode the GameDB publishes today');
+
+  /** Answer each request with the next body in `bodies` (the last one repeats), recording the cache mode. */
+  function stubSeq(bodies: Uint8Array[]) {
+    const modes: Array<RequestCache | undefined> = [];
+    globalThis.fetch = ((_url: string, init?: RequestInit) => {
+      modes.push(init?.cache);
+      const b = bodies[Math.min(modes.length - 1, bodies.length - 1)];
+      return Promise.resolve(new Response(zstdRaw(b) as BodyInit, { status: 200 }));
+    }) as typeof fetch;
+    return modes;
+  }
+
+  it('asks ONCE, through the normal cache, when the bytes are the published ones', async () => {
+    const modes = stubSeq([NEW]);
+    expect([...await fetchInflate('https://cdn/m.man.zst', await hex(NEW))]).toEqual([...NEW]);
+    expect(modes).toEqual([undefined]);
+  });
+
+  it('refetches PAST the cache when the first answer is the old encode, and returns the new one', async () => {
+    // The card that kept "Guias/Manuais" at "Completar": the same url, `immutable`, answered from the
+    // HTTP cache with the pre-re-encode document. Written as-is it never matched the published hash.
+    const modes = stubSeq([OLD, NEW]);
+    expect([...await fetchInflate('https://cdn/m.man.zst', await hex(NEW))]).toEqual([...NEW]);
+    expect(modes).toEqual([undefined, 'reload']);
+  });
+
+  it('never hands back bytes it could not prove, a mismatch that survives the reload is an error', async () => {
+    const modes = stubSeq([OLD]);
+    await expect(fetchInflate('https://cdn/m.man.zst', await hex(NEW))).rejects.toThrow(/^checksum mismatch/);
+    expect(modes).toEqual([undefined, 'reload']);
+  });
+
+  it('accepts the hash in upper case too', async () => {
+    stubSeq([NEW]);
+    expect([...await fetchInflate('https://cdn/m.man.zst', (await hex(NEW)).toUpperCase())]).toEqual([...NEW]);
+  });
+
+  it('revalidates when there is no hash to prove the bytes with', async () => {
+    const modes = stubSeq([NEW]);
+    expect([...await fetchInflate('https://cdn/a.pcm.zst')]).toEqual([...NEW]);
+    expect(modes).toEqual(['no-cache']);
+  });
+});

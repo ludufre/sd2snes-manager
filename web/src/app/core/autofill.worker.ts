@@ -85,7 +85,7 @@ async function readAll(res: Response, seen: () => void): Promise<Uint8Array> {
  *  The watchdog runs as a 1s tick rather than a re-armed timeout because it has a second job: noticing
  *  `cancelled`. Without that, a "Parar" mid-transfer would let the request run to completion and then
  *  sleep the backoff and fire a whole second request before anyone looked at the flag again. */
-async function fetchBytes(url: string, label: string): Promise<Uint8Array> {
+async function fetchBytes(url: string, label: string, cache?: RequestCache): Promise<Uint8Array> {
   let last: unknown;
   for (let attempt = 0; attempt < FETCH_ATTEMPTS; attempt++) {
     if (attempt) await new Promise((r) => setTimeout(r, FETCH_BACKOFF_MS));
@@ -104,7 +104,7 @@ async function fetchBytes(url: string, label: string): Promise<Uint8Array> {
     try {
       // no-referrer for the same reason as lib/gd.js fetchBytes: Cloudflare hotlink protection 403s a
       // cross-origin Referer. It only bites images today, but a fetch that sends no Referer never can.
-      const res = await fetch(url, { credentials: 'omit', referrerPolicy: 'no-referrer', signal: ctl.signal });
+      const res = await fetch(url, { credentials: 'omit', referrerPolicy: 'no-referrer', signal: ctl.signal, ...(cache ? { cache } : {}) });
       if (res.ok) return await readAll(res, () => { idle = 0; });
       status = res.status;
       last = new Error(`${label} ${res.status}`);
@@ -127,9 +127,23 @@ async function fetchPackage(url: string): Promise<{ members: Record<string, Uint
   const raw = decompress(await fetchBytes(url, 'package fetch'));
   return { members: decodePackage(raw), bytes: raw.byteLength };
 }
-/** Fetch a zstd-compressed object (`.man.zst`, separated `.pcm.zst`) → inflated raw bytes. */
-async function fetchInflate(url: string): Promise<Uint8Array> {
-  return decompress(await fetchBytes(url, 'fetch'));
+/** Fetch a zstd-compressed object (`.man.zst`, separated `.pcm.zst`) → inflated raw bytes, proven
+ *  against `sha256` when the GameDB published one. Mirror of lib/package.js fetchInflate, which says
+ *  why: a re-encoded manual keeps its url, and the browser's HTTP cache (`immutable`, one year) keeps
+ *  handing back the old document. A mismatch is retried once past the cache; a second one throws. */
+async function fetchInflate(url: string, sha256: string | null = null): Promise<Uint8Array> {
+  if (!sha256) return decompress(await fetchBytes(url, 'fetch', 'no-cache'));
+  const want = sha256.toLowerCase();
+  const raw = decompress(await fetchBytes(url, 'fetch'));
+  if ((await sha256Hex(raw)) === want) return raw;
+  const fresh = decompress(await fetchBytes(url, 'fetch', 'reload'));
+  const got = await sha256Hex(fresh);
+  if (got === want) return fresh;
+  throw new Error(`checksum mismatch: got ${got.slice(0, 16)}, expected ${want.slice(0, 16)}`);
+}
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const h = await crypto.subtle.digest('SHA-256', bytes as BufferSource);
+  return [...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 /* ---- card writer (port of CardWriter: size-gated concurrency + retry + unwritable latch) ---- */
@@ -221,6 +235,7 @@ interface Job {
   packageUrl: string | null; // null when this game has no .s2pkg (still a valid job if manualUrl is set)
   fallbackPackageUrl?: string | null; // base .s2pkg to retry when packageUrl is the legacy no-audio variant and 404s (rows can outlive their object, it happened to all 4.5k variants in 2026-08)
   manualUrl?: string | null; // official GameDB manual (`.man.zst`, zstd), a direct fetch, inflated here, not a package member
+  manualSha?: string | null; // the raw `.man` sha256 the GameDB publishes for manualUrl; the download is proven against it
   pcmUrl?: string | null; // separated audio (`.pcm.zst`, zstd) for new audio-less packages; null when the .s2pkg embeds the .pcm
   file: string; // the ROM's filename with its extension: the extension decides the sgb/ namespace
   mode: LayoutMode; // which layout to write -- the card's firmware decides, not this app's version
@@ -293,7 +308,7 @@ async function fetchJob(job: Job): Promise<Ready> {
   // Official manual: a direct fetch, never a package member, a manual-only job (packageUrl null) is a
   // perfectly valid job and gets here regardless.
   if (job.manualUrl) {
-    try { r.man = await fetchInflate(job.manualUrl); r.bytes += r.man.byteLength; } catch (e) { r.manErr = errText(e); }
+    try { r.man = await fetchInflate(job.manualUrl, job.manualSha ?? null); r.bytes += r.man.byteLength; } catch (e) { r.manErr = errText(e); }
   }
   return r;
 }

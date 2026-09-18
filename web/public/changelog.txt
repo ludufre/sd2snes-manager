@@ -5,6 +5,22 @@ Every released version, newest first.
 Some releases were published together and reach the repository as a single commit. When that
 happens, the entry says which versions it covers.
 
+## 1.33.4 - 2026-09-18
+
+### Fixed
+
+- **Manuals the GameDB rebuilt are downloaded again instead of coming back from the browser cache.**
+  A manual keeps its address when the GameDB re-encodes it, and the browser kept handing back the copy
+  it had saved before. That older copy went to the card, never matched the published one, and the
+  next fill wrote it again. Every manual is now checked against the GameDB's fingerprint before it is
+  written: a mismatch is downloaded again past the cache, and one that still does not match is
+  reported instead of written. A card that already received old copies still records them as up to
+  date; running Replace on Guides/Manuals once writes every manual again, checked this time.
+- **A game with copies in more than one folder no longer keeps asking for its manuals.** The copies
+  share one set of manual files. After a fill installed them, only one copy saw it, the others kept
+  counting as missing until the card was opened again, and the next fill went over the same games.
+  Their shared game info file also lost its record of which document sits in each slot.
+
 ## 1.33.3 - 2026-09-18
 
 ### Fixed

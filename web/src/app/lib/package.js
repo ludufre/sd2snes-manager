@@ -92,7 +92,7 @@ async function readAll(res, seen) {
  * without a reply, and one such call holds a slot of the main-thread fill pool forever, progress bar
  * and all, with no error and no way out but a reload.
  */
-async function fetchBytes(url, label) {
+async function fetchBytes(url, label, cache) {
   let last;
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     if (attempt) await new Promise((r) => setTimeout(r, BACKOFF_MS));
@@ -109,7 +109,7 @@ async function fetchBytes(url, label) {
       // `no-referrer`: the CDN sits behind Cloudflare hotlink protection, which 403s a cross-origin
       // Referer. It only bites images today (see lib/gd.js), but a fetch that sends no Referer at all
       // never can, and these run from localhost/staging as much as from the app's own domain.
-      const res = await fetch(url, { credentials: 'omit', referrerPolicy: 'no-referrer', signal: ctl.signal });
+      const res = await fetch(url, { credentials: 'omit', referrerPolicy: 'no-referrer', signal: ctl.signal, ...(cache ? { cache } : {}) });
       if (res.ok) return await readAll(res, arm);
       status = res.status;
       last = new Error(`${label} ${res.status} ${res.statusText}`);
@@ -130,7 +130,39 @@ export async function fetchPackage(url) {
   return decodePackage(decompress(await fetchBytes(url, 'package fetch')));
 }
 
-/** Fetch a zstd-compressed object (a `.man.zst` or a separated `.pcm.zst`) → inflated raw bytes. */
-export async function fetchInflate(url) {
-  return decompress(await fetchBytes(url, 'fetch'));
+/**
+ * Fetch a zstd-compressed object (a `.man.zst` or a separated `.pcm.zst`) → inflated raw bytes.
+ *
+ * With `sha256` (the raw `.man` hash the GameDB publishes) the bytes are proven before anyone writes
+ * them. The CDN serves every asset `immutable` for a year, yet a GameDB re-encode rewrites a manual
+ * under the SAME url, so a browser that fetched it before the re-encode keeps answering with the old
+ * document from its HTTP cache, forever. Written as-is, that copy never matches the published hash:
+ * the slot planner reads it as "not installed", rewrites it on every run, gets the same stale bytes
+ * back, and the Guias/Manuais row never stops offering "Completar". A mismatch is therefore retried
+ * once past the cache (`reload`), and one that survives that is an error, never a silent write.
+ *
+ * Without a hash there is nothing to prove, so the request revalidates (`no-cache`): a 304 when the
+ * object is unchanged, the new bytes when it is not.
+ *
+ * @param {string} url
+ * @param {string | null} [sha256]
+ * @returns {Promise<Uint8Array>}
+ */
+export async function fetchInflate(url, sha256 = null) {
+  if (!sha256) return decompress(await fetchBytes(url, 'fetch', 'no-cache'));
+  const want = String(sha256).toLowerCase();
+  const raw = decompress(await fetchBytes(url, 'fetch'));
+  if ((await sha256Hex(raw)) === want) return raw;
+  const fresh = decompress(await fetchBytes(url, 'fetch', 'reload'));
+  const got = await sha256Hex(fresh);
+  if (got === want) return fresh;
+  throw new Error(`checksum mismatch: got ${got.slice(0, 16)}, expected ${want.slice(0, 16)}`);
+}
+
+/** Lowercase hex SHA-256 of `bytes`, the form the GameDB publishes (`manSha256`).
+ *  @param {Uint8Array} bytes
+ *  @returns {Promise<string>} */
+export async function sha256Hex(bytes) {
+  const h = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }

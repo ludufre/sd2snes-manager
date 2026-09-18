@@ -279,6 +279,7 @@ interface AutofillJob {
   packageUrl: string | null;
   fallbackPackageUrl: string | null; // base .s2pkg retried when packageUrl (legacy no-audio variant) 404s
   manualUrl: string | null;
+  manualSha: string | null; // GameDB raw `.man` sha256 of manualUrl; the worker proves the download against it
   pcmUrl: string | null; // separated audio (`.pcm.zst`) for new audio-less packages; null when embedded/legacy
   file: string; // ROM filename with its extension: the extension decides the sgb/ namespace
   mode: LayoutMode; // which layout to write (the card's firmware decides)
@@ -4608,8 +4609,11 @@ export class LibraryStore {
       for (const d of plan.drops) if (d.after === null) await sweep(d.slot, d.reason);
       // `.man` is served zstd-compressed → inflate to the raw `.man`. The dedup hash is over the raw
       // bytes, which matches the GameDB's `sha256` (the raw `.man` sha) so re-runs skip identical ones.
-      const put = async (m: { manualUrl?: string | null }, slot: number): Promise<void> => {
-        const bytes = await fetchInflate(cdnUrl(m.manualUrl!) ?? m.manualUrl!);
+      // Proven against the published hash before it is written (see fetchInflate): a stale copy from the
+      // browser cache would otherwise be written, fail the planner's hash check next run, and be
+      // rewritten with the same stale bytes on every run after that.
+      const put = async (m: { manualUrl?: string | null; sha256?: string | null }, slot: number): Promise<void> => {
+        const bytes = await fetchInflate(cdnUrl(m.manualUrl!) ?? m.manualUrl!, m.sha256 ?? null);
         const name = guideFileName(stem, slot);
         await this.card.write(dir, name, bytes);
         void this.manDirNames?.get(dirPath)?.then((s) => s.add(name.toLowerCase())); // keep the shared listing true
@@ -5621,6 +5625,8 @@ export class LibraryStore {
       // the primary manual (region-first: g.manuals[0]) → slot 0. Additional manuals are installed by a
       // post-worker installManuals pass (which dedups this slot-0 write). Falls back to the deprecated scalar.
       const primaryManUrl = g.manuals?.[0]?.manualUrl ?? g.manualUrl ?? null;
+      // The hash only belongs to that url when it came from manuals[0]; the deprecated scalar has none.
+      const primaryManSha = g.manuals?.[0]?.manualUrl ? g.manuals[0].sha256 ?? null : null;
       /* ...but only when slot 0 is actually part of the work. The category is now "needed" whenever any
          of the served documents is missing (servedManualCount), so under 'complete' a game that only
          lacks its extras would otherwise re-download and rewrite a primary that is already on the
@@ -5628,6 +5634,7 @@ export class LibraryStore {
          that is the same `force` the extras pass runs with. */
       const wantSlot0 = nManual && (g.manual !== 'has' || plan.manual === 'update' || plan.manual === 'replace');
       const manualUrl = wantSlot0 && primaryManUrl ? (cdnUrl(primaryManUrl) ?? primaryManUrl) : null;
+      const manualSha = manualUrl ? primaryManSha : null;
       /* Record the sweep scope before the mainOnly branch below: a game that falls back to the main
          thread writes to the very same directories, so both paths must be covered. The ROM's own
          folder is the important one, the `.cov` that lands next to the ROM is what makes macOS
@@ -5646,7 +5653,7 @@ export class LibraryStore {
       if ((!url || !pkgWork) && !manualUrl) { mainOnly.push(g); continue; }
       if (nManual && (g.manuals?.length ?? 0) > 1) needManual(g.id, false); // worker writes primary; extras below
       jobs.push({
-        id: g.id, packageUrl: url, fallbackPackageUrl: fallbackPkgUrl, manualUrl, pcmUrl, file: g.file, mode: this.layoutMode(), stem: stemOf(g.file), folder: g.folder,
+        id: g.id, packageUrl: url, fallbackPackageUrl: fallbackPkgUrl, manualUrl, manualSha, pcmUrl, file: g.file, mode: this.layoutMode(), stem: stemOf(g.file), folder: g.folder,
         want: { cov: wantCov, gcv: wantGcv, gss: nTela, fmv: nPrevia, pcm: wantPcm },
         cheatsText: nCheats && g.dbCheats?.length ? this.cheats.serialize(g.dbCheats, shortTitle(g)) : null,
         // The game info file replaces what is on the card, so its `fmv:` flag has to cover everything that flag
@@ -5802,6 +5809,28 @@ export class LibraryStore {
        by them, so its token advances too. Otherwise it would read stale on every future run and offer
        work that is already done. A sibling wanting a different set gets no token: the card physically
        cannot hold both, and claiming otherwise would be a lie in the game info file. */
+    /* The files themselves are shared by every copy of the stem, so what the owner's install left on the
+       card is what every sibling now holds, whatever documents the sibling itself would have served.
+       installManuals patches only the owner's entry. Left like that, a sibling kept its pre-run
+       `guides` (slot 0 alone) and read as "missing" for the rest of the session: the dialog kept
+       offering Completar, and that run rewrote the owner's slot 0 again. Worse, persistSyncTokens then
+       rewrote the SHARED `<stem>.yml` from the sibling's stale map, which is how `man_slots` vanished
+       from cards whose games live in two folders (`_CONTROL`, a 4-player folder...). Immediate update,
+       not queued: the token pass reads these entries right after the manual passes. Every copy of the
+       stem, not only the ones in this run's groups: one that had nothing to fill here still rewrites
+       the shared file when another category of it lands. */
+    const copiesByStem = new Map<string, string[]>();
+    for (const e of this._entries()) {
+      const k = gameInfoKeyOf(this.key(e.file));
+      const l = copiesByStem.get(k);
+      if (l) l.push(e.id); else copiesByStem.set(k, [e.id]);
+    }
+    const shareManState = (ownerId: string): void => {
+      const o = this.entriesById().get(ownerId); if (!o) return;
+      for (const id of copiesByStem.get(gameInfoKeyOf(this.key(o.file))) ?? []) {
+        if (id !== ownerId) this.update(id, { manual: o.manual, guides: o.guides, manSlots: o.manSlots });
+      }
+    };
     const shareManMark = (ownerId: string): void => {
       const g = this.entriesById().get(ownerId); if (!g) return;
       const digest = syncTokensFromMatch(g).sync_man;
@@ -5868,6 +5897,7 @@ export class LibraryStore {
         // they would have written (see manOwner above), and racing it is what filled the card.
         if (nManual && manOwner.has(g.id)) {
           const r = await this.installManuals(cur(g), { quiet: true, force: plan.manual !== 'complete', deferMap: true });
+          shareManState(g.id);
           /* Nothing written is not nothing done. A game whose documents are already all on the card in
              the right slots writes no bytes and fails nothing. The card holds the full set, which is
              exactly what `sync_man` records. Stamping only when bytes moved left every such game
@@ -5921,6 +5951,7 @@ export class LibraryStore {
       await pool(pending, AUTOFILL_CONCURRENCY, async ({ g, info }) => {
         if (this.cancelImport || this.card.unwritable || !manOwner.has(g.id)) return;
         const r = await this.installManuals(cur(g), { quiet: true, force: plan.manual !== 'complete', deferMap: true });
+        shareManState(g.id);
         // `manuals` counts games, not files, a game the worker already counted (its slot 0 landed) is
         // not counted twice for its extras. That used to be spelled `info.retry`, which silently
         // stopped being the same thing once slot 0 can be skipped for a game that only lacks extras:
