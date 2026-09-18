@@ -52,12 +52,17 @@ class FakeDir {
     }
     return d;
   }
+  sizes = new Map<string, number>();
   async getFileHandle(name: string): Promise<unknown> {
     return {
-      createWritable: async () => ({
-        write: async () => {},
-        close: async () => { closes.push(name); await writeHook(name); },
-      }),
+      createWritable: async () => {
+        let sent = 0;
+        return {
+          write: async (d: Uint8Array) => { sent += d.byteLength; },
+          close: async () => { closes.push(name); await writeHook(name); this.sizes.set(name, sent); },
+        };
+      },
+      getFile: async () => ({ size: this.sizes.get(name) ?? 0 }),
     };
   }
 }

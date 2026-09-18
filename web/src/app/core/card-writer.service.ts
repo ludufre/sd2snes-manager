@@ -38,6 +38,20 @@ async function removeTree(parent: FileSystemDirectoryHandle, name: string): Prom
 }
 
 /**
+ * Prove a write reached the card: after `close()` the file must hold exactly the bytes that were sent.
+ *
+ * `close()` resolving is not that proof. On a FAT/exFAT card under macOS a manual was once left at
+ * 0 bytes by a write that reported success, and everything downstream believed it: the manual pass
+ * counted it installed, `sync_man` was stamped, and no later run ever looked at that game again.
+ * Thrown as InvalidStateError so withRetry treats it like any other transient card failure (retry
+ * with backoff, then the card-wide streak), never as a silent success. One metadata read per file.
+ */
+export async function assertLanded(fh: FileSystemFileHandle, name: string, expected: number): Promise<void> {
+  const size = (await fh.getFile()).size;
+  if (size !== expected) throw new DOMException(`short write: ${name} holds ${size} of ${expected} bytes`, 'InvalidStateError');
+}
+
+/**
  * Writes/deletes/moves files on the card via the File System Access API. The
  * picker was opened in 'readwrite' mode, so these need no extra permission
  * prompt. Overwrite is implicit, createWritable truncates an existing file.
@@ -153,6 +167,7 @@ export class CardWriter {
     opts?: { isolated?: boolean },
   ): Promise<boolean> {
     const bytes = typeof data === 'string' ? data.length : data.byteLength;
+    const expected = typeof data === 'string' ? new TextEncoder().encode(data).byteLength : data.byteLength; // a string lands as UTF-8
     const gate = bytes >= CardWriter.LARGE_BYTES ? this.semLarge : this.semSmall;
     try {
       await gate(() => this.withRetry(async () => {
@@ -162,6 +177,7 @@ export class CardWriter {
         // narrow to BufferSource<ArrayBuffer>; the value is a valid write chunk.
         await w.write(data as FileSystemWriteChunkType);
         await w.close();
+        await assertLanded(fh, name, expected);
         this.writtenBytes += bytes; // count only fully-written files
       }, opts?.isolated));
       return true;

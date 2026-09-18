@@ -5,6 +5,15 @@ Every released version, newest first.
 Some releases were published together and reach the repository as a single commit. When that
 happens, the entry says which versions it covers.
 
+## 1.33.5 - 2026-09-18
+
+### Fixed
+
+- **A file the card did not fully take is no longer counted as written.** Every file is now checked
+  for its full size right after it is saved, and a short one is written again. A manual once ended up
+  empty on the card while the fill reported it installed, and no later fill would look at that game
+  again.
+
 ## 1.33.4 - 2026-09-18
 
 ### Fixed

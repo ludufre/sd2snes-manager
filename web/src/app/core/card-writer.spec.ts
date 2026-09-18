@@ -21,13 +21,24 @@ const failing = (name = 'QuotaExceededError'): FileSystemDirectoryHandle => ({
   removeEntry: async () => { throw new DOMException('nope', name); },
 } as unknown as FileSystemDirectoryHandle);
 
-/** A directory handle that accepts everything. */
-const working = (): FileSystemDirectoryHandle => ({
-  getFileHandle: async () => ({
-    createWritable: async () => ({ write: async () => undefined, close: async () => undefined }),
-  }),
-  removeEntry: async () => undefined,
-} as unknown as FileSystemDirectoryHandle);
+/** A directory handle that accepts everything. `lands(sent, attempt)` is how many bytes the card
+ *  ends up holding after a close() (default: all of them). */
+const working = (lands: (sent: number, attempt: number) => number = (n) => n): FileSystemDirectoryHandle => {
+  let attempt = 0, size = 0;
+  return {
+    getFileHandle: async () => ({
+      createWritable: async () => {
+        let sent = 0;
+        return {
+          write: async (d: Uint8Array | string) => { sent += typeof d === 'string' ? new TextEncoder().encode(d).byteLength : d.byteLength; },
+          close: async () => { size = lands(sent, attempt++); },
+        };
+      },
+      getFile: async () => ({ size }),
+    }),
+    removeEntry: async () => undefined,
+  } as unknown as FileSystemDirectoryHandle;
+};
 
 const bytes = new Uint8Array(8);
 /** Drive one failed write, swallowing whatever it throws. */
@@ -77,6 +88,25 @@ describe('CardWriter — the unwritable latch and what resets its streak', () =>
     expect(cw.unwritable).toBe(false);
     expect(cw.lastError).toBe('');
     expect(await cw.write(working(), 'ok.yml', 'hello')).toBe(true);
+  });
+
+  it('does NOT report a write that left the file short as a success, it retries', async () => {
+    // The card that had one manual at 0 bytes, recorded installed: close() resolved, nothing landed.
+    const cw = new CardWriter();
+    expect(await cw.write(working((n, a) => (a === 0 ? 0 : n)), 'Goal! (USA).man', new Uint8Array(64))).toBe(true);
+    expect(cw.writtenBytes).toBe(64); // counted once, for the attempt that actually landed
+  });
+
+  it('throws when every attempt comes back short, and that counts toward the latch', async () => {
+    const cw = new CardWriter();
+    await expect(cw.write(working(() => 0), 'x.man', new Uint8Array(64))).rejects.toThrow(/short write/);
+    expect(cw.writtenBytes).toBe(0);
+    expect(cw.lastError).toContain('short write');
+  });
+
+  it('measures a string by its UTF-8 bytes, not its length (a `.yml` with accents is not short)', async () => {
+    const cw = new CardWriter();
+    expect(await cw.write(working(), 'a.yml', 'title: "Pokémon"\n')).toBe(true);
   });
 
   it('counts only fully-written bytes', async () => {

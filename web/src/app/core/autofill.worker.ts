@@ -194,6 +194,10 @@ async function writeFile(dir: FileSystemDirectoryHandle, name: string, data: Uin
       const w = await fh.createWritable();
       await w.write(data as FileSystemWriteChunkType);
       await w.close();
+      // close() resolving is not proof the bytes landed (see assertLanded in card-writer.service.ts,
+      // not imported: it would drag Angular into the worker bundle). A short file retries.
+      const size = (await fh.getFile()).size;
+      if (size !== data.byteLength) throw new DOMException(`short write: ${name} holds ${size} of ${data.byteLength} bytes`, 'InvalidStateError');
       writtenBytes += data.byteLength;
     }, name, isolated));
     return true;
