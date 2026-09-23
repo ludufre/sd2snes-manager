@@ -40,6 +40,16 @@ import { Icon } from '../../../ui/icon/icon';
           </div>
         </div>
 
+        <!-- Live progress INSIDE the modal: the bulk bar behind it is dimmed by the scrim, so
+             without this the dialog looks idle while the zip downloads and the files are written. -->
+        @if (lib.firmwareRunning() && lib.bulk(); as b) {
+          <div class="run" role="progressbar" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="b.total ? pct(b.done, b.total) : null">
+            <span class="lbl">{{ b.label }}</span>
+            <div class="bar" [class.indet]="!b.total"><i [style.width.%]="b.total ? pct(b.done, b.total) : 40"></i></div>
+            @if (b.total) { <span class="cnt">{{ b.done }} / {{ b.total }}</span> }
+          </div>
+        }
+
         @if (sel(); as r) {
           <div class="fwfoot">
             <span class="dest"><app-icon name="folder" [size]="13" /> → {{ lib.rootName() }}/sd2snes</span>
@@ -94,6 +104,14 @@ import { Icon } from '../../../ui/icon/icon';
     }
     .ritem .rmeta { font-family: var(--mono); font-size: 10.5px; color: var(--tx-low); }
     .rnotes { flex: 1; min-width: 0; overflow: auto; padding: 16px 20px; }
+
+    .run { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-top: 1px solid var(--line); }
+    .run .lbl { font-size: 11.5px; color: var(--tx-mid); font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .run .cnt { font-size: 11.5px; color: var(--tx-low); font-family: var(--mono); white-space: nowrap; }
+    .run .bar { flex: 1; min-width: 60px; height: 6px; background: var(--elevated); border-radius: 99px; overflow: hidden; }
+    .run .bar > i { display: block; height: 100%; background: var(--accent); border-radius: 99px; transition: width 0.25s; }
+    .run .bar.indet > i { transition: none; animation: indet 1.15s ease-in-out infinite; }
+    @keyframes indet { 0% { transform: translateX(-110%); } 100% { transform: translateX(360%); } }
 
     .fwfoot { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--panel-2); }
     .fwfoot .dest { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; color: var(--tx-mid); }
@@ -150,6 +168,11 @@ export class FirmwareDialog {
 
   protected async install(a: FwAsset, label: string): Promise<void> {
     await this.lib.installFirmware(a.id, label);
+  }
+
+  /** Progress as a rounded 0..100, for the bar width and aria-valuenow. */
+  protected pct(done: number, total: number): number {
+    return total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
   }
 
   protected kb(n: number): string {

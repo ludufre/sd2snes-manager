@@ -1,6 +1,6 @@
 {
   "name": "sd2snes-plus-manager",
-  "version": "1.33.5",
+  "version": "1.33.6",
   "license": "GPL-2.0-only",
   "scripts": {
     "ng": "ng",

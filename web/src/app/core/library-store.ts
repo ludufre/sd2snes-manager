@@ -1102,6 +1102,11 @@ export class LibraryStore {
    *  it (the progress is on the bulk bar behind the modal). */
   private readonly _migrateRunning = signal(false);
   readonly migrateRunning = this._migrateRunning.asReadonly();
+  /** True while installFirmware() runs, so the firmware dialog knows the bulk in progress is its
+   *  own and can show it in place (the bulk bar sits behind the scrim). In the store for the same
+   *  reason as the flag above: closing and reopening the dialog mid-install must still show it. */
+  private readonly _firmwareRunning = signal(false);
+  readonly firmwareRunning = this._firmwareRunning.asReadonly();
   /** Outcome of the last run, kept until the user dismisses it. Published here (rather than merely
    *  returned to the caller) so the result screen can be shown even when the dialog that started
    *  the run is long gone. */
@@ -2080,6 +2085,15 @@ export class LibraryStore {
       return;
     }
     if (this.bulkBusy()) return;
+    this._firmwareRunning.set(true);
+    try {
+      await this.runFirmwareInstall(this.rootHandle, assetId, label);
+    } finally {
+      this._firmwareRunning.set(false);
+    }
+  }
+
+  private async runFirmwareInstall(root: FileSystemDirectoryHandle, assetId: number, label: string): Promise<void> {
     this._bulk.set({ done: 0, total: 0, label: this.i18n.translate('store.downloadingFirmware') });
     let files: { path: string; data: Uint8Array }[];
     try {
@@ -2111,7 +2125,7 @@ export class LibraryStore {
         const slash = f.path.lastIndexOf('/');
         const dirPath = slash >= 0 ? f.path.slice(0, slash) : '';
         const base = slash >= 0 ? f.path.slice(slash + 1) : f.path;
-        const dir = dirPath ? await this.card.ensureDir(this.rootHandle, dirPath) : this.rootHandle;
+        const dir = dirPath ? await this.card.ensureDir(root, dirPath) : root;
         await this.card.write(dir, base, f.data);
         ok++;
       } catch (err) {

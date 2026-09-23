@@ -5,6 +5,15 @@ Every released version, newest first.
 Some releases were published together and reach the repository as a single commit. When that
 happens, the entry says which versions it covers.
 
+## 1.33.6 - 2026-09-23
+
+### Changed
+
+- **The firmware dialog shows the install progress.** Downloading and writing the firmware used to be
+  reported only on the bar at the top of the library, dimmed behind the open dialog, so the dialog
+  looked idle while the files went to the card. The dialog now shows the step, a progress bar and the
+  file count while it runs, and still shows them if it is closed and opened again mid-install.
+
 ## 1.33.5 - 2026-09-18
 
 ### Fixed
