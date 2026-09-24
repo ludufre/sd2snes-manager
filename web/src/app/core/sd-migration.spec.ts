@@ -308,6 +308,16 @@ describe('migration planner — sgb/ namespace', () => {
     expect(new Set(p.moves.map((m) => m.toPath))).toEqual(new Set(['sd2snes/saves/sgb/TE']));
   });
 
+  it('files a Game Boy Color save and its RTC (.gtc) under sgb/ too', async () => {
+    // The Mk.III runs a .gbc on its own Game Boy Color core, but the firmware keeps that core's
+    // sidecars in the SAME namespace as the Super Game Boy (path_ns() in fileops.c keys on the
+    // extension starting with "gb", not on the core), so the Mk.II and the Mk.III share one save.
+    root.put('sd2snes/saves', 'Pokemon Crystal.srm', 'Pokemon Crystal.gtc');
+    const p = await plan(['Pokemon Crystal.gbc']);
+    expect(p.moves).toHaveLength(2);
+    expect(new Set(p.moves.map((m) => m.toPath))).toEqual(new Set(['sd2snes/saves/sgb/PO']));
+  });
+
   it('matches case-insensitively, as FAT does', async () => {
     root.put('sd2snes/saves', 'TETRIS.srm');
     const p = await plan(['Tetris.gb']);

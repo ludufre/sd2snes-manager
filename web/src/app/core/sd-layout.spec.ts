@@ -143,6 +143,17 @@ describe('asset paths per namespace', () => {
     expect(savesDirFor(assetKeyOf('Tetris.gb', 'namespaces'))).toBe(`${SAVES_ROOT}/sgb/TE`);
   });
 
+  it('keeps .gbc in sgb/ on every layout that has it, like the firmware', () => {
+    // A .gbc boots the Game Boy Color core on the Mk.III and the SGB on the Mk.II, but its
+    // sidecars (.srm, .gtc, cover, cheats) stay in sgb/ either way -- path_ns() keys on the
+    // extension, and bucket_cli.c pins "Tetris.gbc" -> saves/sgb/TE on the firmware side.
+    expect(nsOf('Tetris.gbc')).toBe('sgb');
+    expect(nsOf('Tetris.GBC')).toBe('sgb');
+    expect(savesDirFor(assetKeyOf('Tetris.gbc', 'buckets'))).toBe(`${SAVES_ROOT}/sgb/TE`);
+    expect(savesDirFor(assetKeyOf('Tetris.gbc', 'namespaces'))).toBe(`${SAVES_ROOT}/sgb/TE`);
+    expect(savesDirFor(assetKeyOf('Tetris.GBC', 'namespaces'))).toBe(`${SAVES_ROOT}/sgb/TE`);
+  });
+
   it('matches the namespace extensions case-insensitively', () => {
     expect(savesDirFor(assetKeyOf('Tetris (USA).NES', 'namespaces'))).toBe(`${SAVES_ROOT}/nes/TE`);
     expect(savesDirFor(assetKeyOf('Sonic.SMS', 'namespaces'))).toBe(`${SAVES_ROOT}/sms/SO`);

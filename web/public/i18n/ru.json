@@ -834,7 +834,7 @@
       "russian": "Русский",
       "original": "Оригинальная",
       "fast": "Быстрая",
-      "contextOnly": "Только контекстное меню"
+      "contextOnly": "Только контекстное меню", "preferSgb": "Предпочитать SGB", "preferGbc": "Предпочитать GBC", "genlock": "Генлок", "exact": "Точно"
     },
     "settings": {
       "PairModeAllowed": "Разрешить парный режим SuperCIC",
@@ -860,7 +860,7 @@
       "SGBEnhOverride": "Отключить улучшения SGB",
       "SGBSprIncrease": "Больше спрайтов SGB на строку",
       "SGBClockFix": "Оригинальная тактовая частота SGB",
-      "SGBBiosVersion": "Версия BIOS SGB",
+      "SGBBiosVersion": "Версия BIOS SGB", "GbcMode": "Режим Game Boy Color (Mk.III)", "GbcSync": "Синхронизация Game Boy Color (Mk.III)",
       "EnableScreensaver": "Включить заставку",
       "SortDirectories": "Сортировать папки",
       "HideExtensions": "Скрывать расширения файлов",
