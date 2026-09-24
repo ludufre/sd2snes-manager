@@ -203,9 +203,9 @@ describe('man_slots — the slot→document map', () => {
 
 describe('localized descriptions (description_<lang>)', () => {
   it('mirrors the gamedb translation languages (English is the canonical `description`)', () => {
-    expect(DESC_LANGS).toEqual(['fr', 'pt', 'es', 'de', 'it']);
+    expect(DESC_LANGS).toEqual(['fr', 'pt', 'es', 'de', 'it', 'ru']);
     expect(DESC_LANGS).not.toContain('en');
-    expect(DESC_LANG_KEYS).toEqual(['description_fr', 'description_pt', 'description_es', 'description_de', 'description_it']);
+    expect(DESC_LANG_KEYS).toEqual(['description_fr', 'description_pt', 'description_es', 'description_de', 'description_it', 'description_ru']);
   });
 
   it('descLangFields keeps non-empty known languages and drops the rest', () => {

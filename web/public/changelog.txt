@@ -5,6 +5,18 @@ Every released version, newest first.
 Some releases were published together and reach the repository as a single commit. When that
 happens, the entry says which versions it covers.
 
+## 1.33.7 - 2026-09-24
+
+### Added
+
+- **Game descriptions in Russian reach the card.** The GameDB now has a Russian translation of every
+  description, and the Manager writes it to the game info file next to the other languages. The game
+  info editor has a Russian tab to change it. A console with the menu in Russian shows it once its
+  firmware reads the Russian description; an older firmware keeps showing the English text.
+- **Game Boy Color options in the config editor.** The Super Game Boy group now also sets how the
+  Mk.III runs a Game Boy Color game (automatic, prefer the Super Game Boy or prefer the Game Boy Color
+  core) and how that core syncs to the console (genlock or exact).
+
 ## 1.33.6 - 2026-09-23
 
 ### Changed

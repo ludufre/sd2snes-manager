@@ -22,16 +22,17 @@ interface GameInfo {
   description_de: string;
   description_fr: string;
   description_it: string;
+  description_ru: string;
 }
 const EMPTY: GameInfo = {
   title: '', developer: '', publisher: '', release_year: '', players: '', genre: '', special_chip: '',
-  description: '', description_pt: '', description_es: '', description_de: '', description_fr: '', description_it: '',
+  description: '', description_pt: '', description_es: '', description_de: '', description_fr: '', description_it: '', description_ru: '',
 };
 
 /** Description tabs: English first (it is the canonical text and every other language's fallback),
  *  then the translations. */
 type DescTab = 'en' | DescLang;
-const DESC_TABS: readonly DescTab[] = ['en', 'pt', 'es', 'de', 'fr', 'it'];
+const DESC_TABS: readonly DescTab[] = ['en', 'pt', 'es', 'de', 'fr', 'it', 'ru'];
 
 /** Which GameInfo field a tab edits. */
 function descField(tab: DescTab): keyof GameInfo {
@@ -167,6 +168,7 @@ export class InfoEditor {
       description_de: yml?.['description_de'] ?? g.descriptions?.de ?? '',
       description_fr: yml?.['description_fr'] ?? g.descriptions?.fr ?? '',
       description_it: yml?.['description_it'] ?? g.descriptions?.it ?? '',
+      description_ru: yml?.['description_ru'] ?? g.descriptions?.ru ?? '',
     };
   }
 
