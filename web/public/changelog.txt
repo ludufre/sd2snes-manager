@@ -5,6 +5,20 @@ Every released version, newest first.
 Some releases were published together and reach the repository as a single commit. When that
 happens, the entry says which versions it covers.
 
+## 1.33.8 - 2026-09-24
+
+### Fixed
+
+- **Updating game info or cheats no longer downloads the game's package.** Auto-fill fetched the
+  whole package of every game it touched, often over a megabyte with the preview clip, even when the
+  run only rewrote the game info file or the cheats. Neither comes from the package: both are written
+  from what the GameDB already returned when the game was identified. A run that only updates them
+  now downloads nothing, and the size estimate in the auto-fill dialog no longer counts those
+  packages.
+- **Cheat notes reach the card again.** The Game Genie equivalents and hints that follow a cheat in
+  the GameDB were only written when they came inside the package. The Manager now writes them from the
+  GameDB list as well, in the same format.
+
 ## 1.33.7 - 2026-09-24
 
 ### Added

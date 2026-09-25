@@ -97,6 +97,8 @@ export interface Cheat {
   name: string;
   on: boolean;
   codes?: string[];
+  /** Free-text annotation (Game Genie equivalents, hints), written as `#` lines after the entry. */
+  note?: string | null;
 }
 
 /** One on-card guide's header info (GuidesEditor list row; lib/man.js parseManHeader + file

@@ -238,7 +238,9 @@ export function resolveMatch(db, game, romRegion, romCrc) {
     pcmBytes,
     metaRev,
     cheatsAvailable: !!cheatBlock,
-    cheats: cheatBlock ? (cheatBlock.entries || []).map((e) => ({ name: e.name, on: !!e.enabled, codes: e.codes || [] })) : null,
+    // `note` rides along: auto-fill writes this list, not the package's cheats member, so a note dropped
+    // here is a Game Genie equivalent or hint missing from the card.
+    cheats: cheatBlock ? (cheatBlock.entries || []).map((e) => ({ name: e.name, on: !!e.enabled, codes: e.codes || [], note: e.note || null })) : null,
     roms: game.roms || [],
   };
 }

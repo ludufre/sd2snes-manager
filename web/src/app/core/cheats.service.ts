@@ -2,10 +2,11 @@ import { Injectable } from '@angular/core';
 import type { Cheat } from './models';
 
 /**
- * Cheats now come only from the GameDB, either the per-CRC `.s2pkg` bundle's `cheats` member or the
- * catalog reserved from the CRC lookup (Entry.dbCheats). This service no longer fetches the legacy
- * site `/cheats/<CRC>.yml`; it just PARSES/SERIALIZES the GameHacking YAML the firmware round-trips
- * (a sequence of { Name, Enabled, Code:[...] }), the same shape written to /sd2snes/cheats/.
+ * Cheats come only from the GameDB, the catalog reserved from the CRC lookup (Entry.dbCheats). The
+ * `.s2pkg` also carries a `cheats` member, but it is built from the same rows, so writing the catalog
+ * never needs the bundle downloaded. This service no longer fetches the legacy site `/cheats/<CRC>.yml`;
+ * it just PARSES/SERIALIZES the GameHacking YAML the firmware round-trips (a sequence of
+ * { Name, Enabled, Code:[...] }), the same shape written to /sd2snes/cheats/.
  */
 @Injectable({ providedIn: 'root' })
 export class CheatsService {
@@ -14,18 +15,21 @@ export class CheatsService {
     return parseCheatsYaml(text);
   }
 
-  /** Serialize a cheat list to the GameHacking YAML the firmware reads. */
+  /** Serialize a cheat list to the GameHacking YAML the firmware reads. Same rules as the GameDB's
+   *  buildCheatYml (the package member): the firmware's parser has no escapes, so `"` becomes `'` and
+   *  line breaks flatten to a space, and a note follows its entry as `#` lines. */
   serialize(cheats: Cheat[], comment?: string): string {
+    const scalar = (s: string): string => s.replace(/"/g, "'").replace(/[\r\n]+/g, ' ').trim();
     const out: string[] = ['---'];
-    if (comment) out.push('# ' + comment);
+    if (comment) out.push('# ' + scalar(comment));
     for (const c of cheats) {
-      const name = (c.name || '').replace(/"/g, "'").trim();
-      out.push(`- Name: "${name}"`);
+      out.push(`- Name: "${scalar(c.name || '')}"`);
       out.push(`  Enabled: ${c.on ? 'true' : 'false'}`);
       out.push('  Code:');
       for (const code of c.codes ?? []) {
-        if (code) out.push(`  - "${code.toUpperCase()}"`);
+        if (code) out.push(`  - "${scalar(code).toUpperCase()}"`);
       }
+      if (c.note) for (const n of c.note.split(/\r?\n/)) out.push(`# ${n}`);
     }
     return out.join('\n') + '\n';
   }

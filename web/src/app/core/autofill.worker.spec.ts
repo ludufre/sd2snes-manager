@@ -268,3 +268,48 @@ describe('download/write pipeline', () => {
     expect((posts.at(-1) as Msg)['writtenBytes']).toBe(5 * 64);
   });
 });
+
+describe('info and cheats', () => {
+  /** Every `<name>` a write landed under, anywhere in the card, with the bytes it closed with. */
+  function sizesOf(dir: FakeDir, name: string, out: number[] = []): number[] {
+    if (dir.sizes.has(name)) out.push(dir.sizes.get(name)!);
+    for (const c of dir.children.values()) sizesOf(c, name, out);
+    return out;
+  }
+
+  it('writes an info/cheats-only job without downloading anything', async () => {
+    // Neither file is a package member: the main thread bakes both texts from the lookup. A job that
+    // wants only them used to fetch the whole `.s2pkg` (up to megabytes with the clip) and ignore it.
+    const root = new FakeDir('');
+    const cheatsText = '---\n- Name: "x"\n  Enabled: false\n  Code:\n  - "7E0000:01"\n';
+    const infoYml = 'rom: "Game.sfc"\n';
+    await onmsg({ data: {
+      type: 'start', rootHandle: root,
+      jobs: [{
+        id: 'g', packageUrl: null, fallbackPackageUrl: null, manualUrl: null, pcmUrl: null,
+        file: 'Game.sfc', mode: 'buckets', stem: 'Game', folder: '',
+        want: { cov: false, gcv: false, gss: false, fmv: false, pcm: false },
+        cheatsText, infoYml,
+      }],
+      cfg: { games: WRITERS, smallMax: 6, largeMax: 2, largeBytes: 128 * 1024 },
+    } });
+
+    expect(fetched).toEqual([]);
+    const prog = posts.find((p) => p.type === 'progress') as Msg;
+    expect(prog['wrote']).toMatchObject({ info: true, cheats: true });
+    expect(Object.values(prog['missing'] as Record<string, boolean>).some(Boolean)).toBe(false);
+    expect(sizesOf(root, 'Game.yml').sort((a, b) => a - b)).toEqual([infoYml.length, cheatsText.length].sort((a, b) => a - b));
+  });
+
+  it('writes the cheats from the lookup text even when the package carries a cheats member', async () => {
+    served = makePkg({ gcv: new Uint8Array(64), cheats: new Uint8Array(999) });
+    const root = new FakeDir('');
+    const cheatsText = '---\n- Name: "x"\n  Enabled: false\n  Code:\n  - "7E0000:01"\n';
+    await onmsg({ data: {
+      type: 'start', rootHandle: root,
+      jobs: [{ ...(jobsOf(1)[0] as object), stem: 'Game', file: 'Game.sfc', cheatsText }],
+      cfg: { games: WRITERS, smallMax: 6, largeMax: 2, largeBytes: 128 * 1024 },
+    } });
+    expect(sizesOf(root, 'Game.yml')).toEqual([cheatsText.length]);
+  });
+});

@@ -286,7 +286,7 @@ interface AutofillJob {
   stem: string;
   folder: string; // ROM dir relative to the card root ('' = root)
   want: { cov: boolean; gcv: boolean; gss: boolean; fmv: boolean; pcm: boolean };
-  cheatsText: string | null; // serialized cheats .yml fallback (when the package carries none)
+  cheatsText: string | null; // serialized cheats .yml from the lookup (the only cheats source)
   infoYml: string | null;    // pre-built game info .yml (fmv flag already baked in)
 }
 /** Progress message the worker posts back per game. */
@@ -3973,19 +3973,14 @@ export class LibraryStore {
 
   /** Write the cheats catalog to /sd2snes/cheats/<stem>.yml. Returns whether a real catalog was
    *  written. `quiet` suppresses toasts (bulk aggregates them). The catalog comes reserved from the
-   *  CRC lookup (dbCheats), so this writes without hitting /cheats/<CRC>.yml; the on-server .yml is
-   *  only a fallback for the rare case nothing was reserved. */
+   *  CRC lookup (dbCheats), so this writes without any download. */
   async dlCheats(g: Entry, quiet = false): Promise<boolean> {
     this.update(g.id, { busy: 'cheats' });
     try {
-      const pkg = await this.getPackage(g);
-      const pkgText = pkg && pkg['cheats'] ? new TextDecoder().decode(pkg['cheats']) : null;
-      // Cheats come only from the GameDB now: the .s2pkg bundle's cheats member, else the catalog
-      // Reserved from the CRC lookup (dbCheats). No /cheats/<CRC>.yml fetch. That file is exported
-      // from the same DB, so it carries nothing the lookup/bundle doesn't already have (the old
-      // fallback was just 404 noise for games the GameDB has no cheats for).
-      const text = pkgText
-        ?? (g.dbCheats?.length ? this.cheats.serialize(g.dbCheats, shortTitle(g)) : null);
+      // Cheats come only from the GameDB, the catalog reserved from the CRC lookup (dbCheats). Neither
+      // the `.s2pkg` cheats member nor /cheats/<CRC>.yml: both are built from the same rows, so they
+      // carry nothing the lookup doesn't, and the bundle would cost a download of up to megabytes.
+      const text = g.dbCheats?.length ? this.cheats.serialize(g.dbCheats, shortTitle(g)) : null;
       const name = stemOf(g.file) + '.yml';
       if (!text) {
         this.update(g.id, { busy: null });
@@ -5309,8 +5304,8 @@ export class LibraryStore {
 
   /** Estimate size + time for a fill plan, download (the per-game .s2pkg bundles, real sizes from the
    *  GameDB when available) and write (per category, to the slow card). They pipeline, so total time ≈
-   *  max(download, write). Note the bundle is per-game: touching a game downloads its whole .s2pkg even
-   *  if only one category is written. */
+   *  max(download, write). Note the bundle is per-game: a game that needs any of its media members
+   *  downloads the whole .s2pkg even if only one is written; info and cheats alone download nothing. */
   fillEstimate(plan: FillPlan, previaAudio = false): {
     rows: Partial<Record<FillCategory, { bytes: number; sec: number }>>;
     writeBytes: number; writeSec: number; downloadBytes: number; downloadSec: number; totalSec: number;
@@ -5320,9 +5315,11 @@ export class LibraryStore {
     if (!counts) return null;
     const cardBps = this.throughputBps();
     const netBps = this.netBps();
-    // 'manual' is downloaded on its own (a direct .man fetch, not a .s2pkg member). PkgCats is the
-    // subset that rides the per-game bundle, used to decide whether that bundle needs fetching at all.
+    // 'manual' is downloaded on its own (a direct .man fetch, not a .s2pkg member). PkgCats are the
+    // flat-estimate write rows; bundleCats is the subset that actually reads the per-game bundle, used
+    // to decide whether it needs fetching at all (info and cheats are written from the lookup).
     const pkgCats: FillCategory[] = ['capa', 'tela', 'previa', 'info', 'cheats'];
+    const bundleCats: FillCategory[] = ['capa', 'tela', 'previa'];
 
     // Write: package categories are a count × format-derived average; the `.man` (much bigger, the inflated
     // raw doc) uses real per-manual raw sizes, summed in the per-game loop below (added to `rows.manual`).
@@ -5356,7 +5353,7 @@ export class LibraryStore {
         // category was the capa now downloads an image instead of a bundle that often carries a clip.
         const moved = plan.capa !== 'off' && this.fillNeeds(g, 'capa', plan) && coverDiverges(g, pref);
         if (moved) { downloadBytes += LibraryStore.EST_BYTES.img; movedCovers++; }
-        if (pkgCats.some((c) => plan[c] !== 'off' && this.fillNeeds(g, c, plan) && !(c === 'capa' && moved))) {
+        if (bundleCats.some((c) => plan[c] !== 'off' && this.fillNeeds(g, c, plan) && !(c === 'capa' && moved))) {
           const full = g.packageBytes ?? (g.videoUrl ? 1_500_000 : 80_000);
           const wantPcm = previaAudio && this.fillNeeds(g, 'previa', plan);
           // New audio-less packages fetch the separated `.pcm.zst` on top of the (audio-less) base; legacy
@@ -5663,11 +5660,15 @@ export class LibraryStore {
       // ...and what is left for the worker once a moved cover was taken out. A game whose only package
       // category was the capa must not get a job at all: it would download the whole `.s2pkg` (often
       // over a megabyte, with the clip) to write nothing.
-      const pkgWork = wantCov || wantGcv || nTela || nPrevia || nCheats || nInfo;
+      // Info and cheats still route through the worker (it writes them from the text baked below), but
+      // neither is a package member: `needPkg` alone decides whether the job downloads the bundle, so
+      // an "Atualizar → Informações" run fetches nothing but writes ~1.5 KB per game.
+      const needPkg = wantCov || wantGcv || nTela || nPrevia;
+      const pkgWork = needPkg || nCheats || nInfo;
       if ((!url || !pkgWork) && !manualUrl) { mainOnly.push(g); continue; }
       if (nManual && (g.manuals?.length ?? 0) > 1) needManual(g.id, false); // worker writes primary; extras below
       jobs.push({
-        id: g.id, packageUrl: url, fallbackPackageUrl: fallbackPkgUrl, manualUrl, manualSha, pcmUrl, file: g.file, mode: this.layoutMode(), stem: stemOf(g.file), folder: g.folder,
+        id: g.id, packageUrl: needPkg ? url : null, fallbackPackageUrl: needPkg ? fallbackPkgUrl : null, manualUrl, manualSha, pcmUrl, file: g.file, mode: this.layoutMode(), stem: stemOf(g.file), folder: g.folder,
         want: { cov: wantCov, gcv: wantGcv, gss: nTela, fmv: nPrevia, pcm: wantPcm },
         cheatsText: nCheats && g.dbCheats?.length ? this.cheats.serialize(g.dbCheats, shortTitle(g)) : null,
         // The game info file replaces what is on the card, so its `fmv:` flag has to cover everything that flag

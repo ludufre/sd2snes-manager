@@ -236,7 +236,7 @@ const errText = (e: unknown, n = 120): string =>
 
 interface Job {
   id: string;
-  packageUrl: string | null; // null when this game has no .s2pkg (still a valid job if manualUrl is set)
+  packageUrl: string | null; // null when no package member is wanted or the game has none (an info/cheats/manual-only job is still valid)
   fallbackPackageUrl?: string | null; // base .s2pkg to retry when packageUrl is the legacy no-audio variant and 404s (rows can outlive their object, it happened to all 4.5k variants in 2026-08)
   manualUrl?: string | null; // official GameDB manual (`.man.zst`, zstd), a direct fetch, inflated here, not a package member
   manualSha?: string | null; // the raw `.man` sha256 the GameDB publishes for manualUrl; the download is proven against it
@@ -246,7 +246,7 @@ interface Job {
   stem: string;
   folder: string; // relative path of the ROM's dir under the card root ('' = root)
   want: { cov?: boolean; gcv?: boolean; gss?: boolean; fmv?: boolean; pcm?: boolean };
-  cheatsText?: string | null; // pre-serialized cheats .yml (fallback when the package has no cheats)
+  cheatsText?: string | null; // pre-serialized cheats .yml from the lookup (the only cheats source, never the package)
   infoYml?: string | null;    // pre-built game info .yml (with the fmv flag already baked by the main thread)
 }
 
@@ -419,13 +419,11 @@ async function writeJob(r: Ready): Promise<void> {
         }
       }
     }
-    // NOTE: these two used to write to a hardcoded flat 'sd2snes/cheats' -- they never got the
-    // bucketing the rest of the app did, so autofilled cheats landed where the firmware no longer
-    // looks. cheatsDirFor() is now the single source for this path, same as the main thread.
-    if (job.cheatsText != null && pkg['cheats']) { const d = await getDir(cheatsDirFor(key), true); if (d) { await writeFile(d, job.stem + '.yml', pkg['cheats']); wrote.cheats = true; } }
   }
-  // cheats: fall back to the reserved catalog text when the package has none
-  if (!wrote.cheats && job.cheatsText) { const d = await getDir(cheatsDirFor(key), true); if (d) { await writeFile(d, job.stem + '.yml', enc.encode(job.cheatsText)); wrote.cheats = true; } }
+  // cheats: the catalog text the main thread serialized from the lookup, never the package's `cheats`
+  // member (built from the same rows), so a cheats-only job needs no download. cheatsDirFor() is the
+  // single source for this path, same as the main thread.
+  if (job.cheatsText) { const d = await getDir(cheatsDirFor(key), true); if (d) { await writeFile(d, job.stem + '.yml', enc.encode(job.cheatsText)); wrote.cheats = true; } }
   // game info .yml (fmv flag already baked in by the main thread when a preview is part of the plan)
   if (job.infoYml != null && infoDir) { await writeFile(infoDir, job.stem + '.yml', enc.encode(job.infoYml)); wrote.info = true; }
 
