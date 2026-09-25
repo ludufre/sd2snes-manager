@@ -595,6 +595,7 @@
     "generatingCovers": "Generazione delle copertine",
     "generatingCoversData": "Generazione di copertine e dati…",
     "generatingCoversRegion": "Generazione delle copertine della regione preferita…",
+    "savingSyncTokens": "Registrazione delle versioni sulla scheda…",
     "identifying": "Identificazione…",
     "importCancelled": "Importazione annullata.",
     "importCancelledCopiedMany": "Importazione annullata — {{count}} file copiati.",

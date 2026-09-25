@@ -595,6 +595,7 @@
     "generatingCovers": "Generando carátulas",
     "generatingCoversData": "Generando carátulas y datos…",
     "generatingCoversRegion": "Generando carátulas de la región preferida…",
+    "savingSyncTokens": "Registrando versiones en la tarjeta…",
     "identifying": "Identificando…",
     "importCancelled": "Importación cancelada.",
     "importCancelledCopiedMany": "Importación cancelada — {{count}} archivos copiados.",

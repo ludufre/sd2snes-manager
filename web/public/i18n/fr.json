@@ -595,6 +595,7 @@
     "generatingCovers": "Génération des jaquettes",
     "generatingCoversData": "Génération des jaquettes et des données…",
     "generatingCoversRegion": "Génération des jaquettes de la région préférée…",
+    "savingSyncTokens": "Enregistrement des versions sur la carte…",
     "identifying": "Identification…",
     "importCancelled": "Importation annulée.",
     "importCancelledCopiedMany": "Importation annulée — {{count}} fichiers copiés.",

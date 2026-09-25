@@ -5,6 +5,17 @@ Every released version, newest first.
 Some releases were published together and reach the repository as a single commit. When that
 happens, the entry says which versions it covers.
 
+## 1.33.9 - 2026-09-24
+
+### Fixed
+
+- **Auto-fill no longer sits at 100% after writing game info.** Once the files were on the card, the
+  Manager went through every game again to record which GameDB version each one now matches, and it
+  rewrote each game info file just for that, with the progress bar stopped at 100%. On a large run
+  this looked like the Manager had hung. The game info file is now written with that version already
+  in it, so the second pass only reads the file and leaves it alone, and the step has its own line on
+  the progress bar.
+
 ## 1.33.8 - 2026-09-24
 
 ### Fixed

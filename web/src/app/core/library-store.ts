@@ -4477,7 +4477,19 @@ export class LibraryStore {
     // when a game goes back to its own region's art.
     const coverReg = coverRegionField('cover' in wrote ? wrote.cover : cur[COVER_REGION_KEY], g.bucket ?? null);
     const coverSame = coverReg === (coverRegionTag(cur[COVER_REGION_KEY]) ?? null);
-    if (coverSame && slotsSame && SYNC_KEYS.every((k) => (next[k] ?? null) === (stored[k] ?? null))) return; // nothing to change
+    // Against the file as it is now, not the pre-run snapshot: the worker's game info already carries
+    // the advanced `sync_meta`, and rewriting a file into the bytes it already holds is a full card
+    // write per game for nothing.
+    if (coverSame && slotsSame && SYNC_KEYS.every((k) => (next[k] ?? null) === (cur[k] ?? null))) {
+      // Nothing to write, but the entry's snapshot may still be the pre-run one (the worker wrote this
+      // file behind its back), and fillStale reads that: left alone, the info just written would keep
+      // reading "outdated" for the rest of the session. Queued, as the worker's own patches are: this
+      // runs once per game over the whole card, and the run's finally flushes the queue.
+      if (SYNC_KEYS.some((k) => (pre[k] ?? null) !== (cur[k] ?? null))) {
+        this.queueUpdate(g.id, { onCardYml: cur, manSlots: slots ? (parseManSlots(slots) as Map<number, string>) : null });
+      }
+      return;
+    }
     const merged: Record<string, string> = { ...cur };
     for (const k of SYNC_KEYS as string[]) { const v = next[k]; if (v == null) delete merged[k]; else merged[k] = v; }
     if (slots == null) delete merged[MAN_SLOTS_KEY]; else merged[MAN_SLOTS_KEY] = slots;
@@ -5686,8 +5698,13 @@ export class LibraryStore {
         // the correct ones: they describe what the card holds right now, and persistSyncTokens advances
         // only the groups that actually landed. Without them a cancelled run leaves every game the
         // worker touched with no proof of origin for its manuals, unrepairable on the next re-encode.
+        // `sync_meta` is the one receipt this very write earns: the fields are the server's current ones,
+        // so it is baked advanced. Left at the pre-run value, persistSyncTokens had to rewrite every one
+        // of these files a second time just to bump it, a whole extra pass over the card after the bar
+        // had already reached 100%.
         infoYml: (nInfo || nPrevia)
-          ? buildYml({ ...this.gameInfoFields(g), ...this.syncTokensOnCard(g), rom: g.file, crc: g.crc || null, gamedb_id: g.gamedbId ?? null,
+          ? buildYml({ ...this.gameInfoFields(g), ...this.syncTokensOnCard(g), sync_meta: syncTokensFromMatch(g).sync_meta,
+                       rom: g.file, crc: g.crc || null, gamedb_id: g.gamedbId ?? null,
                        fmv: (nPrevia || nTela || fmvFlagFor(g) != null) ? 1 : null,
                        [MAN_SLOTS_KEY]: manSlotsField(g, g.onCardYml?.[MAN_SLOTS_KEY]),
                        // Preserved, never advanced here: the run can still fail to place the cover, and
@@ -6004,12 +6021,20 @@ export class LibraryStore {
     // (que agora batem com o servidor) para uma futura "Atualizar" saber o que já está atual. NÃO carimba
     // baseline em jogos intocados, um `.yml` legado sem token permanece "desatualizado" até ser de fato
     // rebaixado, senão esconderíamos atualizações reais. Pulado se o cartão ficou ingravável.
+    // Its own phase on the bar: one read (and maybe a write) per touched game, which on a whole card is
+    // minutes of work that used to run behind a bar already sitting at 100%, looking hung.
     if (!this.card.unwritable && !workerDead) {
       const toPersist = targets.filter((g) => cur(g).matched && tokenWrites.has(g.id));
-      await pool(toPersist, 8, async (g) => {
-        if (this.cancelImport) return;
-        await this.persistSyncTokens(cur(g), tokenWrites.get(g.id) ?? {});
-      });
+      if (toPersist.length) {
+        let tdone = 0;
+        this.bulkBegin(toPersist.length, this.i18n.translate('store.savingSyncTokens'), true);
+        await pool(toPersist, 8, async (g) => {
+          if (this.cancelImport) return;
+          await this.persistSyncTokens(cur(g), tokenWrites.get(g.id) ?? {});
+          this.bulkProgress(++tdone);
+        });
+        this.bulkProgress(tdone, true);
+      }
     }
 
     } finally {

@@ -597,6 +597,7 @@
     "generatingCovers": "Generating covers",
     "generatingCoversData": "Generating covers and data…",
     "generatingCoversRegion": "Generating covers for the preferred region…",
+    "savingSyncTokens": "Recording versions on the card…",
     "identifying": "Identifying…",
     "importCancelled": "Import cancelled.",
     "importCancelledCopiedMany": "Import cancelled — {{count}} files copied.",

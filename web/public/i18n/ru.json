@@ -597,6 +597,7 @@
     "generatingCovers": "Создание обложек",
     "generatingCoversData": "Создание обложек и данных…",
     "generatingCoversRegion": "Создание обложек предпочитаемого региона…",
+    "savingSyncTokens": "Запись версий на карту…",
     "identifying": "Опознание…",
     "importCancelled": "Импорт отменён.",
     "importCancelledCopiedMany": "Импорт отменён — скопировано файлов: {{count}}.",

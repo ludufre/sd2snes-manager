@@ -595,6 +595,7 @@
     "generatingCovers": "Cover werden erstellt",
     "generatingCoversData": "Cover und Daten werden erstellt…",
     "generatingCoversRegion": "Cover der bevorzugten Region werden erstellt…",
+    "savingSyncTokens": "Versionen werden auf der Karte vermerkt…",
     "identifying": "Wird identifiziert…",
     "importCancelled": "Import abgebrochen.",
     "importCancelledCopiedMany": "Import abgebrochen — {{count}} Dateien kopiert.",
