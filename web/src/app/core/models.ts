@@ -8,7 +8,7 @@ export type View = 'list' | 'gallery' | 'split';
 /** Languages a game description can be localized into on the card (`description_<lang>` in the
  *  `.yml`). English is not one of them: it is the canonical `description` and the console's
  *  fallback. Mirrors DESC_LANGS in lib/yml.js (and the gamedb translationLangSchema). */
-export type DescLang = 'fr' | 'pt' | 'es' | 'de' | 'it' | 'ru';
+export type DescLang = 'fr' | 'pt' | 'es' | 'de' | 'it' | 'ru' | 'nl';
 export type Descriptions = Partial<Record<DescLang, string>>;
 
 /** Row-height density (Display popover). */

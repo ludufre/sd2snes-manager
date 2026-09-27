@@ -13,7 +13,7 @@ describe('App', () => {
         App,
         TranslocoTestingModule.forRoot({
           langs: { pt: {}, en: {} },
-          translocoConfig: { availableLangs: ['pt', 'en', 'es', 'de', 'fr', 'it', 'ru'], defaultLang: 'pt' },
+          translocoConfig: { availableLangs: ['pt', 'en', 'es', 'de', 'fr', 'it', 'ru', 'nl'], defaultLang: 'pt' },
         }),
       ],
       providers: [provideRouter(routes)],

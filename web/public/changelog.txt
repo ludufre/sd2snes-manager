@@ -5,6 +5,15 @@ Every released version, newest first.
 Some releases were published together and reach the repository as a single commit. When that
 happens, the entry says which versions it covers.
 
+## 1.34.0 - 2026-09-27
+
+### Added
+
+- **Dutch.** The Manager interface is now available in Dutch (Nederlands), picked from your browser
+  like the other languages. The sd2snes settings dialog offers Nederlands in the firmware Language
+  selector (the menu speaks Dutch from firmware 2.17), and the game info editor has a Dutch tab: the
+  GameDB now carries a Dutch description for every game, written to the card as `description_nl`.
+
 ## 1.33.9 - 2026-09-24
 
 ### Fixed

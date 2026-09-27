@@ -19,7 +19,7 @@ const FIELD_ORDER = ['title', 'developer', 'publisher', 'release_year', 'players
 // reads the key for the console's menu language and falls back to English when it is missing or
 // empty -- so one file serves every console language and changing the language needs no re-sync.
 // Codes + order mirror the gamedb translationLangSchema (and the backend's yml-writer.ts).
-export const DESC_LANGS = ['fr', 'pt', 'es', 'de', 'it', 'ru'];
+export const DESC_LANGS = ['fr', 'pt', 'es', 'de', 'it', 'ru', 'nl'];
 export const DESC_LANG_KEYS = DESC_LANGS.map((l) => `description_${l}`);
 
 /** `{ [lang]: text }` → the `.yml` field set. Unknown codes and empty texts are dropped. */

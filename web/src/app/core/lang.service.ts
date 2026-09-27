@@ -3,9 +3,9 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs';
 import { TranslocoService } from '@jsverse/transloco';
 
-export type Lang = 'pt' | 'en' | 'es' | 'de' | 'fr' | 'it' | 'ru';
+export type Lang = 'pt' | 'en' | 'es' | 'de' | 'fr' | 'it' | 'ru' | 'nl';
 
-export const LANGS: readonly Lang[] = ['pt', 'en', 'es', 'de', 'fr', 'it', 'ru'] as const;
+export const LANGS: readonly Lang[] = ['pt', 'en', 'es', 'de', 'fr', 'it', 'ru', 'nl'] as const;
 
 const LS_KEY = 'sd2snes-covers:lang';
 
