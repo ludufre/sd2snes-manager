@@ -861,7 +861,7 @@
       "SGBEnhOverride": "Отключить улучшения SGB",
       "SGBSprIncrease": "Больше спрайтов SGB на строку",
       "SGBClockFix": "Оригинальная тактовая частота SGB",
-      "SGBBiosVersion": "Версия BIOS SGB", "GbcMode": "Режим Game Boy Color (Mk.III)", "GbcSync": "Синхронизация Game Boy Color (Mk.III)",
+      "SGBBiosVersion": "Версия BIOS SGB", "GbcMode": "Режим Game Boy Color (Mk.III)", "GbcSync": "Синхронизация Game Boy Color (Mk.III)", "GbcStretch": "Растяжение Game Boy Color (Mk.III)",
       "EnableScreensaver": "Включить заставку",
       "SortDirectories": "Сортировать папки",
       "HideExtensions": "Скрывать расширения файлов",

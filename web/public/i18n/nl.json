@@ -870,7 +870,7 @@
       "SGBClockFix": "Originele SGB-klok gebruiken",
       "SGBBiosVersion": "SGB BIOS-versie",
       "GbcMode": "Game Boy Color-modus (Mk.III)",
-      "GbcSync": "Game Boy Color-sync (Mk.III)",
+      "GbcSync": "Game Boy Color-sync (Mk.III)", "GbcStretch": "Game Boy Color uitrekken (Mk.III)",
       "EnableScreensaver": "Screensaver inschakelen",
       "SortDirectories": "Mappen sorteren",
       "HideExtensions": "Bestandsextensies verbergen",
