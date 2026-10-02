@@ -60,6 +60,80 @@ function extLower(name) {
   return i < 0 ? '' : name.slice(i + 1).toLowerCase();
 }
 
+/* ---- SFROM (SNES Classic container) ----
+ * The cartridge image sits INSIDE the file, so neither the whole file nor "the file minus N bytes" is
+ * what the firmware loads or what the gamedb indexes: the catalog CRC is the CRC of the embedded image,
+ * which is why a `.sfrom` resolves to the very same game as the plain `.sfc` dump.
+ * The rule is the firmware's load_sfrom_info(), kept byte for byte:
+ *   magic 0x00000100 (LE) at 0; image offset at 0x08; image size either in the footer the header
+ *   points to at 0x14 (Nintendo layout, a u32 at footer+1) or, failing that, inline at 0x31 (the
+ *   0x50-byte header some converters write).
+ * A container that does not parse is refused by the firmware, so there is no right CRC for it; it is
+ * hashed by the plain rule and simply matches nothing. */
+
+/** How many leading bytes the SFROM rule looks at. */
+export const SFROM_HEAD_BYTES = 0x50;
+/** Bytes read at the footer offset: one flag byte, then the u32 image size. */
+export const SFROM_FOOT_BYTES = 5;
+
+const le32 = (b, o) => (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] * 0x1000000)) >>> 0;
+
+/** True when the filename says SFROM. The container rule is gated on the name, like the firmware's. */
+export function isSfromName(name) {
+  return extLower(name) === 'sfrom';
+}
+
+/** Where the footer of this container has to be read from (SFROM_FOOT_BYTES at this offset), 0 when
+ *  the header names none that fits in the file, and -1 when `head` is not an SFROM header at all.
+ *  Split from sfromSpan so a streaming caller reads two small slices instead of the whole file. */
+export function sfromFooterOffset(head, byteLength) {
+  if (head.length < 0x30 || le32(head, 0) !== 0x00000100) return -1;
+  const footer = le32(head, 0x14);
+  return footer && footer + SFROM_FOOT_BYTES <= byteLength ? footer : 0;
+}
+
+/** The embedded image as `{ off, len }`, or null when the container is not valid. `head` is the first
+ *  SFROM_HEAD_BYTES of the file (fewer if the file is shorter), `foot` the SFROM_FOOT_BYTES at
+ *  sfromFooterOffset() (null/empty when that returned 0). */
+export function sfromSpan(head, foot, byteLength) {
+  if (head.length < 0x30 || le32(head, 0) !== 0x00000100) return null;
+  const declared = le32(head, 4);
+  const off = le32(head, 8);
+  if (off >= byteLength) return null;
+  if (declared && declared > byteLength) return null;
+  let len = 0;
+  if (foot && foot.length >= SFROM_FOOT_BYTES) len = le32(foot, 1);
+  if (!len && head.length >= 0x35) len = le32(head, 0x31);
+  if (!len || off + len > byteLength) return null;
+  return { off, len };
+}
+
+/** sfromSpan() for a file that is already in memory. */
+function sfromSpanOfBytes(bytes) {
+  const fo = sfromFooterOffset(bytes, bytes.length);
+  if (fo < 0) return null;
+  return sfromSpan(bytes.subarray(0, SFROM_HEAD_BYTES), fo ? bytes.subarray(fo, fo + SFROM_FOOT_BYTES) : null, bytes.length);
+}
+
+/** The bytes of `file` that are hashed and that the firmware loads, as `{ off, len }`, for any ROM:
+ *  the image inside an `.sfrom`, else everything past headerOffset(). Reads at most two small slices,
+ *  never the ROM. This is the streaming counterpart of headerlessCrc32(), and both must agree exactly,
+ *  or the same ROM hashes differently depending on which path ran. */
+export async function romSpan(file, name = '') {
+  const size = file.size;
+  const head = new Uint8Array(await file.slice(0, SFROM_HEAD_BYTES).arrayBuffer());
+  if (isSfromName(name)) {
+    const fo = sfromFooterOffset(head, size);
+    if (fo >= 0) {
+      const foot = fo ? new Uint8Array(await file.slice(fo, fo + SFROM_FOOT_BYTES).arrayBuffer()) : null;
+      const span = sfromSpan(head, foot, size);
+      if (span) return span;
+    }
+  }
+  const off = headerOffset(head, size, name);
+  return { off, len: size - off };
+}
+
 /** Headerless CRC32 as an 8-char uppercase hex string (the form gamedb stores). `name` is the ROM's
  * filename, its extension gates the NES path, so header-stripping is decided by what the ROM is, not
  * just by bytes that could collide.
@@ -71,16 +145,22 @@ function extLower(name) {
  * happens to start with those bytes is never mis-stripped. A truly headerless `.nes` (no magic) already
  * Is the data and is hashed whole, so both header formats and raw dumps resolve to the same CRC.
  *
+ * SFROM (`.sfrom`): the image embedded in the container (see the SFROM block above).
+ *
  * SNES: strip the 512-byte copier header (No-Intro checksums are computed without it). */
 export function headerlessCrc32(bytes, name = '') {
+  if (isSfromName(name)) {
+    const span = sfromSpanOfBytes(bytes);
+    if (span) return crcEnd(crcUpdate(crcBegin(), bytes.subarray(span.off, span.off + span.len)));
+  }
   const off = headerOffset(bytes, bytes.length, name);
   return crcEnd(crcUpdate(crcBegin(), off ? bytes.subarray(off) : bytes));
 }
 
 /** Byte offset where the hashed data starts (0 = hash the file whole), the header rule of
- *  headerlessCrc32, factored out so a streaming caller can apply the same decision without holding the
- *  file: `head` only has to be the first 16 bytes (the iNES magic), `byteLength` the file's full size.
- *  Both callers must agree exactly, or the same ROM hashes differently depending on which path ran. */
+ *  headerlessCrc32 for everything but an `.sfrom`, factored out so a streaming caller can apply the
+ *  same decision without holding the file: `head` only has to be the first 16 bytes (the iNES magic),
+ *  `byteLength` the file's full size. Streaming callers want romSpan(), which also covers `.sfrom`. */
 export function headerOffset(head, byteLength, name = '') {
   if (extLower(name) === 'nes' && hasINesHeader(head)) return 16;
   return hasCopierHeader(byteLength) ? 512 : 0;

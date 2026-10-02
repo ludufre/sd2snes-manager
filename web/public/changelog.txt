@@ -5,6 +5,18 @@ Every released version, newest first.
 Some releases were published together and reach the repository as a single commit. When that
 happens, the entry says which versions it covers.
 
+## 1.35.0 - 2026-10-02
+
+### Added
+
+- **`.sfrom` files.** The SNES Classic container is now listed as a SNES game, like the firmware
+  does from 2.17. Its checksum is taken from the ROM stored inside the file, not from the file as a
+  whole, so an `.sfrom` is identified as the same game as the plain `.sfc` dump and gets the same
+  cover, game info, cheats and guides. The custom save state buttons are also keyed by the ROM
+  inside it, which is what the console reads.
+- **Game Boy Color stretch.** The sd2snes settings dialog has the *Game Boy Color stretch* option of
+  firmware 2.17, in all 8 languages.
+
 ## 1.34.0 - 2026-09-27
 
 ### Added

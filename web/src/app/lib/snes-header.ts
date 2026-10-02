@@ -9,6 +9,8 @@
  *  approximating it. Anything changed on the firmware side has to be mirrored here.
  */
 
+import { isSfromName, romSpan } from './crc32.js';
+
 /** Header slots the firmware probes, in its order (smc.c:41). The odd ones carry a copier header. */
 const HDR_ADDR = [0xffb0, 0x101b0, 0x7fb0, 0x81b0, 0x40ffb0, 0x4101b0];
 
@@ -42,14 +44,14 @@ const RESET_INST_PENALTY = new Map<number, number>([
 
 const word = (bytes: Uint8Array, at: number): number => bytes[at] | (bytes[at + 1] << 8);
 
-async function readBytes(file: File, offset: number, size: number): Promise<Uint8Array | null> {
+async function readBytes(file: Blob, offset: number, size: number): Promise<Uint8Array | null> {
   if (offset < 0 || offset + size > file.size) return null;
   return new Uint8Array(await file.slice(offset, offset + size).arrayBuffer());
 }
 
 /** One slot's score, mirroring smc_headerscore(). `chk` is null when the slot is past the file,
  *  which stands in for the firmware's short read (smc.c:447-450). */
-async function scoreSlot(file: File, addr: number): Promise<{ score: number; chk: number | null }> {
+async function scoreSlot(file: Blob, addr: number): Promise<{ score: number; chk: number | null }> {
   const header = await readBytes(file, addr, HEADER_SIZE);
   if (!header) return { score: 0, chk: null };
 
@@ -102,8 +104,15 @@ async function scoreSlot(file: File, addr: number): Promise<{ score: number; chk
   return { score, chk };
 }
 
-/** The checksum the firmware would key this ROM by, as four uppercase hex digits. */
-export async function snesHeaderChecksum(file: File): Promise<string | null> {
+/** The checksum the firmware would key this ROM by, as four uppercase hex digits. `name` is the
+ *  ROM's filename: for an `.sfrom` the header is looked for inside the embedded image, which is the
+ *  file the firmware's smc_id() sees (load_open() hands it the container's offset and size). */
+export async function snesHeaderChecksum(rom: Blob, name = ''): Promise<string | null> {
+  let file: Blob = rom;
+  if (isSfromName(name)) {
+    const { off, len } = await romSpan(rom, name);
+    file = rom.slice(off, off + len);
+  }
   const slots = await Promise.all(HDR_ADDR.map((addr) => scoreSlot(file, addr)));
 
   // smc_id()'s election, verbatim: maxscore starts at 1 so a zero score never wins, and `>=`

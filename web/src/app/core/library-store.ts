@@ -2259,7 +2259,7 @@ export class LibraryStore {
   /** Read this ROM's internal 16-bit checksum and its optional custom save/load inputs. */
   async readSavestateInputs(g: Entry): Promise<{ checksum: string; save: string; load: string } | null> {
     if (!this.rootHandle || !g.fileHandle || g.system !== 'SNES') return null;
-    const checksum = await snesHeaderChecksum(await g.fileHandle.getFile());
+    const checksum = await snesHeaderChecksum(await g.fileHandle.getFile(), g.file);
     if (!checksum) return null;
     const dir = await getDirByPath(this.rootHandle, 'sd2snes');
     const raw = dir ? await readTextFile(dir, 'savestate_inputs.yml') : null;

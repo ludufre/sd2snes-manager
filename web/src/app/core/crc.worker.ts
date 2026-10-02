@@ -14,7 +14,7 @@
 // The card is the bottleneck, not the CPU: only READ_CONCURRENCY files are read at once, because more
 // parallel readers just make the SD controller seek and the whole pass gets slower.
 
-import { crcBegin, crcUpdate, crcEnd, headerOffset } from '../lib/crc32.js';
+import { crcBegin, crcUpdate, crcEnd, romSpan } from '../lib/crc32.js';
 
 /** Post a message back to the main thread. Cast avoids the dom-vs-webworker `postMessage` overload clash
  *  when this file is type-checked under the app's (dom) tsconfig. */
@@ -26,7 +26,7 @@ const READ_CONCURRENCY = 3;
 
 /** One ROM to checksum. `id` is the main thread's correlation token (not the cache key: two entries
  *  could share a path in a malformed scan, and a duplicated key would strand a waiter forever).
- *  `name` is the ROM's filename, its extension gates the NES header rule (see lib/crc32.js). */
+ *  `name` is the ROM's filename, its extension gates the NES and SFROM rules (see lib/crc32.js). */
 interface Job {
   id: number;
   name: string;
@@ -36,12 +36,11 @@ interface Job {
 async function doJob(job: Job): Promise<void> {
   try {
     const file = await job.fileHandle.getFile();
-    // The header decision needs the first bytes before anything is streamed (the iNES magic), so read a
-    // 16-byte slice up front, not the whole ROM, which is the entire point of streaming.
-    const head = new Uint8Array(await file.slice(0, 16).arrayBuffer());
-    const off = headerOffset(head, file.size, job.name);
+    // Which bytes are the ROM is decided from two small slices (the iNES magic, or the header and
+    // footer of an .sfrom container), never from the whole file, which is the entire point of streaming.
+    const { off, len } = await romSpan(file, job.name);
     let state = crcBegin();
-    const reader = file.slice(off).stream().getReader();
+    const reader = file.slice(off, off + len).stream().getReader();
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
