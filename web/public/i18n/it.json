@@ -101,7 +101,7 @@
     "tip": "Suggerimento: trascina qui <b>qualsiasi file di BIOS</b> e individuiamo lo slot automaticamente (dal nome o dal CRC32).",
     "title": "BIOS dei chip",
     "tryAgain": "riprova…",
-    "warn": "I giochi con chip speciale (DSP, CX4, S-DD1/BS-X, Super Game Boy, ST-010) richiedono il BIOS del chip. Per motivi legali non può essere distribuito — usa i tuoi; vanno in <b>/sd2snes/</b>."
+    "warn": "I giochi con chip speciale (DSP, CX4, S-DD1/BS-X, Super Game Boy, ST-010, ST-011, ST-018) richiedono il BIOS del chip. Per motivi legali non può essere distribuito — usa i tuoi; vanno in <b>/sd2snes/</b>."
   },
   "breadcrumb": {
     "includeSubfolders": "Includi sottocartelle",

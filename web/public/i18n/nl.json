@@ -101,7 +101,7 @@
     "tip": "Tip: sleep <b>elk willekeurig BIOS-bestand</b> hierheen en we herkennen het slot automatisch (op naam of CRC32).",
     "title": "Chip BIOS",
     "tryAgain": "opnieuw proberen…",
-    "warn": "Spellen met een speciale chip (DSP, CX4, S-DD1/BS-X, Super Game Boy, ST-010) hebben de BIOS van die chip nodig. Om juridische redenen kan die niet worden meegeleverd — gebruik je eigen exemplaar; de bestanden horen in <b>/sd2snes/</b>."
+    "warn": "Spellen met een speciale chip (DSP, CX4, S-DD1/BS-X, Super Game Boy, ST-010, ST-011, ST-018) hebben de BIOS van die chip nodig. Om juridische redenen kan die niet worden meegeleverd — gebruik je eigen exemplaar; de bestanden horen in <b>/sd2snes/</b>."
   },
   "breadcrumb": {
     "includeSubfolders": "Submappen opnemen",

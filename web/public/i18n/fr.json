@@ -101,7 +101,7 @@
     "tip": "Astuce : glissez <b>n'importe quel fichier BIOS</b> ici et nous identifions le slot automatiquement (par nom ou CRC32).",
     "title": "BIOS des puces",
     "tryAgain": "réessayer…",
-    "warn": "Les jeux avec une puce spéciale (DSP, CX4, S-DD1/BS-X, Super Game Boy, ST-010) nécessitent le BIOS de la puce. Pour des raisons légales, il ne peut pas être distribué — utilisez le vôtre ; ils vont dans <b>/sd2snes/</b>."
+    "warn": "Les jeux avec une puce spéciale (DSP, CX4, S-DD1/BS-X, Super Game Boy, ST-010, ST-011, ST-018) nécessitent le BIOS de la puce. Pour des raisons légales, il ne peut pas être distribué — utilisez le vôtre ; ils vont dans <b>/sd2snes/</b>."
   },
   "breadcrumb": {
     "includeSubfolders": "Inclure les sous-dossiers",

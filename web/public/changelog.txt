@@ -5,6 +5,15 @@ Every released version, newest first.
 Some releases were published together and reach the repository as a single commit. When that
 happens, the entry says which versions it covers.
 
+## 1.35.1 - 2026-10-02
+
+### Added
+
+- **Seta ST-011 and ST-018 chip files.** Firmware 2.17 runs the two *Hayazashi Nidan Morita Shougi*
+  games, and each needs its chip firmware on the card. The chip BIOS dialog now has a row for
+  `st011.rom` and one for `st018.rom`: drop the file and it is recognized by name or by checksum, even
+  if it was renamed, and written to `/sd2snes/` under the name the console looks for.
+
 ## 1.35.0 - 2026-10-02
 
 ### Added

@@ -1,6 +1,6 @@
 /**
  * Chip-BIOS files the sd2snes/FXPak Pro firmware needs for special-chip games
- * (DSP, S-DD1/BS-X, Super Game Boy, ST-010, Sufami Turbo). They can't be distributed (legal),
+ * (DSP, S-DD1/BS-X, Super Game Boy, ST-010, ST-011, ST-018, Sufami Turbo). They can't be distributed (legal),
  * so the user supplies their own, they go in the card's `/sd2snes/` folder.
  *
  * Validation rules taken from the firmware source (sd2snes/_repo):
@@ -8,6 +8,10 @@
  *  - DSP/ST-010/BS-X are not CRC-checked by the firmware: it loads them by size and structure
  *    (src/memory.c load_dspx, load_sram_offload). So we accept those if the CRC32 matches a
  *    known-good dump or, failing that, the firmware's size rule still holds. See addBios().
+ *  - ST-011 and ST-018 (firmware 2.17+) are named `st011.rom` / `st018.rom`, the names the emulators
+ *    use. st011.rom is loaded by size like the DSPs (load_dspx: 16384 program words x3 + 2048 data
+ *    words x2); st018.rom must be exactly ST0018_FW_SIZE and the firmware also verifies a checksum of
+ *    it after loading (load_st018), so only the known-good image works.
  *  - cx4.bin is not read (logic lives in fpga_cx4.bit) → not listed.
  *
  * Every file carries its known-good CRC32(s): the Manager uses them to auto-identify a dropped
@@ -39,6 +43,10 @@ export const BIOS_FILES: BiosFile[] = [
   { id: 'dsp4', file: 'dsp4.bin', chip: 'DSP-4', crc32: ['CA09E176'], size: [DSP_SIZE] },
   // ST-010: firmware needs the file to reach 0xCC00 (52224); real dumps are 52224/53248 bytes.
   { id: 'st0010', file: 'st0010.bin', chip: 'ST-010', crc32: ['8D136190'], minSize: 0xcc00 },
+  // ST-011: 16384 x 3 + 2048 x 2 = 53248 bytes, read at fixed offsets.
+  { id: 'st011', file: 'st011.rom', chip: 'ST-011', crc32: ['84AAB2AE'], minSize: 0xd000 },
+  // ST-018: 128 KiB ARM program + 32 KiB data, exact size (the firmware rejects anything else).
+  { id: 'st018', file: 'st018.rom', chip: 'ST-018', crc32: ['5C403CC5'], size: [0x28000] },
   // BS-X BIOS: 1 MiB, optionally with a 512-byte copier header (firmware auto-skips); headered dump
   // has a different CRC, so it's accepted by size.
   { id: 'bsxbios', file: 'bsxbios.bin', chip: 'BS-X / Satellaview', crc32: ['8ECC1963'], size: [1048576, 1049088] },
