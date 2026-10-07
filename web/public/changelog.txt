@@ -5,6 +5,22 @@ Every released version, newest first.
 Some releases were published together and reach the repository as a single commit. When that
 happens, the entry says which versions it covers.
 
+## 1.36.0 - 2026-10-07
+
+### Added
+
+- **Japanese and Simplified Chinese.** The Manager interface is now available in Japanese (日本語)
+  and Simplified Chinese (简体中文), picked from your browser like the other languages. They are
+  interface languages only: the sd2snes menu has no Japanese or Chinese, so the firmware Language
+  selector and the game info description tabs stay as they were.
+
+### Changed
+
+- **Language picker in the top bar is now a compact menu.** The row of language codes had grown to
+  ten buttons and, with a card mounted, pushed the settings gear off the right edge of narrower
+  windows. The menu takes a fifth of the room and the whole bar fits again from 650px up. On a phone
+  the languages are still in the settings popover.
+
 ## 1.35.1 - 2026-10-02
 
 ### Added

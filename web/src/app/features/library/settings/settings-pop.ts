@@ -43,7 +43,7 @@ const FW_ISSUES = 'https://github.com/ludufre/sd2snes/issues/new';
       </div>
 
       <!-- Also in the topbar on a wide window, and ONLY here on a phone (the topbar sheds the
-           7-code picker below 640px). Wraps to two rows inside the 328px popover. -->
+           language picker below 640px). Ten codes wrap to two rows inside the 328px popover. -->
       <div class="sp-field">
         <label>{{ 'settings.language' | transloco }}</label>
         <div class="segctl wrap">
@@ -167,7 +167,7 @@ const FW_ISSUES = 'https://github.com/ludufre/sd2snes/issues/new';
       border-radius: 99px; background: var(--warn, #e2b341); color: #1a1205;
       font-family: var(--mono); font-size: 10px; font-weight: 700;
     }
-    /* 7 language codes do not fit one row inside a 328px popover. */
+    /* 10 language codes do not fit one row inside a 328px popover. */
     .segctl.wrap { flex-wrap: wrap; }
     .segctl.wrap button { flex: 1 0 auto; min-width: 44px; text-transform: uppercase; font-family: var(--mono); font-size: 12px; }
     .sp-foot { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }

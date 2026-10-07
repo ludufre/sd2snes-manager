@@ -57,16 +57,17 @@
     </button>
   }
 
-  <div class="lang" role="group" [attr.aria-label]="'lang.aria' | transloco">
-    @for (l of langs.available; track l) {
-      <button
-        type="button"
-        [class.is-active]="langs.lang() === l"
-        (click)="setLang(l)">
-        {{ l }}
-      </button>
-    }
-  </div>
+  <!-- A native select, not a row of codes: with ten languages the row took ~310px of a bar that
+       already overflowed with a card mounted, and pushed the gear off the edge at ~860px. -->
+  <span class="lang">
+    <select [attr.aria-label]="'lang.aria' | transloco" (change)="setLang($event)">
+      @for (l of langs.available; track l) {
+        <!-- Code only: the closed select is as wide as its LONGEST option, and "NL · Nederlands"
+             cost the bar 80px. The name rides along as a tooltip. -->
+        <option [value]="l" [selected]="langs.lang() === l" [title]="langNames[l]">{{ l.toUpperCase() }}</option>
+      }
+    </select>
+  </span>
 
   <button
     class="btn ghost sm"

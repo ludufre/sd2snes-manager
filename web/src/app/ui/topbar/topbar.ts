@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, inject, input, output } from '@angu
 import { TranslocoModule } from '@jsverse/transloco';
 import { LibraryStore } from '../../core/library-store';
 import { VersionService } from '../../core/version.service';
-import { LangService, type Lang } from '../../core/lang.service';
+import { LANG_NAMES, LangService, type Lang } from '../../core/lang.service';
 import { Icon } from '../icon/icon';
 
 /** Top bar: logo + version + Changelog, connection chip, Firmware, Themes, BIOS, Organize, Eject,
@@ -18,6 +18,7 @@ export class Topbar {
   protected readonly lib = inject(LibraryStore);
   protected readonly ver = inject(VersionService);
   protected readonly langs = inject(LangService);
+  protected readonly langNames = LANG_NAMES;
   readonly settingsOn = input(false);
   readonly toggleSettings = output<void>();
   readonly openFirmware = output<void>();
@@ -27,7 +28,7 @@ export class Topbar {
   readonly openChangelog = output<void>();
   readonly openConfig = output<void>();
 
-  protected setLang(lang: Lang): void {
-    this.langs.set(lang);
+  protected setLang(event: Event): void {
+    this.langs.set((event.target as HTMLSelectElement).value as Lang);
   }
 }

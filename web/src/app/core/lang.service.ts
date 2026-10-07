@@ -3,9 +3,18 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { filter } from 'rxjs';
 import { TranslocoService } from '@jsverse/transloco';
 
-export type Lang = 'pt' | 'en' | 'es' | 'de' | 'fr' | 'it' | 'ru' | 'nl';
+/** Interface languages. Japanese and Simplified Chinese are interface-only: the firmware menu has
+ *  neither, so they are NOT in the firmware Language selector (config-dialog.ts) nor in DescLang. */
+export type Lang = 'pt' | 'en' | 'es' | 'de' | 'fr' | 'it' | 'ru' | 'nl' | 'ja' | 'zh';
 
-export const LANGS: readonly Lang[] = ['pt', 'en', 'es', 'de', 'fr', 'it', 'ru', 'nl'] as const;
+export const LANGS: readonly Lang[] = ['pt', 'en', 'es', 'de', 'fr', 'it', 'ru', 'nl', 'ja', 'zh'] as const;
+
+/** Each language's name in itself, for the topbar picker: someone stuck in a UI language they do not
+ *  read still has to recognize their own. */
+export const LANG_NAMES: Readonly<Record<Lang, string>> = {
+  pt: 'Português', en: 'English', es: 'Español', de: 'Deutsch', fr: 'Français',
+  it: 'Italiano', ru: 'Русский', nl: 'Nederlands', ja: '日本語', zh: '简体中文',
+};
 
 const LS_KEY = 'sd2snes-covers:lang';
 
@@ -70,7 +79,8 @@ export class LangService {
    * Mirrors how PrefsStore writes accent/density onto <html>.
    */
   private applyLang(lang: Lang): void {
-    document.documentElement.lang = lang;
+    // zh is Simplified Chinese: the BCP-47 tag makes the browser pick Simplified glyphs/fonts.
+    document.documentElement.lang = lang === 'zh' ? 'zh-Hans' : lang;
   }
 
   private resolveInitial(): Lang {

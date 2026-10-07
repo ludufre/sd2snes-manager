@@ -70,35 +70,42 @@
 }
 
 .lang {
+  position: relative;
   display: inline-flex;
-  align-items: stretch;
-  /* Must not shrink: this box is `overflow: hidden`, so flex-shrink doesn't compress it, it
-     silently amputates the last languages (FR was disappearing at 860px). */
+  /* Must not shrink: a flex item squeezed below its content clips the selected language's name. */
   flex: 0 0 auto;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  overflow: hidden;
-  background: var(--panel);
 }
-.lang button {
+.lang select {
   appearance: none;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  padding: 5px 8px;
   font-family: var(--mono);
   font-size: 11px;
   font-weight: 600;
-  text-transform: uppercase;
   letter-spacing: 0.4px;
-  color: var(--tx-low);
-  transition: color 0.12s, background 0.12s;
+  color: var(--tx-mid);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 5px 24px 5px 9px;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
 }
-.lang button + button { border-left: 1px solid var(--line); }
-.lang button:hover { color: var(--tx-mid); }
-.lang button.is-active {
-  color: #fff;
-  background: var(--accent);
+.lang select:hover { color: var(--tx); border-color: var(--tx-low); }
+.lang select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.lang option { background: var(--panel); color: var(--tx); }
+/* The chevron: a native select drawn with `appearance: none` loses its own. */
+.lang::after {
+  content: '';
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin-top: -5px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  color: var(--tx-low);
+  transform: rotate(45deg);
+  pointer-events: none;
 }
 
 .conn {
@@ -170,7 +177,7 @@
   .brand .name { display: none; }
 }
 /* Phone. Shedding labels took the floor to ~600px and there it stops: the six card buttons, the
-   language picker (7 codes that must not shrink) and the gear still need ~620px between them, and
+   language picker and the gear still need ~620px between them, and
    `body { overflow: hidden }` means the overflow is amputated, not scrollable — the gear itself was
    going off the right edge, taking the only way back with it.
    So below 640px the bar keeps just what identifies the session (logo + which card is mounted) plus

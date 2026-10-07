@@ -41,7 +41,7 @@ Just browsing? Pick **Try with sample ROMs** on the start screen and the whole i
 | **File management** | Import, move, copy, delete and rename to No-Intro, always carrying the game's sidecar files along. |
 | **Organizes the card** | Firmware 2.15 moved to two-letter folders, 2.16 gave every console one of its own inside them. **Organize** reads the firmware version off the card, organises for the layout *that* console reads, shows exactly what will move before touching anything, rescues stranded `.ips`/`.bps` patches and sweeps system junk. |
 
-Interface in Portuguese, English, Spanish, German, French, Italian, Russian and Dutch, following your browser's language.
+Interface in Portuguese, English, Spanish, German, French, Italian, Russian, Dutch, Japanese and Simplified Chinese, following your browser's language.
 
 ## What lands on the card
 
