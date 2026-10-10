@@ -22,6 +22,8 @@ import { MovePicker } from './move-picker/move-picker';
 import { FirmwareDialog } from './firmware/firmware-dialog';
 import { ThemesDialog } from './themes/themes-dialog';
 import { BiosDialog } from './bios/bios-dialog';
+import { XenoPackDialog } from './xeno-pack/xeno-pack-dialog';
+import { XenoPackService } from '../../core/xeno-pack/xeno-pack.service';
 import { MigrateDialog } from './migrate/migrate-dialog';
 import { CheatEditor } from './cheats/cheat-editor';
 import { InfoEditor } from './info/info-editor';
@@ -43,7 +45,7 @@ import { ConfigDialog } from './config/config-dialog';
   imports: [
     Icon, Topbar, StatBar, Toolbar, BulkBar, BulkProgress, Sidebar, Breadcrumb,
     ListView, GalleryView, DetailPanel, SettingsPop, Toasts, Dialog, ContextMenu, MovePicker, FirmwareDialog,
-    ThemesDialog, UpdateBanner, BiosDialog, MigrateDialog, CheatEditor, InfoEditor, GuidesEditor, IdentifyDialog, AutoFillDialog, AutofillReport,
+    ThemesDialog, UpdateBanner, BiosDialog, XenoPackDialog, MigrateDialog, CheatEditor, InfoEditor, GuidesEditor, IdentifyDialog, AutoFillDialog, AutofillReport,
     ChangelogDialog, ConfigDialog, TranslocoModule,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -54,6 +56,7 @@ export class Library {
   protected readonly lib = inject(LibraryStore);
   protected readonly prefs = inject(PrefsStore);
   protected readonly vp = inject(ViewportService);
+  protected readonly xeno = inject(XenoPackService);
 
   constructor() {
     // Warn before unload/refresh while a card-writing operation is in progress.

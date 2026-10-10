@@ -54,6 +54,10 @@ bash scripts/setup-ffmpeg.sh
 echo "▸ staging pdf.js worker…"
 bash scripts/setup-pdfjs.sh
 
+# --- stage the Opus decoder (Xeno Crisis music pack) into public/opus/ (gitignored, served same-origin) ---
+echo "▸ staging opus decoder…"
+bash scripts/setup-opus.sh
+
 # --- stamp the build version (read by the app, versioned by the service worker) ---
 APP_VERSION="$(node -p "require('./package.json').version" 2>/dev/null || echo '0.0.0')"
 COMMIT="$(git -C "$SCRIPT_DIR" rev-parse --short HEAD 2>/dev/null || echo 'nogit')"

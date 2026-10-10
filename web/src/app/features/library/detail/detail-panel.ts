@@ -10,6 +10,11 @@ import { DESC_LANGS } from '../../../lib/yml.js';
 const DESC_LANG_LIST = DESC_LANGS as readonly DescLang[];
 import { GAMEDB_WEB } from '../../../core/env';
 import { fmtSize } from '../../../core/format';
+import { XenoPackService } from '../../../core/xeno-pack/xeno-pack.service';
+import { XC_DUMP_CARD_DIR, XC_DUMP_CARD_FILE } from '../../../core/xeno-pack/xc-rom';
+import { detectXenoCrisis, probeDump, probePack, type DumpState, type PackStatus } from '../../../core/xeno-pack/xc-status';
+import { XenoPlacement } from '../../../core/xeno-pack/xc-place.service';
+import { packStem } from '../../../core/xeno-pack/xc-rom';
 import { Icon } from '../../../ui/icon/icon';
 import { CoverArt } from '../../../ui/cover-art/cover-art';
 import { Toggle } from '../../../ui/toggle/toggle';
@@ -47,8 +52,22 @@ export class DetailPanel {
   protected readonly lib = inject(LibraryStore);
   private readonly i18n = inject(TranslocoService);
   private readonly langs = inject(LangService);
+  protected readonly xeno = inject(XenoPackService);
   readonly drawer = input(false);
+  /** Xeno Crisis is told apart by the ROM itself (CRC, else the internal header), then what the game needs on the card is read:
+   *  the RP2040 dump and the MSU-1 pack beside the ROM. `null` = not this game. */
+  protected readonly xc = signal<{ dump: DumpState; pack: PackStatus; nearby: string | null } | null>(null);
+  private readonly placement = inject(XenoPlacement);
+  protected readonly xcDumpPath = `/${XC_DUMP_CARD_DIR}/${XC_DUMP_CARD_FILE}`;
+  protected readonly xcStem = computed(() => { const g = this.lib.sel(); return g ? packStem(g.file) : ''; });
+  /** Everything is in place to build: ROM found, dump valid, pack not complete. */
   protected readonly fmtSize = fmtSize;
+
+  /** Move the dump found beside the ROM to /sd2snes/, then re-read the status. */
+  protected async moveNearbyDump(g: Entry, name: string): Promise<void> {
+    if (!g.dirHandle) return;
+    if (await this.placement.moveDumpToCard(g.dirHandle, name)) this.xeno.refresh();
+  }
 
   protected readonly canRename = computed(() => {
     const g = this.lib.sel();
@@ -134,6 +153,23 @@ export class DetailPanel {
   private gameInfoKey = '';
 
   constructor() {
+    // Re-read the card status for the selected game (and again whenever the pack dialog closes).
+    let xcToken = 0;
+    effect(() => {
+      const g = this.lib.sel();
+      this.xeno.rev();
+      const token = ++xcToken;
+      if (!g || g.system !== 'SNES' || !g.fileHandle || !g.dirHandle) { this.xc.set(null); return; }
+      void (async () => {
+        const file = await g.fileHandle!.getFile().catch(() => null);
+        if (!(await detectXenoCrisis(g, file))) { if (token === xcToken) this.xc.set(null); return; }
+        const dump = await probeDump(await this.lib.cardFile(XC_DUMP_CARD_DIR, XC_DUMP_CARD_FILE));
+        const pack = await probePack(g.dirHandle, packStem(g.file));
+        // No valid dump on the card, but maybe one was left beside the ROM.
+        const nearby = dump === 'ok' ? null : await this.placement.findNearbyDump(g.dirHandle!);
+        if (token === xcToken) this.xc.set({ dump, pack, nearby });
+      })();
+    });
     // Media (cover thumb + snapshot + fmv): reload only when the game or its on-card media changes.
     // infoRev is bumped after a .gd/.yml write (e.g. "Preencher tudo"), so the snapshot re-reads then.
     effect(() => {

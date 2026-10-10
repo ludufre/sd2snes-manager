@@ -128,6 +128,44 @@
         </div>
       </div>
 
+      <!-- Xeno Crisis: the game runs the cartridge's RP2040 firmware from the owner's dump (needed to boot at all),
+           and its music only plays from an MSU-1 pack, which the builder makes from that same dump. -->
+      @if (xc(); as x) {
+        <div class="dsection">
+          <div class="sh"><h3>{{ 'xenoPack.dumpTitle' | transloco }}</h3></div>
+          <p class="muted-p">
+            <b>{{ 'xenoPack.dumpLabel' | transloco }}:</b>
+            {{ (x.dump === 'ok' ? 'xenoPack.dumpOk' : x.dump === 'wrong' ? 'xenoPack.dumpWrong' : 'xenoPack.dumpMissing') | transloco: { path: xcDumpPath } }}
+          </p>
+          @if (x.dump !== 'ok') {
+            <p class="low-p">{{ 'xenoPack.dumpNeeded' | transloco: { path: xcDumpPath } }}</p>
+          }
+          @if (x.nearby; as n) {
+            <p class="muted-p">{{ 'xenoPack.dumpNearby' | transloco: { name: n } }}</p>
+            <div class="dactions">
+              <button class="btn sm primary" type="button" (click)="moveNearbyDump(g, n)"><app-icon name="move" [size]="13" />{{ 'xenoPack.moveDump' | transloco: { path: xcDumpPath } }}</button>
+            </div>
+          }
+        </div>
+        <div class="dsection">
+          <div class="sh"><h3>{{ 'xenoPack.sectionTitle' | transloco }}</h3></div>
+          <p class="muted-p">
+            <b>{{ 'xenoPack.packLabel' | transloco }}:</b>
+            {{ (x.pack.state === 'present' ? 'xenoPack.packPresent' : x.pack.state === 'incomplete' ? 'xenoPack.packIncomplete' : 'xenoPack.packMissing') | transloco: { stem: xcStem(), have: x.pack.have, total: x.pack.total } }}
+          </p>
+          @if (x.pack.state !== 'present') {
+            <p class="low-p">{{ (x.dump === 'ok' ? 'xenoPack.ctaText' : 'xenoPack.packFromFile') | transloco }}</p>
+          }
+          <div class="dactions">
+            @if (x.pack.state !== 'present') {
+              <button class="btn sm primary" type="button" (click)="xeno.open(g.id)"><app-icon name="sound" [size]="13" />{{ 'xenoPack.ctaButton' | transloco }}</button>
+            } @else {
+              <button class="btn sm" type="button" (click)="xeno.open(g.id)"><app-icon name="sound" [size]="13" />{{ 'xenoPack.rebuild' | transloco }}</button>
+            }
+          </div>
+        </div>
+      }
+
       <!-- Informações do jogo (resumo · edição em modal) -->
       <div class="dsection">
         <div class="sh">

@@ -29,6 +29,9 @@ importers:
       '@angular/service-worker':
         specifier: 21.2.17
         version: 21.2.17(@angular/core@21.2.17(@angular/compiler@21.2.17)(rxjs@7.8.2))(rxjs@7.8.2)
+      '@evan/opus':
+        specifier: 1.0.3
+        version: 1.0.3
       '@ffmpeg/core':
         specifier: ^0.12.10
         version: 0.12.10
@@ -584,6 +587,9 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@evan/opus@1.0.3':
+    resolution: {integrity: sha512-ADfwIad83W1LuiZDNMjDMDNQRsPz8rj5xnDLExhVWTnA5wGJCLntOn12Ir5rxGBqdfo10QhnNVdd2+gXiZ6xCg==}
 
   '@exodus/bytes@1.15.1':
     resolution: {integrity: sha512-S6mL0yNB/Abt9Ei4tq8gDhcczc4S3+vQ4ra7vxnAf+YHC02srtqxKKZghx2Dq6p0e66THKwR6r8N6P95wEty7Q==}
@@ -3426,6 +3432,8 @@ snapshots:
 
   '@esbuild/win32-x64@0.27.3':
     optional: true
+
+  '@evan/opus@1.0.3': {}
 
   '@exodus/bytes@1.15.1': {}
 

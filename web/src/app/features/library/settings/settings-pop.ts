@@ -4,6 +4,7 @@ import { PrefsStore } from '../../../core/prefs-store';
 import { VersionService } from '../../../core/version.service';
 import { LangService } from '../../../core/lang.service';
 import { ViewportService } from '../../../core/viewport.service';
+import { XenoPackService } from '../../../core/xeno-pack/xeno-pack.service';
 import { ACCENT_SWATCHES, type Density, type View } from '../../../core/models';
 import { Icon } from '../../../ui/icon/icon';
 import { TranslocoModule } from '@jsverse/transloco';
@@ -79,6 +80,18 @@ const FW_ISSUES = 'https://github.com/ludufre/sd2snes/issues/new';
           </button>
         </div>
       }
+
+      <!-- Works with or without a card: the pack can also be downloaded as a ZIP. -->
+      <div class="sp-field">
+        <label>{{ 'xenoPack.tools' | transloco }}</label>
+        <button class="sp-action" type="button" (click)="openXenoPack()">
+          <app-icon name="sound" [size]="14" />
+          <span>
+            {{ 'xenoPack.menu' | transloco }}
+            <em>{{ 'xenoPack.menuHint' | transloco }}</em>
+          </span>
+        </button>
+      </div>
 
       <!-- The card actions live in the topbar on a wide window. A phone has no room for six more
            buttons up there, so below 640px they come here instead — the same outputs, the same i18n
@@ -206,6 +219,7 @@ export class SettingsPop {
   protected readonly ver = inject(VersionService);
   protected readonly lib = inject(LibraryStore);
   protected readonly langs = inject(LangService);
+  private readonly xeno = inject(XenoPackService);
   protected readonly vp = inject(ViewportService);
   readonly close = output<void>();
   readonly openChangelog = output<void>();
@@ -222,6 +236,11 @@ export class SettingsPop {
   protected pick(target: { emit(v: void): void }): void {
     this.close.emit();
     target.emit();
+  }
+
+  protected openXenoPack(): void {
+    this.close.emit();
+    this.xeno.open();
   }
 
   protected eject(): void {

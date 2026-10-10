@@ -2220,6 +2220,23 @@ export class LibraryStore {
    *  Never creates config.yml from scratch either: a bare file with only `SkinName` isn't a valid config
    *  and the firmware may leave it as-is instead of writing its real defaults, returns 'no-config' so the
    *  caller can tell the user to boot the firmware once (which creates config.yml) or pick the .thm by hand. */
+  /** A folder on the mounted card by "/"-separated path from the root ("" = the root). Null with no card, or when it is
+   *  missing and `create` is off. With `create`, missing folders are made (through the card writer's retries). */
+  async cardDir(path: string, create = false): Promise<FileSystemDirectoryHandle | null> {
+    if (!this.rootHandle) return null;
+    if (create) return path ? this.card.ensureDir(this.rootHandle, path) : this.rootHandle;
+    return getDirByPath(this.rootHandle, path);
+  }
+
+  /** A file on the mounted card, `dir` a "/"-separated folder path from the card root ("" = the root).
+   *  Read-only: nothing is created. Null with no card mounted, or when the folder or the file is missing. */
+  async cardFile(dir: string, name: string): Promise<File | null> {
+    if (!this.rootHandle) return null;
+    const d = await getDirByPath(this.rootHandle, dir);
+    if (!d) return null;
+    try { return await (await d.getFileHandle(name)).getFile(); } catch { return null; }
+  }
+
   /** Read every scalar setting from config.yml. Comments and document markers are ignored. */
   async readConfigSettings(): Promise<Record<string, string> | null> {
     if (!this.rootHandle) return null;

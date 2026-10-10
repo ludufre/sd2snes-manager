@@ -125,6 +125,10 @@
   @if (firmwareOpen()) { <app-firmware-dialog (close)="firmwareOpen.set(false)" /> }
   @if (themesOpen()) { <app-themes-dialog (close)="themesOpen.set(false)" /> }
   @if (biosOpen()) { <app-bios-dialog (close)="biosOpen.set(false)" /> }
+  <!-- Deferred: the pack builder is a once-in-a-blue-moon tool, so its dialog (and the ZIP writer) stay out of the main bundle. -->
+  @if (xeno.request(); as r) {
+    @defer (on immediate) { <app-xeno-pack-dialog [entryId]="r.entryId" (close)="xeno.close()" /> }
+  }
   @if (migrateOpen()) { <app-migrate-dialog (close)="closeMigrate()" /> }
   @if (configOpen()) { <app-config-dialog (close)="configOpen.set(false)" /> }
   @if (lib.cheatEdit(); as g) { <app-cheat-editor [entry]="g" (close)="lib.closeCheatEditor()" /> }

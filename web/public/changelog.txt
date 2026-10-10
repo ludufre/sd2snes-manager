@@ -5,6 +5,27 @@ Every released version, newest first.
 Some releases were published together and reach the repository as a single commit. When that
 happens, the entry says which versions it covers.
 
+## 1.37.0 - 2026-10-10
+
+### Added
+
+- **Xeno Crisis music pack.** Firmware 2.18 runs *Xeno Crisis*, but its music has to come from an
+  MSU-1 pack next to the ROM. The game info panel of that game now has two blocks: one checks the
+  RP2040 dump the console needs (`/sd2snes/xenocrisis_rp2040.bin`, 16 MB, v1.00, checked by CRC32
+  without the save area), the other shows whether the pack is there, complete or partial. *Set up the
+  music…* offers two ways:
+  - **From the cartridge dump.** The Manager decodes the game's own music from the dump, in the
+    browser (nothing is uploaded), and writes the 26 tracks next to the ROM. It can also download
+    them as a ZIP. The same tool is in Settings > Tools, also without a card.
+  - **From an MSU-1 .zip.** Drop a ready-made pack and its files are copied with the ROM's name.
+  The `.msu` is always written last, so a stopped install never leaves a half pack active. A .zip
+  without one gets an empty `.msu`, and building from the dump keeps the one already there.
+- **Folder of its own.** The console only opens an MSU-1 folder as a game when the ROM is alone in
+  it. If the ROM shares its folder with other games, the Manager asks first, then moves the ROM and
+  its files into a new folder and updates Recent and Favorites.
+- **Dump next to the ROM.** A dump left beside the ROM is found and can be moved to `/sd2snes/`
+  with one click.
+
 ## 1.36.0 - 2026-10-07
 
 ### Added

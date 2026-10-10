@@ -86,6 +86,6 @@ Thanks to [@furious](https://github.com/furious) for the `/sd2snes/config.yml` e
 
 Licensed under **GPL-2.0**, the same as the sd2snes+ firmware and the original sd2snes project. © 2026 Luan Freitas and contributors. See [LICENSE](LICENSE).
 
-Third-party components keep their own licenses. Worth singling out: the video previews are produced by [ffmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm), whose `@ffmpeg/core` build is **GPL-2.0-or-later** and ships with the deployed app. The rest is permissive: Angular, `fflate`, `fzstd`, `marked` and Transloco under MIT, `pdfjs-dist` under Apache-2.0.
+Third-party components keep their own licenses. Worth singling out: the video previews are produced by [ffmpeg.wasm](https://github.com/ffmpegwasm/ffmpeg.wasm), whose `@ffmpeg/core` build is **GPL-2.0-or-later** and ships with the deployed app. The rest is permissive: Angular, `fflate`, `fzstd`, `marked` and Transloco under MIT, `pdfjs-dist` under Apache-2.0, and the Xeno Crisis music builder's Opus decoder, [libopus](https://opus-codec.org) (BSD-3-Clause) compiled to WebAssembly by [`@evan/opus`](https://github.com/evanwashere/opus) (MIT); both licence texts are served next to `opus.wasm`.
 
 No games or ROMs are included. Use your own legally obtained files.
